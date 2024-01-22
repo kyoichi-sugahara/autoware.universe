@@ -29,7 +29,7 @@ $$
 
 Equation (1) represents the state-space equation, where $x_k$ represents the internal states, $u_k$ denotes the input, and $w_k$ represents a known disturbance caused by linearization or problem structure. The measurements are indicated by the variable $y_k$.
 
-It's worth noting that another advantage of MPC is its ability to effectively handle the disturbance term $w$. While it is referred to as a disturbance here, it can take various forms as long as it adheres to the equation's structure.
+It's worth knowing that another advantage of MPC is its ability to effectively handle the disturbance term $w$. While it is referred to as a disturbance here, it can take various forms as long as it adheres to the equation's structure.
 
 The state transition and measurement equations in (1) are iterative, moving from time $k$ to time $k+1$. By propagating the equation starting from an initial state and control pair $(x_0, u_0)$ along with a specified horizon of $N$ steps, one can predict the trajectories of states and measurements.
 
