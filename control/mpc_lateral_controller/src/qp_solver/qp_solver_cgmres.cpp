@@ -90,7 +90,15 @@ bool QPSolverCGMRES::solveCGMRES(
         std::chrono::system_clock::now() - initialized_time_)
         .count() *
       1.0e-6;
+    // for (size_t i = 0; i < mpc_.uopt().size(); i++)
+    // {
+    //   std::cerr << "mpc_.uopt()[" << i << "] before update: " << mpc_.uopt()[i](0) << std::endl;
+    // }
     mpc_.update(time_from_last_initialized, x);
+    // for (size_t i = 0; i < mpc_.uopt().size(); i++)
+    // {
+    //   std::cerr << "mpc_.uopt()[" << i << "] after update: " << mpc_.uopt()[i](0) << std::endl;
+    // }
     std::vector<double> U_cgmres(mpc_.uopt().size());
     for (size_t i = 0; i < mpc_.uopt().size(); ++i) {
       U_cgmres[i] = mpc_.uopt()[i](0);
