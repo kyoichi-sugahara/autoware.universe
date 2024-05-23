@@ -359,7 +359,7 @@ TEST_F(FakeNodeFixture, right_turn_convergence)
     tester.traj_pub->publish(ref_trajectory);
   };
 
-  const double curvature_sign = -0.06;
+  double curvature_sign = -0.06;
   // std::random_device rd;
   // std::mt19937 gen(rd());
   // std::uniform_real_distribution<> dis(-0.2, 0.2);

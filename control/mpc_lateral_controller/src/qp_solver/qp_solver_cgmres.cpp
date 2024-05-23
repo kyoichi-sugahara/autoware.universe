@@ -65,7 +65,8 @@ bool QPSolverCGMRES::solveCGMRES(
   // set the external reference ptr
   ocp_.curvature_in_reference_trajectory = average_curvature;
   ocp_.u_ref[0] = std::atan(average_curvature * ocp_.wheel_base);
-  external_reference_->curvature_in_reference_trajectory = average_curvature;
+  external_reference_->curvature_ref_array = resampled_ref_trajectory.k;
+  external_reference_->v_ref_array = resampled_ref_trajectory.vx;
   std::cerr << "average_curvature: " << average_curvature << std::endl;
   std::cerr << "ocp_.u_ref[0]: " << ocp_.u_ref[0] << std::endl;
   // ocp_.disp(std::cerr);
