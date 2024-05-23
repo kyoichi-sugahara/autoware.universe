@@ -368,7 +368,6 @@ TEST_F(FakeNodeFixture, right_turn_convergence)
   constexpr size_t iter_num = 10;
   for (size_t i = 0; i < iter_num; i++) {
     // curvature_sign = curvature_sign - 0.005;
-    curvature_sign = curvature_sign;
     publishTrajectory(curvature_sign);
     test_utils::waitForMessage(tester.node, this, tester.received_control_command);
 
