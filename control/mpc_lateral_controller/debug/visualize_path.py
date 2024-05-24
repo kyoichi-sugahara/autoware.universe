@@ -52,7 +52,8 @@ def plot_trajectory(data_directory=None):
             print("No trajectory directory found.")
             return
 
-    resampled_data = read_csv(data_directory, "resampled_x.log")
+    original_ref_data = read_csv(data_directory, "original_ref_x.log")
+    resampled_ref_data = read_csv(data_directory, "resampled_ref_x.log")
     predicted_data = read_csv(data_directory, "predicted_x.log")
     predicted_frenet_data = read_csv(data_directory, "predicted_frenet_x.log")
     cgmres_predicted_frenet_data = read_csv(data_directory, "cgmres_predicted_frenet_x.log")
@@ -62,7 +63,8 @@ def plot_trajectory(data_directory=None):
     fig, ax = plt.subplots(figsize=(8, 6))
     plt.subplots_adjust(bottom=0.2)
 
-    (resampled_plot,) = ax.plot([], [], marker="s", label="Resampled Reference Trajectory")
+    (original_ref_plot,) = ax.plot([], [], marker="o", label="Original Reference Trajectory")
+    (resampled_ref_plot,) = ax.plot([], [], marker="s", label="Resampled Reference Trajectory")
     (predicted_plot,) = ax.plot([], [], marker="d", label="Predicted Trajectory")
     (predicted_frenet_plot,) = ax.plot([], [], marker="^", label="Predicted Frenet Trajectory")
     (cgmres_predicted_frenet_plot,) = ax.plot(
@@ -82,8 +84,10 @@ def plot_trajectory(data_directory=None):
     time_slider = Slider(slider_ax, "Time", 0, len(time_data) - 1, valinit=0, valstep=1)
 
     def update(time_index):
-        resampled_x = resampled_data[time_index]
-        resampled_y = read_csv(data_directory, "resampled_y.log")[time_index]
+        original_ref_x = original_ref_data[time_index]
+        original_ref_y = read_csv(data_directory, "original_ref_y.log")[time_index]
+        resampled_ref_x = resampled_ref_data[time_index]
+        resampled_ref_y = read_csv(data_directory, "resampled_ref_y.log")[time_index]
         predicted_x = predicted_data[time_index]
         predicted_y = read_csv(data_directory, "predicted_y.log")[time_index]
         predicted_frenet_x = predicted_frenet_data[time_index]
@@ -95,7 +99,8 @@ def plot_trajectory(data_directory=None):
         cgmres_predicted_x = cgmres_predicted_data[time_index]
         cgmres_predicted_y = read_csv(data_directory, "cgmres_predicted_y.log")[time_index]
 
-        resampled_plot.set_data(resampled_x, resampled_y)
+        original_ref_plot.set_data(original_ref_x, original_ref_y)
+        resampled_ref_plot.set_data(resampled_ref_x, resampled_ref_y)
         predicted_plot.set_data(predicted_x, predicted_y)
         predicted_frenet_plot.set_data(predicted_frenet_x, predicted_frenet_y)
         cgmres_predicted_frenet_plot.set_data(cgmres_predicted_frenet_x, cgmres_predicted_frenet_y)
