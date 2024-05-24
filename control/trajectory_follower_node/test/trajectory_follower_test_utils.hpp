@@ -122,6 +122,40 @@ inline Trajectory generateCurvatureTrajectory(
   return trajectory;
 }
 
+// inline Trajectory generateCurvatureTrajectory(
+//   std_msgs::msg::Header header, double start_curvature, double end_curvature, double arc_length,
+//   double velocity)
+// {
+//   Trajectory trajectory;
+//   trajectory.header = header;
+
+//   const int points = 20;  // Number of points in the trajectory
+
+//   // Generate points along the arc in reverse order
+//   for (int i = points; i >= 0; --i) {
+//     double t = static_cast<double>(i) / points;
+//     double curvature = start_curvature + t * (end_curvature - start_curvature);
+//     double radius =
+//       1 / fabs(curvature);  // Radius is the reciprocal of the absolute value of curvature
+//     double arc_angle = arc_length / radius;  // Total angle of the arc
+
+//     // Calculate starting angle based on curvature
+//     double start_angle = (curvature > 0) ? (3 * M_PI / 2) : (M_PI / 2);
+//     start_angle -= arc_angle / 2;
+
+//     double angle = start_angle + (arc_angle * t);  // Current angle of the point on the arc
+//     double x = radius * cos(angle);                // X coordinate
+//     double y = radius * sin(angle);                // Y coordinate
+
+//     // Adjust y-coordinate based on curvature sign
+//     y += (curvature > 0) ? radius : -radius;
+
+//     trajectory.points.push_back(make_traj_point(x, y, velocity));  // Speed set as per argument
+//   }
+
+//   return trajectory;
+// }
+
 // TODO(Horibe): modify the controller nodes so that they does not publish topics when data is not
 // ready. then, remove this function.
 template <typename T>

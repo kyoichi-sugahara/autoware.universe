@@ -54,6 +54,9 @@ using FakeNodeFixture = autoware::tools::testing::FakeTestNode;
 
 const rclcpp::Duration one_second(1, 0);
 
+#define ENABLE_CONSTANT_CURVATURE_RIGHT_TURN_TEST
+// #define ENABLE_CLOTHOID_RIGHT_TURN_TEST
+
 rclcpp::NodeOptions makeNodeOptions(const bool enable_keep_stopped_until_steer_convergence = false)
 {
   // Pass default parameter file to the node
@@ -246,101 +249,104 @@ public:
   std::shared_ptr<tf2_ros::StaticTransformBroadcaster> br;
 };
 
-// TEST_F(FakeNodeFixture, no_input)
-// {
-//   const auto node_options = makeNodeOptions();
-//   ControllerTester tester(this, node_options);
+#ifdef TEST_NO_INPUT_TEST
+TEST_F(FakeNodeFixture, no_input)
+{
+  const auto node_options = makeNodeOptions();
+  ControllerTester tester(this, node_options);
 
-//   // No published data: expect a stopped command
-//   test_utils::waitForMessage(
-//     tester.node, this, tester.received_control_command, std::chrono::seconds{1LL}, false);
-//   ASSERT_FALSE(tester.received_control_command);
-// }
+  // No published data: expect a stopped command
+  test_utils::waitForMessage(
+    tester.node, this, tester.received_control_command, std::chrono::seconds{1LL}, false);
+  ASSERT_FALSE(tester.received_control_command);
+}
+#endif
 
-// TEST_F(FakeNodeFixture, empty_trajectory)
-// {
-//   const auto node_options = makeNodeOptions();
-//   ControllerTester tester(this, node_options);
+#ifdef ENABLE_EMPTY_TRAJECTORY_TEST
+TEST_F(FakeNodeFixture, empty_trajectory)
+{
+  const auto node_options = makeNodeOptions();
+  ControllerTester tester(this, node_options);
 
-//   tester.send_default_transform();
+  tester.send_default_transform();
 
-//   // Empty trajectory: expect a stopped command
-//   tester.publish_default_traj();
-//   tester.publish_default_odom();
-//   tester.publish_autonomous_operation_mode();
-//   tester.publish_default_acc();
-//   tester.publish_default_steer();
+  // Empty trajectory: expect a stopped command
+  tester.publish_default_traj();
+  tester.publish_default_odom();
+  tester.publish_autonomous_operation_mode();
+  tester.publish_default_acc();
+  tester.publish_default_steer();
 
-//   test_utils::waitForMessage(
-//     tester.node, this, tester.received_control_command, std::chrono::seconds{1LL}, false);
-//   ASSERT_FALSE(tester.received_control_command);
-// }
+  test_utils::waitForMessage(
+    tester.node, this, tester.received_control_command, std::chrono::seconds{1LL}, false);
+  ASSERT_FALSE(tester.received_control_command);
+}
+#endif
 
 // lateral
-// TEST_F(FakeNodeFixture, straight_trajectory)
-// {
-//   const auto node_options = makeNodeOptions();
-//   ControllerTester tester(this, node_options);
+#ifdef ENABLE_STRAIGHT_TRAJECTORY_TEST
+TEST_F(FakeNodeFixture, straight_trajectory)
+{
+  const auto node_options = makeNodeOptions();
+  ControllerTester tester(this, node_options);
 
-//   tester.send_default_transform();
-//   tester.publish_odom_vx(1.0);
-//   tester.publish_autonomous_operation_mode();
-//   tester.publish_default_steer();
-//   tester.publish_default_acc();
+  tester.send_default_transform();
+  tester.publish_odom_vx(1.0);
+  tester.publish_autonomous_operation_mode();
+  tester.publish_default_steer();
+  tester.publish_default_acc();
 
-//   Trajectory traj_msg;
-//   traj_msg.header.stamp = tester.node->now();
-//   traj_msg.header.frame_id = "map";
-//   traj_msg.points.push_back(test_utils::make_traj_point(-1.0, 0.0, 1.0f));
-//   traj_msg.points.push_back(test_utils::make_traj_point(0.0, 0.0, 1.0f));
-//   traj_msg.points.push_back(test_utils::make_traj_point(1.0, 0.0, 1.0f));
-//   traj_msg.points.push_back(test_utils::make_traj_point(2.0, 0.0, 1.0f));
-//   tester.traj_pub->publish(traj_msg);
+  Trajectory traj_msg;
+  traj_msg.header.stamp = tester.node->now();
+  traj_msg.header.frame_id = "map";
+  traj_msg.points.push_back(test_utils::make_traj_point(-1.0, 0.0, 1.0f));
+  traj_msg.points.push_back(test_utils::make_traj_point(0.0, 0.0, 1.0f));
+  traj_msg.points.push_back(test_utils::make_traj_point(1.0, 0.0, 1.0f));
+  traj_msg.points.push_back(test_utils::make_traj_point(2.0, 0.0, 1.0f));
+  tester.traj_pub->publish(traj_msg);
 
-//   test_utils::waitForMessage(tester.node, this, tester.received_control_command);
-//   ASSERT_TRUE(tester.received_control_command);
-//   // following conditions will pass even if the MPC solution does not converge
-//   EXPECT_EQ(tester.cmd_msg->lateral.steering_tire_angle, 0.0f);
-//   EXPECT_EQ(tester.cmd_msg->lateral.steering_tire_rotation_rate, 0.0f);
-//   EXPECT_GT(tester.cmd_msg->longitudinal.speed, 0.0f);
-//   EXPECT_GT(rclcpp::Time(tester.cmd_msg->stamp), rclcpp::Time(traj_msg.header.stamp));
-// }
+  test_utils::waitForMessage(tester.node, this, tester.received_control_command);
+  ASSERT_TRUE(tester.received_control_command);
+  // following conditions will pass even if the MPC solution does not converge
+  EXPECT_EQ(tester.cmd_msg->lateral.steering_tire_angle, 0.0f);
+  EXPECT_EQ(tester.cmd_msg->lateral.steering_tire_rotation_rate, 0.0f);
+  EXPECT_GT(tester.cmd_msg->longitudinal.speed, 0.0f);
+  EXPECT_GT(rclcpp::Time(tester.cmd_msg->stamp), rclcpp::Time(traj_msg.header.stamp));
+}
+#endif
 
-// TEST_F(FakeNodeFixture, right_turn)
-// {
-//   const auto node_options = makeNodeOptions();
-//   ControllerTester tester(this, node_options);
+#ifdef ENABLE_RIGHT_TURN_TEST
+TEST_F(FakeNodeFixture, right_turn)
+{
+  const auto node_options = makeNodeOptions();
+  ControllerTester tester(this, node_options);
 
-//   tester.send_default_transform();
-//   tester.publish_odom_vx(1.0);
-//   tester.publish_autonomous_operation_mode();
-//   tester.publish_default_steer();
-//   tester.publish_default_acc();
+  tester.send_default_transform();
+  tester.publish_odom_vx(1.0);
+  tester.publish_autonomous_operation_mode();
+  tester.publish_default_steer();
+  tester.publish_default_acc();
 
-//   // Right turning trajectory with a constant curvature of -0.5: expect right steering
-//   Trajectory traj_msg;
-//   std_msgs::msg::Header header;
-//   header.stamp = tester.node->now();
-//   header.frame_id = "map";
-//   traj_msg = test_utils::generateCurvatureTrajectory(header, -0.05, 4.0, 1.0);
-//   tester.traj_pub->publish(traj_msg);
+  // Right turning trajectory: expect right steering
+  Trajectory traj_msg;
+  traj_msg.header.stamp = tester.node->now();
+  traj_msg.header.frame_id = "map";
+  traj_msg.points.push_back(test_utils::make_traj_point(-1.0, -1.0, 1.0f));
+  traj_msg.points.push_back(test_utils::make_traj_point(0.0, 0.0, 1.0f));
+  traj_msg.points.push_back(test_utils::make_traj_point(1.0, -1.0, 1.0f));
+  traj_msg.points.push_back(test_utils::make_traj_point(2.0, -2.0, 1.0f));
+  tester.traj_pub->publish(traj_msg);
 
-//   test_utils::waitForMessage(tester.node, this, tester.received_control_command);
-//   ASSERT_TRUE(tester.received_control_command);
-//   test_utils::writeTrajectoriesToFiles(
-//     traj_msg, *tester.resampled_reference_trajectory,
-//     *tester.predicted_trajectory_in_frenet_coordinate, header.stamp);
-//   // ASSERT_TRUE(tester.received_resampled_reference_trajectory);
+  test_utils::waitForMessage(tester.node, this, tester.received_control_command);
+  ASSERT_TRUE(tester.received_control_command);
+  EXPECT_LT(tester.cmd_msg->lateral.steering_tire_angle, 0.0f);
+  EXPECT_LT(tester.cmd_msg->lateral.steering_tire_rotation_rate, 0.0f);
+  EXPECT_GT(rclcpp::Time(tester.cmd_msg->stamp), rclcpp::Time(traj_msg.header.stamp));
+}
+#endif
 
-//   std::cerr << "lat steer tire angle: " << tester.cmd_msg->lateral.steering_tire_angle <<
-//   std::endl; std::cerr << "lat steer tire rotation rate: "
-//             << tester.cmd_msg->lateral.steering_tire_rotation_rate << std::endl;
-//   EXPECT_LT(tester.cmd_msg->lateral.steering_tire_angle, 0.0f);
-//   EXPECT_LT(tester.cmd_msg->lateral.steering_tire_rotation_rate, 0.0f);
-//   EXPECT_GT(rclcpp::Time(tester.cmd_msg->stamp), rclcpp::Time(traj_msg.header.stamp));
-// }
-
-TEST_F(FakeNodeFixture, right_turn_convergence)
+#ifdef ENABLE_CONSTANT_CURVATURE_RIGHT_TURN_TEST
+TEST_F(FakeNodeFixture, constant_curvature_right_turn)
 {
   const auto node_options = makeNodeOptions();
   ControllerTester tester(this, node_options);
@@ -356,6 +362,57 @@ TEST_F(FakeNodeFixture, right_turn_convergence)
     header.stamp = tester.node->now();
     header.frame_id = "map";
     ref_trajectory = test_utils::generateCurvatureTrajectory(header, curvature_sign, 5.0, 1.0);
+
+    tester.traj_pub->publish(ref_trajectory);
+  };
+
+  double curvature_sign = -0.06;
+
+  constexpr size_t iter_num = 10;
+  for (size_t i = 0; i < iter_num; i++) {
+    publishTrajectory(curvature_sign);
+    test_utils::waitForMessage(tester.node, this, tester.received_control_command);
+
+    test_utils::writeTrajectoriesToFiles(
+      ref_trajectory, *tester.resampled_reference_trajectory, *tester.predicted_trajectory,
+      *tester.predicted_trajectory_in_frenet_coordinate,
+      *tester.cgmres_predicted_trajectory_in_frenet_coordinate, *tester.cgmres_predicted_trajectory,
+      tester.cmd_msg->stamp);
+    ASSERT_TRUE(tester.received_control_command);
+    EXPECT_LT(tester.cmd_msg->lateral.steering_tire_angle, 0.0f);
+    EXPECT_LT(tester.cmd_msg->lateral.steering_tire_rotation_rate, 0.0f);
+    tester.received_control_command = false;
+  }
+
+  // ASSERT_TRUE(tester.received_resampled_reference_trajectory);
+  // EXPECT_GT(rclcpp::Time(tester.cmd_msg->stamp), rclcpp::Time(traj_msg.header.stamp));
+}
+#endif
+
+#ifdef ENABLE_CLOTHOID_RIGHT_TURN_TEST
+TEST_F(FakeNodeFixture, clothoid_right_turn)
+{
+  const auto node_options = makeNodeOptions();
+  ControllerTester tester(this, node_options);
+  Trajectory ref_trajectory;
+  tester.send_default_transform();
+  tester.publish_odom_vx(1.0);
+  tester.publish_autonomous_operation_mode();
+  tester.publish_default_steer();
+  tester.publish_default_acc();
+
+  // auto publishTrajectory = [&tester, &ref_trajectory](
+  //                            [[maybe_unused]] double curvature_sign,
+  //                            [[maybe_unused]] double start_curvature,
+  //                            [[maybe_unused]] double end_curvature) {
+  auto publishTrajectory = [&tester, &ref_trajectory](double curvature_sign) {
+    std_msgs::msg::Header header;
+    header.stamp = tester.node->now();
+    header.frame_id = "map";
+    ref_trajectory = test_utils::generateCurvatureTrajectory(header, curvature_sign, 5.0, 1.0);
+    // ref_trajectory = test_utils::generateCurvatureTrajectory(
+    // header, start_curvature, end_curvature, curvature_sign, 5.0, 1.0);
+
     tester.traj_pub->publish(ref_trajectory);
   };
 
@@ -369,6 +426,7 @@ TEST_F(FakeNodeFixture, right_turn_convergence)
   for (size_t i = 0; i < iter_num; i++) {
     // curvature_sign = curvature_sign - 0.005;
     publishTrajectory(curvature_sign);
+    // publishTrajectory(curvature_sign, curvature_sign, curvature_sign + 0.02);
     test_utils::waitForMessage(tester.node, this, tester.received_control_command);
 
     test_utils::writeTrajectoriesToFiles(
@@ -387,331 +445,342 @@ TEST_F(FakeNodeFixture, right_turn_convergence)
   }
 
   // ASSERT_TRUE(tester.received_resampled_reference_trajectory);
-
-  // const auto save_directory = "/home/kyoichi-sugahara/workspace/log/reference_trajectory";
-  // save_message_to_rosbag(
-  //   save_directory, tester.resampled_reference_trajectory,
-  //   "controller/debug/resampled_reference_trajectory");
-
-  // std::cerr << "tester.cmd_msg's stamp: " << tester.cmd_msg->stamp.sec << "s "
-  //           << tester.cmd_msg->stamp.nanosec << "ns" << std::endl;
-  // std::cerr << "traj_msg.header.stamp: " << traj_msg.header.stamp.sec << "s "
-  //           << traj_msg.header.stamp.nanosec << "ns" << std::endl;
   // EXPECT_GT(rclcpp::Time(tester.cmd_msg->stamp), rclcpp::Time(traj_msg.header.stamp));
 }
+#endif
 
-// TEST_F(FakeNodeFixture, left_turn)
-// {
-//   const auto node_options = makeNodeOptions();
-//   ControllerTester tester(this, node_options);
+#ifdef ENABLE_LEFT_TURN_TEST
+TEST_F(FakeNodeFixture, left_turn)
+{
+  const auto node_options = makeNodeOptions();
+  ControllerTester tester(this, node_options);
 
-//   tester.send_default_transform();
-//   tester.publish_odom_vx(1.0);
-//   tester.publish_autonomous_operation_mode();
-//   tester.publish_default_steer();
-//   tester.publish_default_acc();
+  tester.send_default_transform();
+  tester.publish_odom_vx(1.0);
+  tester.publish_autonomous_operation_mode();
+  tester.publish_default_steer();
+  tester.publish_default_acc();
 
-//   // Left turning trajectory: expect left steering
-//   Trajectory traj_msg;
-//   traj_msg.header.stamp = tester.node->now();
-//   traj_msg.header.frame_id = "map";
-//   traj_msg.points.push_back(test_utils::make_traj_point(-1.0, 1.0, 1.0f));
-//   traj_msg.points.push_back(test_utils::make_traj_point(0.0, 0.0, 1.0f));
-//   traj_msg.points.push_back(test_utils::make_traj_point(1.0, 1.0, 1.0f));
-//   traj_msg.points.push_back(test_utils::make_traj_point(2.0, 2.0, 1.0f));
-//   tester.traj_pub->publish(traj_msg);
+  // Left turning trajectory: expect left steering
+  Trajectory traj_msg;
+  traj_msg.header.stamp = tester.node->now();
+  traj_msg.header.frame_id = "map";
+  traj_msg.points.push_back(test_utils::make_traj_point(-1.0, 1.0, 1.0f));
+  traj_msg.points.push_back(test_utils::make_traj_point(0.0, 0.0, 1.0f));
+  traj_msg.points.push_back(test_utils::make_traj_point(1.0, 1.0, 1.0f));
+  traj_msg.points.push_back(test_utils::make_traj_point(2.0, 2.0, 1.0f));
+  tester.traj_pub->publish(traj_msg);
 
-//   test_utils::waitForMessage(tester.node, this, tester.received_control_command);
-//   ASSERT_TRUE(tester.received_control_command);
-//   std::cerr << "lat steer tire angle: " << tester.cmd_msg->lateral.steering_tire_angle <<
-//   std::endl; std::cerr << "lat steer tire rotation rate: "
-//             << tester.cmd_msg->lateral.steering_tire_rotation_rate << std::endl;
-//   EXPECT_GT(tester.cmd_msg->lateral.steering_tire_angle, 0.0f);
-//   EXPECT_GT(tester.cmd_msg->lateral.steering_tire_rotation_rate, 0.0f);
-//   EXPECT_GT(rclcpp::Time(tester.cmd_msg->stamp), rclcpp::Time(traj_msg.header.stamp));
-// }
+  test_utils::waitForMessage(tester.node, this, tester.received_control_command);
+  ASSERT_TRUE(tester.received_control_command);
+  std::cerr << "lat steer tire angle: " << tester.cmd_msg->lateral.steering_tire_angle << std::endl;
+  std::cerr << "lat steer tire rotation rate: "
+            << tester.cmd_msg->lateral.steering_tire_rotation_rate << std::endl;
+  EXPECT_GT(tester.cmd_msg->lateral.steering_tire_angle, 0.0f);
+  EXPECT_GT(tester.cmd_msg->lateral.steering_tire_rotation_rate, 0.0f);
+  EXPECT_GT(rclcpp::Time(tester.cmd_msg->stamp), rclcpp::Time(traj_msg.header.stamp));
+}
+#endif
 
-// TEST_F(FakeNodeFixture, stopped)
-// {
-//   const auto node_options = makeNodeOptions();
-//   ControllerTester tester(this, node_options);
+#ifdef ENABLE_STOPPED_TEST
+TEST_F(FakeNodeFixture, stopped)
+{
+  const auto node_options = makeNodeOptions();
+  ControllerTester tester(this, node_options);
 
-//   tester.send_default_transform();
-//   tester.publish_default_odom();
-//   tester.publish_autonomous_operation_mode();
-//   tester.publish_default_acc();
+  tester.send_default_transform();
+  tester.publish_default_odom();
+  tester.publish_autonomous_operation_mode();
+  tester.publish_default_acc();
 
-//   const double steering_tire_angle = -0.5;
-//   tester.publish_steer_angle(steering_tire_angle);
+  const double steering_tire_angle = -0.5;
+  tester.publish_steer_angle(steering_tire_angle);
 
-//   // Straight trajectory: expect no steering
-//   Trajectory traj_msg;
-//   traj_msg.header.stamp = tester.node->now();
-//   traj_msg.header.frame_id = "map";
-//   traj_msg.points.push_back(test_utils::make_traj_point(-1.0, 0.0, 0.0f));
-//   traj_msg.points.push_back(test_utils::make_traj_point(0.0, 0.0, 0.0f));
-//   traj_msg.points.push_back(test_utils::make_traj_point(1.0, 0.0, 0.0f));
-//   traj_msg.points.push_back(test_utils::make_traj_point(2.0, 0.0, 0.0f));
-//   tester.traj_pub->publish(traj_msg);
+  // Straight trajectory: expect no steering
+  Trajectory traj_msg;
+  traj_msg.header.stamp = tester.node->now();
+  traj_msg.header.frame_id = "map";
+  traj_msg.points.push_back(test_utils::make_traj_point(-1.0, 0.0, 0.0f));
+  traj_msg.points.push_back(test_utils::make_traj_point(0.0, 0.0, 0.0f));
+  traj_msg.points.push_back(test_utils::make_traj_point(1.0, 0.0, 0.0f));
+  traj_msg.points.push_back(test_utils::make_traj_point(2.0, 0.0, 0.0f));
+  tester.traj_pub->publish(traj_msg);
 
-//   test_utils::waitForMessage(tester.node, this, tester.received_control_command);
-//   ASSERT_TRUE(tester.received_control_command);
-//   EXPECT_EQ(tester.cmd_msg->lateral.steering_tire_angle, steering_tire_angle);
-//   EXPECT_EQ(tester.cmd_msg->lateral.steering_tire_rotation_rate, 0.0f);
-//   EXPECT_GT(rclcpp::Time(tester.cmd_msg->stamp), rclcpp::Time(traj_msg.header.stamp));
-// }
+  test_utils::waitForMessage(tester.node, this, tester.received_control_command);
+  ASSERT_TRUE(tester.received_control_command);
+  EXPECT_EQ(tester.cmd_msg->lateral.steering_tire_angle, steering_tire_angle);
+  EXPECT_EQ(tester.cmd_msg->lateral.steering_tire_rotation_rate, 0.0f);
+  EXPECT_GT(rclcpp::Time(tester.cmd_msg->stamp), rclcpp::Time(traj_msg.header.stamp));
+}
+#endif
 
 // longitudinal
-// TEST_F(FakeNodeFixture, longitudinal_keep_velocity)
-// {
-//   const auto node_options = makeNodeOptions();
-//   ControllerTester tester(this, node_options);
+#ifdef ENABLE_LONGITUDINAL_KEEP_VELOCITY_TEST
+TEST_F(FakeNodeFixture, longitudinal_keep_velocity)
+{
+  const auto node_options = makeNodeOptions();
+  ControllerTester tester(this, node_options);
 
-//   tester.send_default_transform();
-//   tester.publish_odom_vx(1.0);
-//   tester.publish_autonomous_operation_mode();
-//   tester.publish_default_steer();
-//   tester.publish_default_acc();
+  tester.send_default_transform();
+  tester.publish_odom_vx(1.0);
+  tester.publish_autonomous_operation_mode();
+  tester.publish_default_steer();
+  tester.publish_default_acc();
 
-//   // Publish non stopping trajectory
-//   Trajectory traj_msg;
-//   traj_msg.header.stamp = tester.node->now();
-//   traj_msg.header.frame_id = "map";
-//   traj_msg.points.push_back(test_utils::make_traj_point(0.0, 0.0, 1.0f));
-//   traj_msg.points.push_back(test_utils::make_traj_point(50.0, 0.0, 1.0f));
-//   traj_msg.points.push_back(test_utils::make_traj_point(100.0, 0.0, 1.0f));
-//   tester.traj_pub->publish(traj_msg);
+  // Publish non stopping trajectory
+  Trajectory traj_msg;
+  traj_msg.header.stamp = tester.node->now();
+  traj_msg.header.frame_id = "map";
+  traj_msg.points.push_back(test_utils::make_traj_point(0.0, 0.0, 1.0f));
+  traj_msg.points.push_back(test_utils::make_traj_point(50.0, 0.0, 1.0f));
+  traj_msg.points.push_back(test_utils::make_traj_point(100.0, 0.0, 1.0f));
+  tester.traj_pub->publish(traj_msg);
 
-//   test_utils::waitForMessage(tester.node, this, tester.received_control_command);
+  test_utils::waitForMessage(tester.node, this, tester.received_control_command);
 
-//   ASSERT_TRUE(tester.received_control_command);
-//   EXPECT_DOUBLE_EQ(tester.cmd_msg->longitudinal.speed, 1.0);
-//   EXPECT_DOUBLE_EQ(tester.cmd_msg->longitudinal.acceleration, 0.0);
+  ASSERT_TRUE(tester.received_control_command);
+  EXPECT_DOUBLE_EQ(tester.cmd_msg->longitudinal.speed, 1.0);
+  EXPECT_DOUBLE_EQ(tester.cmd_msg->longitudinal.acceleration, 0.0);
 
-//   // Generate another control message
-//   tester.traj_pub->publish(traj_msg);
-//   test_utils::waitForMessage(tester.node, this, tester.received_control_command);
-//   ASSERT_TRUE(tester.received_control_command);
-//   EXPECT_DOUBLE_EQ(tester.cmd_msg->longitudinal.speed, 1.0);
-//   EXPECT_DOUBLE_EQ(tester.cmd_msg->longitudinal.acceleration, 0.0);
-// }
+  // Generate another control message
+  tester.traj_pub->publish(traj_msg);
+  test_utils::waitForMessage(tester.node, this, tester.received_control_command);
+  ASSERT_TRUE(tester.received_control_command);
+  EXPECT_DOUBLE_EQ(tester.cmd_msg->longitudinal.speed, 1.0);
+  EXPECT_DOUBLE_EQ(tester.cmd_msg->longitudinal.acceleration, 0.0);
+}
+#endif
 
-// TEST_F(FakeNodeFixture, longitudinal_slow_down)
-// {
-//   const auto node_options = makeNodeOptions();
-//   ControllerTester tester(this, node_options);
+#ifdef ENABLE_LONGITUDINAL_SLOW_DOWN_TEST
+TEST_F(FakeNodeFixture, longitudinal_slow_down)
+{
+  const auto node_options = makeNodeOptions();
+  ControllerTester tester(this, node_options);
 
-//   tester.send_default_transform();
-//   tester.publish_default_acc();
-//   tester.publish_default_steer();
+  tester.send_default_transform();
+  tester.publish_default_acc();
+  tester.publish_default_steer();
 
-//   const double odom_vx = 1.0;
-//   tester.publish_odom_vx(odom_vx);
+  const double odom_vx = 1.0;
+  tester.publish_odom_vx(odom_vx);
 
-//   tester.publish_autonomous_operation_mode();
+  tester.publish_autonomous_operation_mode();
 
-//   // Publish non stopping trajectory
-//   Trajectory traj;
-//   traj.header.stamp = tester.node->now();
-//   traj.header.frame_id = "map";
-//   traj.points.push_back(test_utils::make_traj_point(0.0, 0.0, 0.5f));
-//   traj.points.push_back(test_utils::make_traj_point(50.0, 0.0, 0.5f));
-//   traj.points.push_back(test_utils::make_traj_point(100.0, 0.0, 0.5f));
-//   tester.traj_pub->publish(traj);
+  // Publish non stopping trajectory
+  Trajectory traj;
+  traj.header.stamp = tester.node->now();
+  traj.header.frame_id = "map";
+  traj.points.push_back(test_utils::make_traj_point(0.0, 0.0, 0.5f));
+  traj.points.push_back(test_utils::make_traj_point(50.0, 0.0, 0.5f));
+  traj.points.push_back(test_utils::make_traj_point(100.0, 0.0, 0.5f));
+  tester.traj_pub->publish(traj);
 
-//   test_utils::waitForMessage(tester.node, this, tester.received_control_command);
+  test_utils::waitForMessage(tester.node, this, tester.received_control_command);
 
-//   ASSERT_TRUE(tester.received_control_command);
-//   EXPECT_LT(tester.cmd_msg->longitudinal.speed, static_cast<float>(odom_vx));
-//   EXPECT_LT(tester.cmd_msg->longitudinal.acceleration, 0.0f);
+  ASSERT_TRUE(tester.received_control_command);
+  EXPECT_LT(tester.cmd_msg->longitudinal.speed, static_cast<float>(odom_vx));
+  EXPECT_LT(tester.cmd_msg->longitudinal.acceleration, 0.0f);
 
-//   // Generate another control message
-//   tester.traj_pub->publish(traj);
-//   test_utils::waitForMessage(tester.node, this, tester.received_control_command);
-//   ASSERT_TRUE(tester.received_control_command);
-//   EXPECT_LT(tester.cmd_msg->longitudinal.speed, static_cast<float>(odom_vx));
-//   EXPECT_LT(tester.cmd_msg->longitudinal.acceleration, 0.0f);
-// }
+  // Generate another control message
+  tester.traj_pub->publish(traj);
+  test_utils::waitForMessage(tester.node, this, tester.received_control_command);
+  ASSERT_TRUE(tester.received_control_command);
+  EXPECT_LT(tester.cmd_msg->longitudinal.speed, static_cast<float>(odom_vx));
+  EXPECT_LT(tester.cmd_msg->longitudinal.acceleration, 0.0f);
+}
+#endif
 
-// TEST_F(FakeNodeFixture, longitudinal_accelerate)
-// {
-//   const auto node_options = makeNodeOptions();
-//   ControllerTester tester(this, node_options);
+#ifdef ENABLE_LONGITUDINAL_ACCELERATE_TEST
+TEST_F(FakeNodeFixture, longitudinal_accelerate)
+{
+  const auto node_options = makeNodeOptions();
+  ControllerTester tester(this, node_options);
 
-//   tester.send_default_transform();
-//   tester.publish_default_steer();
-//   tester.publish_default_acc();
+  tester.send_default_transform();
+  tester.publish_default_steer();
+  tester.publish_default_acc();
 
-//   const double odom_vx = 0.5;
-//   tester.publish_odom_vx(odom_vx);
+  const double odom_vx = 0.5;
+  tester.publish_odom_vx(odom_vx);
 
-//   tester.publish_autonomous_operation_mode();
+  tester.publish_autonomous_operation_mode();
 
-//   // Publish non stopping trajectory
-//   Trajectory traj;
-//   traj.header.stamp = tester.node->now();
-//   traj.header.frame_id = "map";
-//   traj.points.push_back(test_utils::make_traj_point(0.0, 0.0, 1.0f));
-//   traj.points.push_back(test_utils::make_traj_point(50.0, 0.0, 1.0f));
-//   traj.points.push_back(test_utils::make_traj_point(100.0, 0.0, 1.0f));
-//   tester.traj_pub->publish(traj);
+  // Publish non stopping trajectory
+  Trajectory traj;
+  traj.header.stamp = tester.node->now();
+  traj.header.frame_id = "map";
+  traj.points.push_back(test_utils::make_traj_point(0.0, 0.0, 1.0f));
+  traj.points.push_back(test_utils::make_traj_point(50.0, 0.0, 1.0f));
+  traj.points.push_back(test_utils::make_traj_point(100.0, 0.0, 1.0f));
+  tester.traj_pub->publish(traj);
 
-//   test_utils::waitForMessage(tester.node, this, tester.received_control_command);
+  test_utils::waitForMessage(tester.node, this, tester.received_control_command);
 
-//   ASSERT_TRUE(tester.received_control_command);
-//   EXPECT_GT(tester.cmd_msg->longitudinal.speed, static_cast<float>(odom_vx));
-//   EXPECT_GT(tester.cmd_msg->longitudinal.acceleration, 0.0f);
+  ASSERT_TRUE(tester.received_control_command);
+  EXPECT_GT(tester.cmd_msg->longitudinal.speed, static_cast<float>(odom_vx));
+  EXPECT_GT(tester.cmd_msg->longitudinal.acceleration, 0.0f);
 
-//   // Generate another control message
-//   tester.traj_pub->publish(traj);
-//   test_utils::waitForMessage(tester.node, this, tester.received_control_command);
-//   ASSERT_TRUE(tester.received_control_command);
-//   EXPECT_GT(tester.cmd_msg->longitudinal.speed, static_cast<float>(odom_vx));
-//   EXPECT_GT(tester.cmd_msg->longitudinal.acceleration, 0.0f);
-// }
+  // Generate another control message
+  tester.traj_pub->publish(traj);
+  test_utils::waitForMessage(tester.node, this, tester.received_control_command);
+  ASSERT_TRUE(tester.received_control_command);
+  EXPECT_GT(tester.cmd_msg->longitudinal.speed, static_cast<float>(odom_vx));
+  EXPECT_GT(tester.cmd_msg->longitudinal.acceleration, 0.0f);
+}
+#endif
 
-// TEST_F(FakeNodeFixture, longitudinal_stopped)
-// {
-//   const auto node_options = makeNodeOptions();
-//   ControllerTester tester(this, node_options);
+#ifdef ENABLE_LONGITUDINAL_STOPPED_TEST
+TEST_F(FakeNodeFixture, longitudinal_stopped)
+{
+  const auto node_options = makeNodeOptions();
+  ControllerTester tester(this, node_options);
 
-//   tester.send_default_transform();
-//   tester.publish_default_odom();
-//   tester.publish_autonomous_operation_mode();
-//   tester.publish_default_steer();
-//   tester.publish_default_acc();
+  tester.send_default_transform();
+  tester.publish_default_odom();
+  tester.publish_autonomous_operation_mode();
+  tester.publish_default_steer();
+  tester.publish_default_acc();
 
-//   // Publish stopping trajectory
-//   Trajectory traj;
-//   traj.header.stamp = tester.node->now();
-//   traj.header.frame_id = "map";
-//   traj.points.push_back(test_utils::make_traj_point(0.0, 0.0, 0.0f));
-//   traj.points.push_back(test_utils::make_traj_point(50.0, 0.0, 0.0f));
-//   traj.points.push_back(test_utils::make_traj_point(100.0, 0.0, 0.0f));
-//   tester.traj_pub->publish(traj);
+  // Publish stopping trajectory
+  Trajectory traj;
+  traj.header.stamp = tester.node->now();
+  traj.header.frame_id = "map";
+  traj.points.push_back(test_utils::make_traj_point(0.0, 0.0, 0.0f));
+  traj.points.push_back(test_utils::make_traj_point(50.0, 0.0, 0.0f));
+  traj.points.push_back(test_utils::make_traj_point(100.0, 0.0, 0.0f));
+  tester.traj_pub->publish(traj);
 
-//   test_utils::waitForMessage(tester.node, this, tester.received_control_command);
+  test_utils::waitForMessage(tester.node, this, tester.received_control_command);
 
-//   ASSERT_TRUE(tester.received_control_command);
-//   EXPECT_DOUBLE_EQ(tester.cmd_msg->longitudinal.speed, 0.0f);
-//   EXPECT_LT(
-//     tester.cmd_msg->longitudinal.acceleration,
-//     0.0f);  // when stopped negative acceleration to brake
-// }
+  ASSERT_TRUE(tester.received_control_command);
+  EXPECT_DOUBLE_EQ(tester.cmd_msg->longitudinal.speed, 0.0f);
+  EXPECT_LT(
+    tester.cmd_msg->longitudinal.acceleration,
+    0.0f);  // when stopped negative acceleration to brake
+}
+#endif
 
-// TEST_F(FakeNodeFixture, longitudinal_reverse)
-// {
-//   const auto node_options = makeNodeOptions();
-//   ControllerTester tester(this, node_options);
+#ifdef ENABLE_LONGITUDINAL_REVERSE_TEST
+TEST_F(FakeNodeFixture, longitudinal_reverse)
+{
+  const auto node_options = makeNodeOptions();
+  ControllerTester tester(this, node_options);
 
-//   tester.send_default_transform();
+  tester.send_default_transform();
 
-//   tester.publish_default_odom();
-//   tester.publish_autonomous_operation_mode();
-//   tester.publish_default_steer();
-//   tester.publish_default_acc();
+  tester.publish_default_odom();
+  tester.publish_autonomous_operation_mode();
+  tester.publish_default_steer();
+  tester.publish_default_acc();
 
-//   // Publish reverse
-//   Trajectory traj;
-//   traj.header.stamp = tester.node->now();
-//   traj.header.frame_id = "map";
-//   traj.points.push_back(test_utils::make_traj_point(0.0, 0.0, -1.0f));
-//   traj.points.push_back(test_utils::make_traj_point(50.0, 0.0, -1.0f));
-//   traj.points.push_back(test_utils::make_traj_point(100.0, 0.0, -1.0f));
-//   tester.traj_pub->publish(traj);
+  // Publish reverse
+  Trajectory traj;
+  traj.header.stamp = tester.node->now();
+  traj.header.frame_id = "map";
+  traj.points.push_back(test_utils::make_traj_point(0.0, 0.0, -1.0f));
+  traj.points.push_back(test_utils::make_traj_point(50.0, 0.0, -1.0f));
+  traj.points.push_back(test_utils::make_traj_point(100.0, 0.0, -1.0f));
+  tester.traj_pub->publish(traj);
 
-//   test_utils::waitForMessage(tester.node, this, tester.received_control_command);
+  test_utils::waitForMessage(tester.node, this, tester.received_control_command);
 
-//   ASSERT_TRUE(tester.received_control_command);
-//   EXPECT_LT(tester.cmd_msg->longitudinal.speed, 0.0f);
-//   EXPECT_GT(tester.cmd_msg->longitudinal.acceleration, 0.0f);
-// }
+  ASSERT_TRUE(tester.received_control_command);
+  EXPECT_LT(tester.cmd_msg->longitudinal.speed, 0.0f);
+  EXPECT_GT(tester.cmd_msg->longitudinal.acceleration, 0.0f);
+}
+#endif
 
-// TEST_F(FakeNodeFixture, longitudinal_emergency)
-// {
-//   const auto node_options = makeNodeOptions();
-//   ControllerTester tester(this, node_options);
+#ifdef ENABLE_LONGITUDINAL_EMERGENCY_TEST
+TEST_F(FakeNodeFixture, longitudinal_emergency)
+{
+  const auto node_options = makeNodeOptions();
+  ControllerTester tester(this, node_options);
 
-//   tester.send_default_transform();
-//   tester.publish_default_odom();
-//   tester.publish_autonomous_operation_mode();
-//   tester.publish_default_steer();
-//   tester.publish_default_acc();
+  tester.send_default_transform();
+  tester.publish_default_odom();
+  tester.publish_autonomous_operation_mode();
+  tester.publish_default_steer();
+  tester.publish_default_acc();
 
-//   // Publish trajectory starting away from the current ego pose
-//   Trajectory traj;
-//   traj.header.stamp = tester.node->now();
-//   traj.header.frame_id = "map";
-//   traj.points.push_back(test_utils::make_traj_point(10.0, 0.0, 1.0f));
-//   traj.points.push_back(test_utils::make_traj_point(50.0, 0.0, 1.0f));
-//   traj.points.push_back(test_utils::make_traj_point(100.0, 0.0, 1.0f));
-//   tester.traj_pub->publish(traj);
+  // Publish trajectory starting away from the current ego pose
+  Trajectory traj;
+  traj.header.stamp = tester.node->now();
+  traj.header.frame_id = "map";
+  traj.points.push_back(test_utils::make_traj_point(10.0, 0.0, 1.0f));
+  traj.points.push_back(test_utils::make_traj_point(50.0, 0.0, 1.0f));
+  traj.points.push_back(test_utils::make_traj_point(100.0, 0.0, 1.0f));
+  tester.traj_pub->publish(traj);
 
-//   test_utils::waitForMessage(tester.node, this, tester.received_control_command);
+  test_utils::waitForMessage(tester.node, this, tester.received_control_command);
 
-//   ASSERT_TRUE(tester.received_control_command);
-//   // Emergencies (e.g., far from trajectory) produces braking command (0 vel, negative accel)
-//   EXPECT_DOUBLE_EQ(tester.cmd_msg->longitudinal.speed, 0.0f);
-//   EXPECT_LT(tester.cmd_msg->longitudinal.acceleration, 0.0f);
-// }
+  ASSERT_TRUE(tester.received_control_command);
+  // Emergencies (e.g., far from trajectory) produces braking command (0 vel, negative accel)
+  EXPECT_DOUBLE_EQ(tester.cmd_msg->longitudinal.speed, 0.0f);
+  EXPECT_LT(tester.cmd_msg->longitudinal.acceleration, 0.0f);
+}
+#endif
 
-// TEST_F(FakeNodeFixture, longitudinal_not_check_steer_converged)
-// {
-//   const auto node_options = makeNodeOptions();
-//   ControllerTester tester(this, node_options);
+#ifdef ENABLE_LONGITUDINAL_NOT_CHECK_STEER_CONVERGED_TEST
+TEST_F(FakeNodeFixture, longitudinal_not_check_steer_converged)
+{
+  const auto node_options = makeNodeOptions();
+  ControllerTester tester(this, node_options);
 
-//   tester.send_default_transform();
-//   tester.publish_default_odom();
-//   tester.publish_autonomous_operation_mode();
-//   tester.publish_default_acc();
+  tester.send_default_transform();
+  tester.publish_default_odom();
+  tester.publish_autonomous_operation_mode();
+  tester.publish_default_acc();
 
-//   // steering_tire_angle has to be larger than the threshold to check convergence.
-//   const double steering_tire_angle = -0.5;
-//   tester.publish_steer_angle(steering_tire_angle);
+  // steering_tire_angle has to be larger than the threshold to check convergence.
+  const double steering_tire_angle = -0.5;
+  tester.publish_steer_angle(steering_tire_angle);
 
-//   // Publish trajectory starting away from the current ego pose
-//   Trajectory traj;
-//   traj.header.stamp = tester.node->now();
-//   traj.header.frame_id = "map";
-//   traj.points.push_back(test_utils::make_traj_point(0.0, 0.0, 1.0f));
-//   traj.points.push_back(test_utils::make_traj_point(50.0, 0.0, 1.0f));
-//   traj.points.push_back(test_utils::make_traj_point(100.0, 0.0, 1.0f));
-//   tester.traj_pub->publish(traj);
+  // Publish trajectory starting away from the current ego pose
+  Trajectory traj;
+  traj.header.stamp = tester.node->now();
+  traj.header.frame_id = "map";
+  traj.points.push_back(test_utils::make_traj_point(0.0, 0.0, 1.0f));
+  traj.points.push_back(test_utils::make_traj_point(50.0, 0.0, 1.0f));
+  traj.points.push_back(test_utils::make_traj_point(100.0, 0.0, 1.0f));
+  tester.traj_pub->publish(traj);
 
-//   test_utils::waitForMessage(tester.node, this, tester.received_control_command);
+  test_utils::waitForMessage(tester.node, this, tester.received_control_command);
 
-//   ASSERT_TRUE(tester.received_control_command);
-//   // Not keep stopped state when the lateral control is not converged.
-//   EXPECT_DOUBLE_EQ(tester.cmd_msg->longitudinal.speed, 1.0f);
-// }
+  ASSERT_TRUE(tester.received_control_command);
+  // Not keep stopped state when the lateral control is not converged.
+  EXPECT_DOUBLE_EQ(tester.cmd_msg->longitudinal.speed, 1.0f);
+}
+#endif
 
-// TEST_F(FakeNodeFixture, longitudinal_check_steer_converged)
-// {
-//   // set enable_keep_stopped_until_steer_convergence true
-//   const auto node_options = makeNodeOptions(true);
-//   ControllerTester tester(this, node_options);
+#ifdef ENABLE_LONGITUDINAL_CHECK_STEER_CONVERGED_TEST
+TEST_F(FakeNodeFixture, longitudinal_check_steer_converged)
+{
+  // set enable_keep_stopped_until_steer_convergence true
+  const auto node_options = makeNodeOptions(true);
+  ControllerTester tester(this, node_options);
 
-//   tester.send_default_transform();
-//   tester.publish_default_odom();
-//   tester.publish_autonomous_operation_mode();
-//   tester.publish_default_acc();
+  tester.send_default_transform();
+  tester.publish_default_odom();
+  tester.publish_autonomous_operation_mode();
+  tester.publish_default_acc();
 
-//   // steering_tire_angle has to be larger than the threshold to check convergence.
-//   const double steering_tire_angle = -0.5;
-//   tester.publish_steer_angle(steering_tire_angle);
+  // steering_tire_angle has to be larger than the threshold to check convergence.
+  const double steering_tire_angle = -0.5;
+  tester.publish_steer_angle(steering_tire_angle);
 
-//   // Publish trajectory starting away from the current ego pose
-//   Trajectory traj;
-//   traj.header.stamp = tester.node->now();
-//   traj.header.frame_id = "map";
-//   traj.points.push_back(test_utils::make_traj_point(0.0, 0.0, 1.0f));
-//   traj.points.push_back(test_utils::make_traj_point(50.0, 0.0, 1.0f));
-//   traj.points.push_back(test_utils::make_traj_point(100.0, 0.0, 1.0f));
-//   tester.traj_pub->publish(traj);
+  // Publish trajectory starting away from the current ego pose
+  Trajectory traj;
+  traj.header.stamp = tester.node->now();
+  traj.header.frame_id = "map";
+  traj.points.push_back(test_utils::make_traj_point(0.0, 0.0, 1.0f));
+  traj.points.push_back(test_utils::make_traj_point(50.0, 0.0, 1.0f));
+  traj.points.push_back(test_utils::make_traj_point(100.0, 0.0, 1.0f));
+  tester.traj_pub->publish(traj);
 
-//   test_utils::waitForMessage(tester.node, this, tester.received_control_command);
+  test_utils::waitForMessage(tester.node, this, tester.received_control_command);
 
-//   ASSERT_TRUE(tester.received_control_command);
-//   // Keep stopped state when the lateral control is not converged.
-//   EXPECT_DOUBLE_EQ(tester.cmd_msg->longitudinal.speed, 0.0f);
-// }
+  ASSERT_TRUE(tester.received_control_command);
+  // Keep stopped state when the lateral control is not converged.
+  EXPECT_DOUBLE_EQ(tester.cmd_msg->longitudinal.speed, 0.0f);
+}
+#endif
