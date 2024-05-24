@@ -128,41 +128,27 @@ inline Trajectory generateClothoidTrajectory(
   Trajectory trajectory;
   trajectory.header = header;
 
-  const int points = 20;  // Number of points in the trajectory
+  const int points = 20;                               // Number of points in the trajectory
+  double curvature_rate = end_curvature / arc_length;  // Curvature change rate
+  double step_length = arc_length / points;            // Length of each segment
 
-  double scale = end_curvature / arc_length;  // Scale factor for curvature
+  double x = 0.0;
+  double y = 0.0;
+  double theta = 0.0;  // Initial angle
+  double curvature = 0.0;
 
-  // Generate points along the curve
+  // Generate points along the clothoid
   for (int i = 0; i <= points; ++i) {
-    double t = static_cast<double>(i) / points;
-    double s = t * arc_length;  // Arc length at the current point
+    // Calculate the next point using Euler's method
+    double next_x = x + step_length * cos(theta);
+    double next_y = y + step_length * sin(theta);
+    trajectory.points.push_back(make_traj_point(next_x, next_y, velocity));
 
-    // Fresnel integrals
-    double cos_term = 0.0;
-    double sin_term = 0.0;
-    double s_sq = s * s;
-    double num = 1.0;
-    double denom = 1.0;
-
-    for (int n = 0; n < 5; ++n) {
-      cos_term += pow(-1.0, n) * s_sq / (denom * (4.0 * n + 1.0));
-      sin_term += pow(-1.0, n) * s_sq / (denom * (4.0 * n + 3.0));
-      num *= s_sq;
-      denom *= (2.0 * n + 2.0) * (2.0 * n + 3.0);
-    }
-
-    double C = cos_term;
-    double S = sin_term;
-
-    // Scaling factors
-    double x_scale = sqrt(M_PI / fabs(scale));
-    double y_scale = copysign(1.0, scale) * x_scale;
-
-    // Coordinates of the point on the clothoid curve
-    double x = x_scale * C;
-    double y = y_scale * S;
-
-    trajectory.points.push_back(make_traj_point(x, y, velocity));
+    // Update the parameters
+    x = next_x;
+    y = next_y;
+    curvature += curvature_rate * step_length;  // Increment curvature
+    theta += curvature * step_length;           // Increment angle by the current curvature
   }
 
   return trajectory;
