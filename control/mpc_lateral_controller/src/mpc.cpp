@@ -666,14 +666,12 @@ std::pair<bool, VectorXd> MPC::executeOptimization(
   const double current_velocity)
 {
   // const int N = m_param.prediction_horizon;
-  const double DT = prediction_dt;
   VectorXd Uex;
   const double elapsed_time_ms =
     std::chrono::duration_cast<std::chrono::nanoseconds>(
       std::chrono::system_clock::now() - m_previous_optimal_solution_time)
       .count() *
     1.0e-6;
-  std::cerr << "time from last optimal solution [ms]: " << elapsed_time_ms << std::endl;
 
   // auto t_start = std::chrono::system_clock::now();
   bool solve_result = false;
@@ -685,9 +683,9 @@ std::pair<bool, VectorXd> MPC::executeOptimization(
   } else {
     // RCLCPP_DEBUG(m_logger, "execute optimization without warm start (CGMRES)");
   }
-
-  solve_result = m_qpsolver_ptr->solveCGMRES(
-    x0, resampled_ref_trajectory, DT, Uex, m_param.prediction_horizon, warm_start);
+  m_qpsolver_ptr->updateEquation(prediction_dt, resampled_ref_trajectory);
+  solve_result = m_qpsolver_ptr->solveCGMRES(x0, Uex, warm_start);
+  m_previous_optimal_solution_time = std::chrono::system_clock::now();
   // auto t_end = std::chrono::system_clock::now();
 
   if (!solve_result) {
@@ -702,7 +700,6 @@ std::pair<bool, VectorXd> MPC::executeOptimization(
     warn_throttle("model Uex includes NaN, stop MPC.");
     return {false, {}};
   }
-  m_previous_optimal_solution_time = std::chrono::system_clock::now();
   return {true, Uex};
 }
 

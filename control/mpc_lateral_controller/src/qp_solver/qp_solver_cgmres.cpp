@@ -41,21 +41,11 @@ QPSolverCGMRES::QPSolverCGMRES(const rclcpp::Logger & logger, const std::string 
     ocp_, cgmres::Horizon(0.1, 0.0), settings_);
 }
 
-bool QPSolverCGMRES::solveCGMRES(
-  const Eigen::VectorXd & x0, const MPCTrajectory & resampled_ref_trajectory,
-  const double prediction_dt, Eigen::VectorXd & u, const int prediction_horizon,
-  const bool warm_start)
+void QPSolverCGMRES::updateEquation(
+  const double prediction_dt, const MPCTrajectory & resampled_ref_trajectory)
 {
-  // std::cerr << "prediction_dt: " << prediction_dt << std::endl;
-  // // Define the horizon.
   const double alpha = 0.0;
   [[maybe_unused]] cgmres::Horizon horizon(prediction_dt, alpha);
-
-  // Define the initial time and initial state.
-  // state は 横偏差、ヨー角、ステアリング角度の3つ
-  cgmres::Vector<3> x;
-  x << x0(0), x0(1), x0(2);
-
   // calculate the average curvature of the reference trajectory
   double curvature_sum = 0.0;
   for (size_t i = 0; i < resampled_ref_trajectory.k.size(); ++i) {
@@ -67,73 +57,50 @@ bool QPSolverCGMRES::solveCGMRES(
   ocp_.u_ref[0] = std::atan(average_curvature * ocp_.wheel_base);
   external_reference_->curvature_ref_array = resampled_ref_trajectory.k;
   external_reference_->v_ref_array = resampled_ref_trajectory.vx;
-  std::cerr << "average_curvature: " << average_curvature << std::endl;
-  std::cerr << "ocp_.u_ref[0]: " << ocp_.u_ref[0] << std::endl;
+}
+
+bool QPSolverCGMRES::solveCGMRES(
+  const Eigen::VectorXd & x0, Eigen::VectorXd & u, const bool warm_start)
+{
+  // Define the initial time and initial state.
+  cgmres::Vector<3> x;
+  x << x0(0), x0(1), x0(2);
+
   // ocp_.disp(std::cerr);
   // mpc_.disp(std::cerr);
 
   if (!is_initialized_) {
     initialized_time_ = std::chrono::system_clock::now();
     is_initialized_ = true;
-  } else {
   }
+  const double time_from_last_initialized = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                              std::chrono::system_clock::now() - initialized_time_)
+                                              .count() *
+                                            1.0e-6;
 
   if (warm_start) {
-    if (prediction_horizon != decltype(mpc_)::getN()) {
-      RCLCPP_ERROR(
-        logger_,
-        "mpc_prediction_horizon defined by parameter file is not equal to cgmres's prediction "
-        "horizon setting. Please check the parameter file and the setting in QPSolverCGMRES");
-    }
-
-    const double time_from_last_initialized =
-      std::chrono::duration_cast<std::chrono::nanoseconds>(
-        std::chrono::system_clock::now() - initialized_time_)
-        .count() *
-      1.0e-6;
-    // for (size_t i = 0; i < mpc_.uopt().size(); i++)
-    // {
-    //   std::cerr << "mpc_.uopt()[" << i << "] before update: " << mpc_.uopt()[i](0) << std::endl;
-    // }
     mpc_.update(time_from_last_initialized, x);
-    // for (size_t i = 0; i < mpc_.uopt().size(); i++)
-    // {
-    //   std::cerr << "mpc_.uopt()[" << i << "] after update: " << mpc_.uopt()[i](0) << std::endl;
-    // }
-    std::vector<double> U_cgmres(mpc_.uopt().size());
-    for (size_t i = 0; i < mpc_.uopt().size(); ++i) {
-      U_cgmres[i] = mpc_.uopt()[i](0);
-    }
-    u = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 1>>(
-      &U_cgmres[0], static_cast<Eigen::Index>(U_cgmres.size()), 1);
-
-    // RCLCPP_DEBUG(logger_, " time_from_last_initialized = %e \n", time_from_last_initialized);
-    // RCLCPP_DEBUG(logger_, "updated u = %e ",mpc_.uopt()[0].value());
-    cgmres_logger_.save(
-      time_from_last_initialized, x, mpc_.uopt()[0], mpc_.uopt(), mpc_.optError(),
-      mpc_.gmres_iter());
-    // cgmres_logger_.save(
-    //   time_from_last_initialized, x, mpc_.uopt()[0], mpc_.uopt(), mpc_.optError(),
-    //   mpc_.normDiff(), mpc_.StandardDeviation());
   } else {
     // Initialize the solution of the C/GMRES method.
     cgmres::Vector<1> uc0;
     uc0 << 0.0;
     initializer_.set_uc(uc0);
-    const double t0 = 0.0;
-    initializer_.solve(t0, x);
+    initializer_.solve(time_from_last_initialized, x);
     mpc_.set_uc(initializer_.ucopt());
     mpc_.init_dummy_mu();
-    mpc_.update(t0, x);
-    std::vector<double> U_cgmres(mpc_.uopt().size());
-    for (size_t i = 0; i < mpc_.uopt().size(); ++i) {
-      U_cgmres[i] = mpc_.uopt()[i](0);
-    }
-    u = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 1>>(
-      &U_cgmres[0], static_cast<Eigen::Index>(U_cgmres.size()), 1);
-
-    // RCLCPP_DEBUG(logger_, " u = %e ", u(0));
+    mpc_.update(time_from_last_initialized, x);
   }
+
+  std::vector<double> U_cgmres(mpc_.uopt().size());
+  for (size_t i = 0; i < mpc_.uopt().size(); ++i) {
+    U_cgmres[i] = mpc_.uopt()[i](0);
+  }
+  u = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 1>>(
+    &U_cgmres[0], static_cast<Eigen::Index>(U_cgmres.size()), 1);
+
+  cgmres_logger_.save(
+    time_from_last_initialized, x, mpc_.uopt()[0], mpc_.uopt(), mpc_.optError(), mpc_.gmres_iter());
+
   return true;
 }
 

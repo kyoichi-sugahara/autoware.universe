@@ -48,6 +48,11 @@ public:
     const Eigen::VectorXd & lb, const Eigen::VectorXd & ub, const Eigen::VectorXd & lb_a,
     const Eigen::VectorXd & ub_a, Eigen::VectorXd & u) = 0;
 
+  virtual void updateEquation(
+    const double /*prediction_dt*/, const MPCTrajectory & /*resampled_ref_trajectory*/)
+  {
+  }
+
   /**
    * @brief solve QP problem : minimize J = u' * h_mat * u + f_vec' * u without constraint
    * @param [in] h_mat parameter matrix in object function
@@ -61,9 +66,7 @@ public:
    * @return true if the problem was solved
    */
   virtual bool solveCGMRES(
-    const Eigen::VectorXd & /* x0 */, const MPCTrajectory & /*resampled_ref_trajectory*/,
-    const double /*prediction_dt */, Eigen::VectorXd & /*u*/, const int /*prediction_horizon*/,
-    const bool /* warm_start */)
+    const Eigen::VectorXd & /* x0 */, Eigen::VectorXd & /*u*/, const bool /* warm_start */)
   {
     return false;
   }
