@@ -54,8 +54,8 @@ using FakeNodeFixture = autoware::tools::testing::FakeTestNode;
 
 const rclcpp::Duration one_second(1, 0);
 
-#define ENABLE_CONSTANT_CURVATURE_RIGHT_TURN_TEST
-// #define ENABLE_CLOTHOID_RIGHT_TURN_TEST
+// #define ENABLE_CONSTANT_CURVATURE_RIGHT_TURN_TEST
+#define ENABLE_CLOTHOID_RIGHT_TURN_TEST
 
 rclcpp::NodeOptions makeNodeOptions(const bool enable_keep_stopped_until_steer_convergence = false)
 {
@@ -361,7 +361,8 @@ TEST_F(FakeNodeFixture, constant_curvature_right_turn)
     std_msgs::msg::Header header;
     header.stamp = tester.node->now();
     header.frame_id = "map";
-    ref_trajectory = test_utils::generateCurvatureTrajectory(header, curvature_sign, 5.0, 1.0);
+    ref_trajectory = test_utils::generateConstantCurvatureTrajectory(
+      header, curvature_sign, 5.0 /* arc length */, 1.0 /* velocity*/);
 
     tester.traj_pub->publish(ref_trajectory);
   };
@@ -401,32 +402,20 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
   tester.publish_default_steer();
   tester.publish_default_acc();
 
-  // auto publishTrajectory = [&tester, &ref_trajectory](
-  //                            [[maybe_unused]] double curvature_sign,
-  //                            [[maybe_unused]] double start_curvature,
-  //                            [[maybe_unused]] double end_curvature) {
-  auto publishTrajectory = [&tester, &ref_trajectory](double curvature_sign) {
+  auto publishTrajectory = [&tester, &ref_trajectory](double end_curvature) {
     std_msgs::msg::Header header;
     header.stamp = tester.node->now();
     header.frame_id = "map";
-    ref_trajectory = test_utils::generateCurvatureTrajectory(header, curvature_sign, 5.0, 1.0);
-    // ref_trajectory = test_utils::generateCurvatureTrajectory(
-    // header, start_curvature, end_curvature, curvature_sign, 5.0, 1.0);
+    ref_trajectory = test_utils::generateClothoidTrajectory(header, end_curvature, 5.0, 1.0);
 
     tester.traj_pub->publish(ref_trajectory);
   };
 
-  double curvature_sign = -0.06;
-  // std::random_device rd;
-  // std::mt19937 gen(rd());
-  // std::uniform_real_distribution<> dis(-0.2, 0.2);
+  double curvature_sign = -0.1;
 
-  // double curvature_sign = dis(gen);
   constexpr size_t iter_num = 10;
   for (size_t i = 0; i < iter_num; i++) {
-    // curvature_sign = curvature_sign - 0.005;
     publishTrajectory(curvature_sign);
-    // publishTrajectory(curvature_sign, curvature_sign, curvature_sign + 0.02);
     test_utils::waitForMessage(tester.node, this, tester.received_control_command);
 
     test_utils::writeTrajectoriesToFiles(

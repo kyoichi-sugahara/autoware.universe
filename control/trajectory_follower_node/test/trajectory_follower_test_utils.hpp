@@ -91,7 +91,7 @@ inline TrajectoryPoint make_traj_point(const double px, const double py, const f
   return p;
 }
 
-inline Trajectory generateCurvatureTrajectory(
+inline Trajectory generateConstantCurvatureTrajectory(
   std_msgs::msg::Header header, double curvature, double arc_length, double velocity)
 {
   Trajectory trajectory;
@@ -122,39 +122,51 @@ inline Trajectory generateCurvatureTrajectory(
   return trajectory;
 }
 
-// inline Trajectory generateCurvatureTrajectory(
-//   std_msgs::msg::Header header, double start_curvature, double end_curvature, double arc_length,
-//   double velocity)
-// {
-//   Trajectory trajectory;
-//   trajectory.header = header;
+inline Trajectory generateClothoidTrajectory(
+  std_msgs::msg::Header header, double end_curvature, double arc_length, double velocity)
+{
+  Trajectory trajectory;
+  trajectory.header = header;
 
-//   const int points = 20;  // Number of points in the trajectory
+  const int points = 20;  // Number of points in the trajectory
 
-//   // Generate points along the arc in reverse order
-//   for (int i = points; i >= 0; --i) {
-//     double t = static_cast<double>(i) / points;
-//     double curvature = start_curvature + t * (end_curvature - start_curvature);
-//     double radius =
-//       1 / fabs(curvature);  // Radius is the reciprocal of the absolute value of curvature
-//     double arc_angle = arc_length / radius;  // Total angle of the arc
+  double scale = end_curvature / arc_length;  // Scale factor for curvature
 
-//     // Calculate starting angle based on curvature
-//     double start_angle = (curvature > 0) ? (3 * M_PI / 2) : (M_PI / 2);
-//     start_angle -= arc_angle / 2;
+  // Generate points along the curve
+  for (int i = 0; i <= points; ++i) {
+    double t = static_cast<double>(i) / points;
+    double s = t * arc_length;  // Arc length at the current point
 
-//     double angle = start_angle + (arc_angle * t);  // Current angle of the point on the arc
-//     double x = radius * cos(angle);                // X coordinate
-//     double y = radius * sin(angle);                // Y coordinate
+    // Fresnel integrals
+    double cos_term = 0.0;
+    double sin_term = 0.0;
+    double s_sq = s * s;
+    double num = 1.0;
+    double denom = 1.0;
 
-//     // Adjust y-coordinate based on curvature sign
-//     y += (curvature > 0) ? radius : -radius;
+    for (int n = 0; n < 5; ++n) {
+      cos_term += pow(-1.0, n) * s_sq / (denom * (4.0 * n + 1.0));
+      sin_term += pow(-1.0, n) * s_sq / (denom * (4.0 * n + 3.0));
+      num *= s_sq;
+      denom *= (2.0 * n + 2.0) * (2.0 * n + 3.0);
+    }
 
-//     trajectory.points.push_back(make_traj_point(x, y, velocity));  // Speed set as per argument
-//   }
+    double C = cos_term;
+    double S = sin_term;
 
-//   return trajectory;
-// }
+    // Scaling factors
+    double x_scale = sqrt(M_PI / fabs(scale));
+    double y_scale = copysign(1.0, scale) * x_scale;
+
+    // Coordinates of the point on the clothoid curve
+    double x = x_scale * C;
+    double y = y_scale * S;
+
+    trajectory.points.push_back(make_traj_point(x, y, velocity));
+  }
+
+  return trajectory;
+}
 
 // TODO(Horibe): modify the controller nodes so that they does not publish topics when data is not
 // ready. then, remove this function.
@@ -180,9 +192,9 @@ void writeTrajectoryToFile(
 }
 
 void openOutputFilesInWriteMode(
-  const std::string & trajectory_directory, std::ofstream & output_file_orig_x,
-  std::ofstream & output_file_orig_y, std::ofstream & output_file_resampled_x,
-  std::ofstream & output_file_resampled_y, std::ofstream & output_file_predicted_x,
+  const std::string & trajectory_directory, std::ofstream & output_file_orig_ref_x,
+  std::ofstream & output_file_orig_ref_y, std::ofstream & output_file_resampled_ref_x,
+  std::ofstream & output_file_resampled_ref_y, std::ofstream & output_file_predicted_x,
   std::ofstream & output_file_predicted_y, std::ofstream & output_file_predicted_frenet_x,
   std::ofstream & output_file_predicted_frenet_y,
   std::ofstream & output_file_cgmres_predicted_frenet_x,
@@ -190,10 +202,10 @@ void openOutputFilesInWriteMode(
   std::ofstream & output_file_cgmres_predicted_x, std::ofstream & output_file_cgmres_predicted_y,
   std::ofstream & output_file_time)
 {
-  output_file_orig_x.open(trajectory_directory + "original_x.log");
-  output_file_orig_y.open(trajectory_directory + "original_y.log");
-  output_file_resampled_x.open(trajectory_directory + "resampled_x.log");
-  output_file_resampled_y.open(trajectory_directory + "resampled_y.log");
+  output_file_orig_ref_x.open(trajectory_directory + "original_ref_x.log");
+  output_file_orig_ref_y.open(trajectory_directory + "original_ref_y.log");
+  output_file_resampled_ref_x.open(trajectory_directory + "resampled_ref_x.log");
+  output_file_resampled_ref_y.open(trajectory_directory + "resampled_ref_y.log");
   output_file_predicted_x.open(trajectory_directory + "predicted_x.log");
   output_file_predicted_y.open(trajectory_directory + "predicted_y.log");
   output_file_predicted_frenet_x.open(trajectory_directory + "predicted_frenet_x.log");
@@ -208,9 +220,9 @@ void openOutputFilesInWriteMode(
 }
 
 void openOutputFilesInAppendMode(
-  const std::string & trajectory_directory, std::ofstream & output_file_orig_x,
-  std::ofstream & output_file_orig_y, std::ofstream & output_file_resampled_x,
-  std::ofstream & output_file_resampled_y, std::ofstream & output_file_predicted_x,
+  const std::string & trajectory_directory, std::ofstream & output_file_orig_ref_x,
+  std::ofstream & output_file_orig_ref_y, std::ofstream & output_file_resampled_ref_x,
+  std::ofstream & output_file_resampled_ref_y, std::ofstream & output_file_predicted_x,
   std::ofstream & output_file_predicted_y, std::ofstream & output_file_predicted_frenet_x,
   std::ofstream & output_file_predicted_frenet_y,
   std::ofstream & output_file_cgmres_predicted_frenet_x,
@@ -218,10 +230,10 @@ void openOutputFilesInAppendMode(
   std::ofstream & output_file_cgmres_predicted_x, std::ofstream & output_file_cgmres_predicted_y,
   std::ofstream & output_file_time)
 {
-  output_file_orig_x.open(trajectory_directory + "original_x.log", std::ios::app);
-  output_file_orig_y.open(trajectory_directory + "original_y.log", std::ios::app);
-  output_file_resampled_x.open(trajectory_directory + "resampled_x.log", std::ios::app);
-  output_file_resampled_y.open(trajectory_directory + "resampled_y.log", std::ios::app);
+  output_file_orig_ref_x.open(trajectory_directory + "original_ref_x.log", std::ios::app);
+  output_file_orig_ref_y.open(trajectory_directory + "original_ref_y.log", std::ios::app);
+  output_file_resampled_ref_x.open(trajectory_directory + "resampled_ref_x.log", std::ios::app);
+  output_file_resampled_ref_y.open(trajectory_directory + "resampled_ref_y.log", std::ios::app);
   output_file_predicted_x.open(trajectory_directory + "predicted_x.log", std::ios::app);
   output_file_predicted_y.open(trajectory_directory + "predicted_y.log", std::ios::app);
   output_file_predicted_frenet_x.open(
