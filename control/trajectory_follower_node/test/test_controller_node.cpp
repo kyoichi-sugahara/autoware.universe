@@ -411,7 +411,7 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
     tester.traj_pub->publish(ref_trajectory);
   };
 
-  double curvature_sign = -0.1;
+  double curvature_sign = -0.25;
 
   constexpr size_t iter_num = 10;
   for (size_t i = 0; i < iter_num; i++) {
