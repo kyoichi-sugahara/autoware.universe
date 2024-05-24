@@ -45,18 +45,6 @@ public:
    */
   virtual ~QPSolverCGMRES() = default;
 
-  /**
-   * @brief solve QP problem : minimize j = u' * h_mat * u + f_vec' * u without constraint
-   * @param [in] h_mat parameter matrix in object function
-   * @param [in] f_vec parameter matrix in object function
-   * @param [in] a parameter matrix for constraint lb_a < a*u < ub_a (not used here)
-   * @param [in] lb parameter matrix for constraint lb < U < ub (not used here)
-   * @param [in] ub parameter matrix for constraint lb < U < ub (not used here)
-   * @param [in] lb_a parameter matrix for constraint lb_a < a*u < ub_a (not used here)
-   * @param [in] ub_a parameter matrix for constraint lb_a < a*u < ub_a (not used here)
-   * @param [out] u optimal variable vector
-   * @return true if the problem was solved
-   */
   bool solve(
     const Eigen::MatrixXd & h_mat, const Eigen::MatrixXd & f_vec, const Eigen::MatrixXd & a,
     const Eigen::VectorXd & lb, const Eigen::VectorXd & ub, const Eigen::VectorXd & lb_a,
@@ -73,9 +61,10 @@ private:
   autoware::common::osqp::OSQPInterface cgmressolver_;
   cgmres::OCP_lateral_control ocp_;
 
-  static constexpr int N = 50;         // CGMRESソルバーの予測ステップ数
-  static constexpr int kmax = 5;       // CGMRESソルバーの最大反復回数
-  static constexpr int kmax_init = 1;  // 初期化用ソルバーの最大反復回数
+  static constexpr int N = 50;  // Number of discretization grids of the horizon. Must be positive.
+  static constexpr int kmax = 5;  // Maximum number of the GMRES iterations. Must be positive.
+  static constexpr int kmax_init =
+    1;  // Maximum number of the GMRES iterations for initializer. Must be positive.
 
   rclcpp::Logger logger_;
   cgmres::Logger cgmres_logger_;

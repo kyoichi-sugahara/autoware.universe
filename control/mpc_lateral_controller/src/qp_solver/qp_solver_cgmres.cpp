@@ -25,8 +25,8 @@ QPSolverCGMRES::QPSolverCGMRES(const rclcpp::Logger & logger, const std::string 
 : logger_{logger},
   cgmres_logger_(log_dir),
   settings_{
-    50,     // max_iter
-    1e-06,  // opterr_tol
+    50,     // maximum number of iterations of the ZeroHorizonOCPSolver method
+    1e-06,  // termination criterion of the ZeroHorizonOCPSolver method.
     1e-08,  // finite_difference_epsilon
     0.03,   // sampling_time
     33.3,   // zeta
