@@ -68,11 +68,11 @@ bool MPC::calculateMPC(
   // calculate initial state of the error dynamics
   const auto x0 = getInitialState(mpc_data);
 
-  const bool success_delay = true;
-  const VectorXd x0_delayed = x0;
+  // const bool success_delay = true;
+  // const VectorXd x0_delayed = x0;
   // apply time delay compensation to the initial state
-  // const auto [success_delay, x0_delayed] =
-  //   updateStateForDelayCompensation(reference_trajectory, mpc_data.nearest_time, x0);
+  const auto [success_delay, x0_delayed] =
+    updateStateForDelayCompensation(reference_trajectory, mpc_data.nearest_time, x0);
 
   if (!success_delay) {
     return fail_warn_throttle("delay compensation failed. Stop MPC.");
@@ -616,7 +616,10 @@ std::pair<bool, VectorXd> MPC::executeOptimization(
   addSteerWeightF(prediction_dt, f);
 
   MatrixXd A = MatrixXd::Identity(DIM_U_N, DIM_U_N);
-  A.bottomLeftCorner(DIM_U_N - 1, DIM_U_N - 1) = -MatrixXd::Identity(DIM_U_N - 1, DIM_U_N - 1);
+  // A.bottomLeftCorner(DIM_U_N - 1, DIM_U_N - 1) = -MatrixXd::Identity(DIM_U_N - 1, DIM_U_N - 1);
+  for (int i = 1; i < DIM_U_N; i++) {
+    A(i, i - 1) = -1.0;
+  }
 
   // steering angle limit
   VectorXd lb = VectorXd::Constant(DIM_U_N, -m_steer_lim);  // min steering angle
@@ -629,17 +632,17 @@ std::pair<bool, VectorXd> MPC::executeOptimization(
   ubA(0) = m_raw_steer_cmd_prev + steer_rate_limits(0) * m_ctrl_period;
   lbA(0) = m_raw_steer_cmd_prev - steer_rate_limits(0) * m_ctrl_period;
 
-  // auto t_start = std::chrono::system_clock::now();
+  auto t_start = std::chrono::system_clock::now();
   bool solve_result = m_qpsolver_ptr->solve(H, f.transpose(), A, lb, ub, lbA, ubA, Uex);
-  // auto t_end = std::chrono::system_clock::now();
+  auto t_end = std::chrono::system_clock::now();
   if (!solve_result) {
     warn_throttle("qp solver error");
     return {false, {}};
   }
 
   {
-    // auto t = std::chrono::duration_cast<std::chrono::milliseconds>(t_end - t_start).count();
-    // RCLCPP_DEBUG(m_logger, "qp solver calculation time = %ld [ms]", t);
+    auto t = std::chrono::duration_cast<std::chrono::milliseconds>(t_end - t_start).count();
+    RCLCPP_DEBUG(m_logger, "qp solver calculation time = %ld [ms]", t);
   }
 
   if (Uex.array().isNaN().any()) {

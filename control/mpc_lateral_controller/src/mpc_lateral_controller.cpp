@@ -245,7 +245,6 @@ std::shared_ptr<SteeringOffsetEstimator> MpcLateralController::createSteerOffset
 trajectory_follower::LateralOutput MpcLateralController::run(
   trajectory_follower::InputData const & input_data)
 {
-  // std::cerr << "run() is called" << std::endl;
   // set input data
   setTrajectory(input_data.current_trajectory, input_data.current_odometry);
 
