@@ -1130,6 +1130,10 @@ std::vector<Pose> StartPlannerModule::searchPullOutStartPoseCandidates(
   const double backward_path_length =
     planner_data_->parameters.backward_path_length + parameters_->max_back_distance;
 
+  const auto stop_objects_in_pull_out_lanes = filterStopObjectsInPullOutLanes(
+    pull_out_lanes, start_pose.position, parameters_->th_moving_object_velocity,
+    backward_path_length, std::numeric_limits<double>::max());
+
   const auto back_stop_objects_in_pull_out_lanes = filterStopObjectsInPullOutLanes(
     pull_out_lanes, start_pose.position, parameters_->th_moving_object_velocity, 0,
     backward_path_length);
@@ -1164,9 +1168,13 @@ std::vector<Pose> StartPlannerModule::searchPullOutStartPoseCandidates(
       [](double acc, const auto & lane) { return acc + lanelet::utils::getLaneletLength2d(lane); });
     const double distance_from_lane_end = length_to_lane_end - backed_pose_arc_length;
     if (distance_from_lane_end < parameters_->ignore_distance_from_lane_end) {
-      RCLCPP_WARN_THROTTLE(
-        getLogger(), *clock_, 5000,
-        "the ego vehicle is too close to the lane end, so backwards driving is necessary");
+      if (back_distance == 0.0) {
+        RCLCPP_WARN_THROTTLE(
+          getLogger(), *clock_, 5000,
+          "Current position is too close to the end of the lane ahead, so pull out (driving "
+          "forward) is not possible. Decrease the ignore_distance_from_lane_end parameter to avoid "
+          "this.");
+      }
       continue;
     }
 
@@ -1175,7 +1183,7 @@ std::vector<Pose> StartPlannerModule::searchPullOutStartPoseCandidates(
          local_vehicle_footprint, *backed_pose, pull_out_lanes,
          back_stop_objects_in_pull_out_lanes) < parameters_->back_objects_collision_check_margin) ||
       (utils::checkCollisionBetweenFootprintAndObjects(
-        local_vehicle_footprint, *backed_pose, back_stop_objects_in_pull_out_lanes,
+        local_vehicle_footprint, *backed_pose, stop_objects_in_pull_out_lanes,
         parameters_->collision_check_margins.back()))) {
       break;  // poses behind this is too close to back static object, so break.
     }
