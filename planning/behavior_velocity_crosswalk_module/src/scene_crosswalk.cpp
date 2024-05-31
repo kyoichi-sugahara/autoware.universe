@@ -1,4 +1,4 @@
-// Copyright 2020 Tier IV, Inc.
+// Copyright 2020-2023 Tier IV, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,6 +13,8 @@
 // limitations under the License.
 
 #include "scene_crosswalk.hpp"
+
+#include "occluded_crosswalk.hpp"
 
 #include <autoware_auto_tf2/tf2_autoware_auto_msgs.hpp>
 #include <behavior_velocity_planner_common/utilization/path_utilization.hpp>
@@ -31,6 +33,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <functional>
 #include <limits>
 #include <set>
 #include <tuple>
@@ -228,7 +231,51 @@ bool CrosswalkModule::modifyPathVelocity(PathWithLaneId * path, StopReason * sto
 
   // Apply safety slow down speed if defined in Lanelet2 map
   if (crosswalk_.hasAttribute("safety_slow_down_speed")) {
-    applySafetySlowDownSpeed(*path, path_intersects);
+    applySafetySlowDownSpeed(
+      *path, path_intersects,
+      static_cast<float>(crosswalk_.attribute("safety_slow_down_speed").asDouble().get()));
+  }
+  // Apply safety slow down speed if the crosswalk is occluded
+  const auto now = clock_->now();
+  const auto cmp_with_time_buffer = [&](const auto & t, const auto cmp_fn) {
+    return t && cmp_fn((now - *t).seconds(), planner_param_.occlusion_time_buffer);
+  };
+  const auto crosswalk_has_traffic_light =
+    !crosswalk_.regulatoryElementsAs<const lanelet::TrafficLight>().empty();
+  const auto is_crosswalk_ignored =
+    (planner_param_.occlusion_ignore_with_traffic_light && crosswalk_has_traffic_light) ||
+    crosswalk_.hasAttribute("skip_occluded_slowdown");
+  if (planner_param_.occlusion_enable && !path_intersects.empty() && !is_crosswalk_ignored) {
+    const auto dist_ego_to_crosswalk =
+      calcSignedArcLength(path->points, ego_pos, path_intersects.front());
+    const auto detection_range =
+      planner_data_->vehicle_info_.max_lateral_offset_m +
+      calculate_detection_range(
+        planner_param_.occlusion_occluded_object_velocity, dist_ego_to_crosswalk,
+        planner_data_->current_velocity->twist.linear.x);
+    const auto is_ego_on_the_crosswalk =
+      dist_ego_to_crosswalk <= planner_data_->vehicle_info_.max_longitudinal_offset_m;
+    if (!is_ego_on_the_crosswalk) {
+      if (is_crosswalk_occluded(
+            crosswalk_, *planner_data_->occupancy_grid, path_intersects.front(), detection_range,
+            objects_ptr->objects, planner_param_)) {
+        if (!current_initial_occlusion_time_) current_initial_occlusion_time_ = now;
+        if (cmp_with_time_buffer(current_initial_occlusion_time_, std::greater_equal<double>{}))
+          most_recent_occlusion_time_ = now;
+      } else if (!cmp_with_time_buffer(most_recent_occlusion_time_, std::greater<double>{})) {
+        current_initial_occlusion_time_.reset();
+      }
+
+      if (cmp_with_time_buffer(most_recent_occlusion_time_, std::less_equal<double>{})) {
+        const auto target_velocity = calcTargetVelocity(path_intersects.front(), *path);
+        applySafetySlowDownSpeed(
+          *path, path_intersects,
+          std::max(target_velocity, planner_param_.occlusion_slow_down_velocity));
+        debug_data_.virtual_wall_suffix = " (occluded)";
+      } else {
+        most_recent_occlusion_time_.reset();
+      }
+    }
   }
   recordTime(2);
 
@@ -666,8 +713,6 @@ std::optional<CollisionPoint> CrosswalkModule::getCollisionPoint(
 {
   stop_watch_.tic(__func__);
 
-  std::vector<CollisionPoint> ret{};
-
   const auto & obj_vel = object.kinematics.initial_twist_with_covariance.twist.linear;
 
   const auto & ego_pos = planner_data_->current_odometry->pose.position;
@@ -765,8 +810,6 @@ CollisionPoint CrosswalkModule::createCollisionPoint(
   const geometry_msgs::msg::Vector3 & obj_vel,
   const std::optional<double> object_crosswalk_passage_direction) const
 {
-  constexpr double min_ego_velocity = 1.38;  // [m/s]
-
   const auto estimated_velocity = std::hypot(obj_vel.x, obj_vel.y);
   const auto velocity = std::max(planner_param_.min_object_velocity, estimated_velocity);
 
@@ -779,14 +822,15 @@ CollisionPoint CrosswalkModule::createCollisionPoint(
   // Hence, here, we use the length that would be appropriate for the ego_pass_first judge.
   collision_point.time_to_collision =
     std::max(0.0, dist_ego2cp - planner_data_->vehicle_info_.min_longitudinal_offset_m) /
-    std::max(ego_vel.x, min_ego_velocity);
+    std::max(ego_vel.x, planner_param_.ego_min_assumed_speed);
   collision_point.time_to_vehicle = std::max(0.0, dist_obj2cp) / velocity;
 
   return collision_point;
 }
 
 void CrosswalkModule::applySafetySlowDownSpeed(
-  PathWithLaneId & output, const std::vector<geometry_msgs::msg::Point> & path_intersects)
+  PathWithLaneId & output, const std::vector<geometry_msgs::msg::Point> & path_intersects,
+  const float safety_slow_down_speed)
 {
   if (path_intersects.empty()) {
     return;
@@ -794,10 +838,7 @@ void CrosswalkModule::applySafetySlowDownSpeed(
 
   const auto & ego_pos = planner_data_->current_odometry->pose.position;
   const auto ego_path = output;
-
-  // Safety slow down speed in [m/s]
-  const auto & safety_slow_down_speed =
-    static_cast<float>(crosswalk_.attribute("safety_slow_down_speed").asDouble().get());
+  std::optional<Pose> slowdown_pose{std::nullopt};
 
   if (!passed_safety_slow_point_) {
     // Safety slow down distance [m]
@@ -815,6 +856,8 @@ void CrosswalkModule::applySafetySlowDownSpeed(
 
     if (p_safety_slow.has_value()) {
       insertDecelPointWithDebugInfo(p_safety_slow.value(), safety_slow_down_speed, output);
+      slowdown_pose.emplace();
+      slowdown_pose->position = p_safety_slow.value();
     }
 
     if (safety_slow_point_range < 0.0) {
@@ -831,8 +874,13 @@ void CrosswalkModule::applySafetySlowDownSpeed(
         const float original_velocity = p.point.longitudinal_velocity_mps;
         p.point.longitudinal_velocity_mps = std::min(original_velocity, safety_slow_down_speed);
       }
+      if (!output.points.empty()) slowdown_pose = output.points.front().point.pose;
     }
   }
+  if (slowdown_pose)
+    velocity_factor_.set(
+      output.points, planner_data_->current_odometry->pose, *slowdown_pose,
+      VelocityFactor::APPROACHING);
 }
 
 Polygon2d CrosswalkModule::getAttentionArea(
@@ -1025,7 +1073,7 @@ void CrosswalkModule::updateObjectState(
     object_info_manager_.update(
       obj_uuid, obj_pos, std::hypot(obj_vel.x, obj_vel.y), clock_->now(), is_ego_yielding,
       has_traffic_light, collision_point, object.classification.front().label, planner_param_,
-      crosswalk_.polygon2d().basicPolygon());
+      crosswalk_.polygon2d().basicPolygon(), attention_area);
 
     const auto collision_state = object_info_manager_.getCollisionState(obj_uuid);
     if (collision_point) {
@@ -1051,6 +1099,7 @@ void CrosswalkModule::updateObjectState(
       object.kinematics.initial_pose_with_covariance.pose, object.shape,
       getLabelColor(collision_state));
   }
+
   object_info_manager_.finalize();
 }
 

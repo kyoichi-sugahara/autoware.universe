@@ -96,6 +96,9 @@ public:
 
   virtual PathSafetyStatus isApprovedPathSafe() const = 0;
 
+  virtual PathSafetyStatus evaluateApprovedPathWithUnsafeHysteresis(
+    PathSafetyStatus approve_path_safety_status) = 0;
+
   virtual bool isNearEndOfCurrentLanes(
     const lanelet::ConstLanelets & current_lanes, const lanelet::ConstLanelets & target_lanes,
     const double threshold) const = 0;
@@ -108,25 +111,9 @@ public:
 
   virtual bool specialExpiredCheck() const { return false; }
 
-  virtual void setPreviousModulePaths(
-    const PathWithLaneId & prev_module_reference_path, const PathWithLaneId & prev_module_path)
+  void setPreviousModuleOutput(const BehaviorModuleOutput & prev_module_output)
   {
-    if (!prev_module_reference_path.points.empty()) {
-      prev_module_reference_path_ = prev_module_reference_path;
-    }
-    if (!prev_module_path.points.empty()) {
-      prev_module_path_ = prev_module_path;
-    }
-  };
-
-  virtual void setPreviousDrivableAreaInfo(const DrivableAreaInfo & prev_drivable_area_info)
-  {
-    prev_drivable_area_info_ = prev_drivable_area_info;
-  }
-
-  virtual void setPreviousTurnSignalInfo(const TurnSignalInfo & prev_turn_signal_info)
-  {
-    prev_turn_signal_info_ = prev_turn_signal_info;
+    prev_module_output_ = prev_module_output;
   }
 
   virtual void updateSpecialData() {}
@@ -200,6 +187,8 @@ public:
 
   void resetStopPose() { lane_change_stop_pose_ = std::nullopt; }
 
+  virtual TurnSignalInfo get_current_turn_signal_info() = 0;
+
 protected:
   virtual lanelet::ConstLanelets getCurrentLanes() const = 0;
 
@@ -214,8 +203,6 @@ protected:
     const lanelet::ConstLanelets & target_lanelets, Direction direction,
     LaneChangePaths * candidate_paths, const utils::path_safety_checker::RSSparams rss_params,
     const bool is_stuck, const bool check_safety) const = 0;
-
-  virtual TurnSignalInfo calcTurnSignalInfo() const = 0;
 
   virtual bool isValidPath(const PathWithLaneId & path) const = 0;
 
@@ -232,14 +219,12 @@ protected:
   std::shared_ptr<LaneChangeParameters> lane_change_parameters_{};
   std::shared_ptr<LaneChangePath> abort_path_{};
   std::shared_ptr<const PlannerData> planner_data_{};
-  PathWithLaneId prev_module_reference_path_{};
-  PathWithLaneId prev_module_path_{};
-  DrivableAreaInfo prev_drivable_area_info_{};
-  TurnSignalInfo prev_turn_signal_info_{};
+  BehaviorModuleOutput prev_module_output_{};
   std::optional<Pose> lane_change_stop_pose_{std::nullopt};
 
   PathWithLaneId prev_approved_path_{};
 
+  int unsafe_hysteresis_count_{0};
   bool is_abort_path_approved_{false};
   bool is_abort_approval_requested_{false};
   bool is_activated_{false};

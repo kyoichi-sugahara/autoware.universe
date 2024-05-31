@@ -34,6 +34,9 @@ lanelet::LineString3d getLineStringFromArcLength(
   lanelet::Points3d points;
   double accumulated_length = 0;
   size_t start_index = linestring.size();
+  if (start_index == 0) {
+    return lanelet::LineString3d{lanelet::InvalId, points};
+  }
   for (size_t i = 0; i < linestring.size() - 1; i++) {
     const auto & p1 = linestring[i];
     const auto & p2 = linestring[i + 1];
@@ -293,7 +296,10 @@ bool IntersectionModule::checkStuckVehicleInIntersection(
 
     // check if the footprint is in the stuck detect area
     const auto obj_footprint = tier4_autoware_utils::toPolygon2d(object);
-    const bool is_in_stuck_area = !bg::disjoint(obj_footprint, stuck_vehicle_detect_area);
+    // NOTE: in order not to stop too much
+    const bool is_in_stuck_area = bg::within(
+      to_bg2d(object.kinematics.initial_pose_with_covariance.pose.position),
+      stuck_vehicle_detect_area);
     if (is_in_stuck_area) {
       debug_data_.stuck_targets.objects.push_back(object);
       return true;
