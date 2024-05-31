@@ -1100,6 +1100,9 @@ PathWithLaneId StartPlannerModule::calcBackwardPathFromStartPose() const
     planner_data_, planner_data_->parameters.backward_path_length + parameters_->max_back_distance);
 
   const auto arc_position_pose = lanelet::utils::getArcCoordinates(pull_out_lanes, start_pose);
+  std::cerr << "arc_position_pose.distance: " << arc_position_pose.distance << "\n\n\n"
+            << std::endl;
+  // arc_position_pose.distance is negative when the pose is right side of the center
 
   // common buffer distance for both front and back
   static constexpr double buffer = 30.0;
@@ -1111,9 +1114,64 @@ PathWithLaneId StartPlannerModule::calcBackwardPathFromStartPose() const
   auto path =
     planner_data_->route_handler->getCenterLinePath(pull_out_lanes, start_distance, end_distance);
 
+  // Define functions to get distance between a point and a lane's boundaries.
+  auto calc_absolute_lateral_offset = [&](const geometry_msgs::msg::Pose & search_pose) {
+    lanelet::Lanelet closest_lanelet;
+    lanelet::utils::query::getClosestLanelet(pull_out_lanes, search_pose, &closest_lanelet);
+
+    const auto & left_boundary = closest_lanelet.leftBound();
+    const auto & right_boundary = closest_lanelet.rightBound();
+
+    std::vector<geometry_msgs::msg::Point> left_boundary_path;
+    std::vector<geometry_msgs::msg::Point> right_boundary_path;
+
+    std::for_each(
+      left_boundary.begin(), left_boundary.end(),
+      [&left_boundary_path](const auto & boundary_point) {
+        const double x = boundary_point.x();
+        const double y = boundary_point.y();
+        left_boundary_path.push_back(tier4_autoware_utils::createPoint(x, y, 0.0));
+      });
+
+    std::for_each(
+      right_boundary.begin(), right_boundary.end(),
+      [&right_boundary_path](const auto & boundary_point) {
+        const double x = boundary_point.x();
+        const double y = boundary_point.y();
+        right_boundary_path.push_back(tier4_autoware_utils::createPoint(x, y, 0.0));
+      });
+
+    const double left_lateral_offset = calcLateralOffset(left_boundary_path, search_pose.position);
+    [[maybe_unused]] const double right_lateral_offset =
+      calcLateralOffset(right_boundary_path, search_pose.position);
+
+    const auto closest_index =
+      motion_utils::findNearestSegmentIndex(left_boundary_path, search_pose.position);
+    const auto yaw = tier4_autoware_utils::calcAzimuthAngle(
+      left_boundary_path[closest_index], left_boundary_path[closest_index + 1]);
+    std::cerr << "closest_index: " << closest_index << "\n\n\n" << std::endl;
+    std::cerr << "yaw: " << yaw << "\n\n\n" << std::endl;
+
+    return std::make_pair(left_lateral_offset, yaw);
+  };
+
+  const double dis_left_bound_to_start_pose = calc_absolute_lateral_offset(start_pose).first;
+  std::cerr << "dis_left_bound_to_start_pose: " << dis_left_bound_to_start_pose << "\n\n\n"
+            << std::endl;
   // shift all path points laterally to align with the start pose
   for (auto & path_point : path.points) {
-    path_point.point.pose = calcOffsetPose(path_point.point.pose, 0, arc_position_pose.distance, 0);
+    const double dis_left_bound_to_center =
+      calc_absolute_lateral_offset(path_point.point.pose).first;
+    std::cerr << "dis_left_bound_to_center: " << dis_left_bound_to_center << "/n/n/n" << std::endl;
+    const double shift_length = dis_left_bound_to_start_pose - dis_left_bound_to_center;
+    // path_point.point.pose = calcOffsetPose(path_point.point.pose, 0, arc_position_pose.distance,
+    // 0);
+    std::cerr << "shift_length: " << shift_length << "\n\n\n" << std::endl;
+    std::cerr << "arc_length.pose.distance: " << arc_position_pose.distance << "\n\n\n "
+              << std::endl;
+    path_point.point.pose = calcOffsetPose(
+      path_point.point.pose, 0, shift_length,
+      calc_absolute_lateral_offset(path_point.point.pose).second);
   }
 
   return path;
@@ -1308,11 +1366,11 @@ TurnSignalInfo StartPlannerModule::calcTurnSignalInfo()
   constexpr bool egos_lane_is_shifted = true;
   constexpr bool is_pull_out = true;
 
-  // In Geometric pull out, the ego stops once and then steers the wheels to the opposite direction.
-  // This sometimes causes the getBehaviorTurnSignalInfo method to detect the ego as stopped and
-  // close to complete its shift, so it wrongly turns off the blinkers, this override helps avoid
-  // this issue. Also, if the ego is not engaged (so it is stopped), the blinkers should still be
-  // activated.
+  // In Geometric pull out, the ego stops once and then steers the wheels to the opposite
+  // direction. This sometimes causes the getBehaviorTurnSignalInfo method to detect the ego as
+  // stopped and close to complete its shift, so it wrongly turns off the blinkers, this override
+  // helps avoid this issue. Also, if the ego is not engaged (so it is stopped), the blinkers
+  // should still be activated.
 
   const bool geometric_planner_has_not_finished_first_path = std::invoke([&]() {
     if (status_.planner_type != PlannerType::GEOMETRIC) {
