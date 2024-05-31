@@ -64,7 +64,6 @@ struct StartPlannerParameters
   double th_distance_to_middle_of_the_road{0.0};
   double intersection_search_length{0.0};
   double length_ratio_for_turn_signal_deactivation_near_intersection{0.0};
-  std::vector<double> objects_collision_check_margins{};
   double back_objects_collision_check_margin{0.0};
   double extra_width_margin_for_rear_obstacle{0.0};
   std::vector<double> collision_check_margins{};

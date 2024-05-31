@@ -44,12 +44,12 @@ void StartPlannerModuleManager::init(rclcpp::Node * node)
   p.intersection_search_length = node->declare_parameter<double>(ns + "intersection_search_length");
   p.length_ratio_for_turn_signal_deactivation_near_intersection = node->declare_parameter<double>(
     ns + "length_ratio_for_turn_signal_deactivation_near_intersection");
-  p.collision_check_margins =
-    node->declare_parameter<std::vector<double>>(ns + "collision_check_margins");
   p.back_objects_collision_check_margin =
     node->declare_parameter<double>(ns + "back_objects_collision_check_margin");
   p.extra_width_margin_for_rear_obstacle =
     node->declare_parameter<double>(ns + "extra_width_margin_for_rear_obstacle");
+  p.collision_check_margins =
+    node->declare_parameter<std::vector<double>>(ns + "collision_check_margins");
   p.collision_check_margin_from_front_object =
     node->declare_parameter<double>(ns + "collision_check_margin_from_front_object");
   p.th_moving_object_velocity = node->declare_parameter<double>(ns + "th_moving_object_velocity");

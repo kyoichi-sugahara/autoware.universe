@@ -133,6 +133,8 @@ double getArcLengthForPoint(
   pose.position.x = point.x();
   pose.position.y = point.y();
   return lanelet::utils::getArcCoordinates(lanelets, pose).length;
+}
+
 std::optional<PathWithLaneId> extractCollisionCheckSection(
   const PullOutPath & path, const double collision_check_distance_from_end)
 {
