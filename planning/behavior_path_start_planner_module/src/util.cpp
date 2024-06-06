@@ -14,9 +14,9 @@
 
 #include "behavior_path_start_planner_module/util.hpp"
 
-#include "behavior_path_planner_common/utils/path_shifter/path_shifter.hpp"
-#include "behavior_path_planner_common/utils/path_utils.hpp"
-#include "behavior_path_planner_common/utils/utils.hpp"
+#include "autoware_behavior_path_planner_common/utils/path_shifter/path_shifter.hpp"
+#include "autoware_behavior_path_planner_common/utils/path_utils.hpp"
+#include "autoware_behavior_path_planner_common/utils/utils.hpp"
 #include "tier4_autoware_utils/geometry/boost_polygon_utils.hpp"
 
 #include <lanelet2_extension/utility/utilities.hpp>
