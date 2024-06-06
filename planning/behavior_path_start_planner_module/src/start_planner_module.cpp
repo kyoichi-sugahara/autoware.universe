@@ -83,6 +83,7 @@ StartPlannerModule::StartPlannerModule(
   }
   if (start_planners_.empty()) {
     RCLCPP_ERROR(getLogger(), "Not found enabled planner");
+    // stop reason
   }
 
   if (parameters_->enable_freespace_planner) {
@@ -260,6 +261,7 @@ void StartPlannerModule::updateData()
     status_.has_departed = true;
   }
 
+  // hasFinishedBackwardDriving can be used directly?
   status_.backward_driving_complete = hasFinishedBackwardDriving();
   if (status_.backward_driving_complete) {
     updateStatusAfterBackwardDriving();
@@ -281,6 +283,7 @@ bool StartPlannerModule::hasFinishedBackwardDriving() const
   const double ego_vel = utils::l2Norm(planner_data_->self_odometry->twist.twist.linear);
   const bool is_stopped = ego_vel < parameters_->th_stopped_velocity;
 
+  // .driving_forward should be calculated to know where this value is calculated.
   const bool back_finished = !status_.driving_forward && is_near && is_stopped;
   if (back_finished) {
     RCLCPP_INFO(getLogger(), "back finished");
@@ -325,6 +328,7 @@ bool StartPlannerModule::hasCollisionWithDynamicObjects() const
 
 bool StartPlannerModule::isExecutionRequested() const
 {
+  // log the non-execution reasons
   if (isModuleRunning()) {
     return true;
   }
@@ -357,6 +361,7 @@ bool StartPlannerModule::isModuleRunning() const
 
 bool StartPlannerModule::isCurrentPoseOnMiddleOfTheRoad() const
 {
+  // log the distance
   const Pose & current_pose = planner_data_->self_odometry->pose.pose;
   const lanelet::ConstLanelets current_lanes = utils::getCurrentLanes(planner_data_);
   const double lateral_distance_to_center_lane =
@@ -565,9 +570,10 @@ bool StartPlannerModule::isStopped()
 bool StartPlannerModule::isExecutionReady() const
 {
   // Evaluate safety. The situation is not safe if any of the following conditions are met:
-  // 1. pull out path has not been found
-  // 2. there is a moving objects around ego
-  // 3. waiting for approval and there is a collision with dynamic objects
+  // - Pull out path has not been found
+  // - There is a moving objects aroud ego
+  // - there is a moving objects around ego
+  // - waiting for approval and there is a collision with dynamic objects
 
   const bool is_safe = [&]() -> bool {
     if (!status_.found_pull_out_path) return false;
@@ -840,6 +846,7 @@ void StartPlannerModule::planWithPriority(
   const std::vector<Pose> & start_pose_candidates, const Pose & refined_start_pose,
   const Pose & goal_pose, const std::string search_priority)
 {
+  // 　ここでreturnした後の処理が不明
   if (start_pose_candidates.empty()) return;
 
   const PriorityOrder order_priority =
@@ -856,7 +863,7 @@ void StartPlannerModule::planWithPriority(
       }
     }
   }
-
+  // no path
   updateStatusIfNoSafePathFound();
 }
 
@@ -1030,8 +1037,16 @@ std::vector<DrivableLanes> StartPlannerModule::generateDrivableLanes(
   return drivable_lanes;
 }
 
+// change name
 void StartPlannerModule::updatePullOutStatus()
 {
+  const auto & route_handler = planner_data_->route_handler;
+  const auto & current_pose = planner_data_->self_odometry->pose.pose;
+  const auto & goal_pose = planner_data_->route_handler->getGoalPose();
+  const auto pull_out_lanes = start_planner_utils::getPullOutLanes(
+    planner_data_, planner_data_->parameters.backward_path_length + parameters_->max_back_distance);
+
+  // this should be called from outside
   // skip updating if enough time has not passed for preventing chattering between back and
   // start_planner
   if (!receivedNewRoute()) {
@@ -1045,16 +1060,14 @@ void StartPlannerModule::updatePullOutStatus()
   }
   last_pull_out_start_update_time_ = std::make_unique<rclcpp::Time>(clock_->now());
 
-  const auto & route_handler = planner_data_->route_handler;
-  const auto & current_pose = planner_data_->self_odometry->pose.pose;
-  const auto & goal_pose = planner_data_->route_handler->getGoalPose();
-
   // refine start pose with pull out lanes.
   // 1) backward driving is not allowed: use refined pose just as start pose.
   // 2) backward driving is allowed: use refined pose to check if backward driving is needed.
   const PathWithLaneId start_pose_candidates_path = calcBackwardPathFromStartPose();
   const auto refined_start_pose = calcLongitudinalOffsetPose(
     start_pose_candidates_path.points, planner_data_->self_odometry->pose.pose.position, 0.0);
+  // what is refined pose?
+  // in which situation this early return may happen?
   if (!refined_start_pose) return;
 
   // search pull out start candidates backward
@@ -1072,8 +1085,6 @@ void StartPlannerModule::updatePullOutStatus()
 
   debug_data_.refined_start_pose = *refined_start_pose;
   debug_data_.start_pose_candidates = start_pose_candidates;
-  const auto pull_out_lanes = start_planner_utils::getPullOutLanes(
-    planner_data_, planner_data_->parameters.backward_path_length + parameters_->max_back_distance);
 
   if (hasFinishedBackwardDriving()) {
     updateStatusAfterBackwardDriving();
