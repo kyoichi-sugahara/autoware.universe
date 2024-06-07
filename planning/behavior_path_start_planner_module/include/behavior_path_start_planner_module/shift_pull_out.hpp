@@ -53,9 +53,17 @@ public:
   std::shared_ptr<LaneDepartureChecker> lane_departure_checker_;
 
 private:
-  // Calculate longitudinal distance based on the acceleration limit, curvature limit, and the
-  // minimum distance requirement.
-  double calcPullOutLongitudinalDistance(
+  /**
+   * @brief calculate longitudinal distance based on the acceleration limit, curvature limit, and
+   * the minimum distance requirement.
+   * @param[in] lon_acc Longitudinal acceleration
+   * @param[in] shift_time Time required for pull out
+   * @param[in] shift_length pull out distance
+   * @param[in] max_curvature Maximum curvature
+   * @param[in] min_distance Minimum distance
+   * @return The minimum longitudinal distance during pull out
+   */
+  double ShiftPullOut::calcPullOutLongitudinalDistance(
     const double lon_acc, const double shift_time, const double shift_length,
     const double max_curvature, const double min_distance) const;
 };

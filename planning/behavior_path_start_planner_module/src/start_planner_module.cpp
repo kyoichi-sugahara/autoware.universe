@@ -894,12 +894,14 @@ PriorityOrder StartPlannerModule::determinePriorityOrder(
   return order_priority;
 }
 
+// ここらへんの関数名も気になる。
 bool StartPlannerModule::findPullOutPath(
   const Pose & start_pose_candidate, const std::shared_ptr<PullOutPlannerBase> & planner,
   const Pose & refined_start_pose, const Pose & goal_pose, const double collision_check_margin)
 {
   // if start_pose_candidate is far from refined_start_pose, backward driving is necessary
   constexpr double epsilon = 0.01;
+  // ここでtrueにならなかったら、後方の点でも後退しない可能性があるのでは？
   const bool backward_is_unnecessary =
     tier4_autoware_utils::calcDistance2d(start_pose_candidate, refined_start_pose) < epsilon;
 

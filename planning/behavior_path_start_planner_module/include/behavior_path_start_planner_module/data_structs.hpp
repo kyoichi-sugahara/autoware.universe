@@ -48,6 +48,7 @@ struct StartPlannerDebugData
   CollisionCheckDebugMap collision_check;
   lanelet::ConstLanelets departure_check_lanes;
 
+  // what is the refined start pose
   Pose refined_start_pose;
   std::vector<Pose> start_pose_candidates;
   size_t selected_start_pose_candidate_index;

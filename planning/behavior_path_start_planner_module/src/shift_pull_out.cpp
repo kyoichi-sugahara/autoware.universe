@@ -76,6 +76,7 @@ std::optional<PullOutPath> ShiftPullOut::plan(const Pose & start_pose, const Pos
 
     const auto lanelet_map_ptr = planner_data_->route_handler->getLaneletMapPtr();
 
+    // lambda関数にする必要ある？
     // if lane departure check override is true, and if the initial pose is not fully within a lane,
     // cancel lane departure check
     const bool is_lane_departure_check_required = std::invoke([&]() -> bool {
@@ -234,6 +235,7 @@ std::vector<PullOutPath> ShiftPullOut::calcPullOutPaths(
     route_handler.getCenterLinePath(road_lanes, s_start, s_end),
     parameters_.center_line_path_interval);
 
+  // 関数切り出したい。
   // non_shifted_path for when shift length or pull out distance is too short
   const PullOutPath non_shifted_path = std::invoke([&]() {
     PullOutPath non_shifted_path{};
@@ -275,18 +277,21 @@ std::vector<PullOutPath> ShiftPullOut::calcPullOutPaths(
       minimum_shift_pull_out_distance);
     const double terminal_velocity = longitudinal_acc * shift_time;
 
-    // clip from ego pose
+    // Extract the reference path from the ego pose
     PathWithLaneId road_lane_reference_path_from_ego = road_lane_reference_path;
     road_lane_reference_path_from_ego.points.erase(
       road_lane_reference_path_from_ego.points.begin(),
       road_lane_reference_path_from_ego.points.begin() + shift_start_idx);
-    // before means distance on road lane
-    // Note: the pull_out_distance is the required distance on the shifted path. Now we need to
-    // calculate the distance on the center line used for the shift path generation. However, since
-    // the calcBeforeShiftedArcLength is an approximate conversion from center line to center line
-    // (not shift path to centerline), the conversion result may too long or short. To prevent too
-    // short length, take maximum with the original distance.
-    // TODO(kosuke55): update the conversion function and get rid of the comparison with original
+
+    // Calculate the pull_out distance
+    // Note: pull_out_distance represents the required distance on the shifted path,
+    // but we need to calculate the distance on the center line used for generating the shifted
+    // path. The calcBeforeShiftedArcLength() function performs an approximate conversion from
+    // center line to center line, but the conversion result may be too long or too short compared
+    // to the actual distance. To prevent a distance that is too short, we take the maximum value
+    // with the original distance.
+
+    // TODO(kosuke55):  Update the conversion function and remove the comparison with the original
     // distance.
     const double pull_out_distance_converted = calcBeforeShiftedArcLength(
       road_lane_reference_path_from_ego, pull_out_distance, shift_length);
@@ -372,6 +377,7 @@ std::vector<PullOutPath> ShiftPullOut::calcPullOutPaths(
   return candidate_paths;
 }
 
+// 外出ししたい。
 double ShiftPullOut::calcPullOutLongitudinalDistance(
   const double lon_acc, const double shift_time, const double shift_length,
   const double max_curvature, const double min_distance) const
