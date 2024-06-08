@@ -84,9 +84,9 @@ rclcpp::NodeOptions makeNodeOptions(const bool enable_keep_stopped_until_steer_c
 std::shared_ptr<Controller> makeNode(const rclcpp::NodeOptions & node_options)
 {
   const auto node = std::make_shared<Controller>(node_options);
-  if (
-    rcutils_logging_set_logger_level(node->get_logger().get_name(), RCUTILS_LOG_SEVERITY_DEBUG) !=
-    RCUTILS_RET_OK) {
+  auto ret =
+    rcutils_logging_set_logger_level(node->get_logger().get_name(), RCUTILS_LOG_SEVERITY_DEBUG);
+  if (ret != RCUTILS_RET_OK) {
     std::cout << "Failed to set logging severity to DEBUG\n";
   }
   return node;
@@ -105,9 +105,8 @@ public:
     operation_mode_pub =
       fnf->create_publisher<OperationModeState>("controller/input/current_operation_mode");
 
-    cmd_sub = fnf->create_subscription<AckermannControlCommand>(
-      "controller/output/control_cmd", *fnf->get_fake_node(),
-      [this](const AckermannControlCommand::SharedPtr msg) {
+    cmd_sub = fnf->create_subscription<Control>(
+      "controller/output/control_cmd", *fnf->get_fake_node(), [this](const Control::SharedPtr msg) {
         cmd_msg = msg;
         received_control_command = true;
       });
@@ -193,20 +192,13 @@ public:
   Trajectory::SharedPtr cgmres_predicted_trajectory;
   bool received_cgmres_predicted_trajectory = false;
 
-  rclcpp::Publisher<Trajectory>::SharedPtr traj_pub;
-  rclcpp::Publisher<VehicleOdometry>::SharedPtr odom_pub;
-  rclcpp::Publisher<SteeringReport>::SharedPtr steer_pub;
-  rclcpp::Publisher<AccelWithCovarianceStamped>::SharedPtr accel_pub;
-  rclcpp::Publisher<OperationModeState>::SharedPtr operation_mode_pub;
-
-  rclcpp::Subscription<AckermannControlCommand>::SharedPtr cmd_sub;
   rclcpp::Subscription<Trajectory>::SharedPtr predicted_traj_in_frenet_sub;
   rclcpp::Subscription<Trajectory>::SharedPtr predicted_traj_sub;
   rclcpp::Subscription<Trajectory>::SharedPtr cgmres_predicted_traj_in_frenet_sub;
   rclcpp::Subscription<Trajectory>::SharedPtr cgmres_predicted_traj_sub;
   rclcpp::Subscription<Trajectory>::SharedPtr resampled_ref_traj_sub;
 
-  std::shared_ptr<tf2_ros::StaticTransformBroadcaster> br;
+  // std::shared_ptr<tf2_ros::StaticTransformBroadcaster> br;
   void publish_steer_angle(const double steer)
   {
     SteeringReport steer_msg;

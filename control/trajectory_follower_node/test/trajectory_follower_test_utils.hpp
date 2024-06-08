@@ -39,9 +39,9 @@
 namespace test_utils
 {
 using FakeNodeFixture = autoware::tools::testing::FakeTestNode;
-using TrajectoryPointArray = std::vector<autoware_auto_planning_msgs::msg::TrajectoryPoint>;
-using autoware_auto_planning_msgs::msg::Trajectory;
-using autoware_auto_planning_msgs::msg::TrajectoryPoint;
+using TrajectoryPointArray = std::vector<autoware_planning_msgs::msg::TrajectoryPoint>;
+using autoware_planning_msgs::msg::Trajectory;
+using autoware_planning_msgs::msg::TrajectoryPoint;
 
 inline void waitForMessage(
   const std::shared_ptr<rclcpp::Node> & node, FakeNodeFixture * fixture, const bool & received_flag,
