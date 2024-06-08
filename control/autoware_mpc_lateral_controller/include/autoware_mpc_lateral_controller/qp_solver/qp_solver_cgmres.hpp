@@ -20,8 +20,8 @@
 #include "cgmres/single_shooting_cgmres_solver.hpp"
 #include "cgmres/solver_settings.hpp"
 #include "cgmres/zero_horizon_ocp_solver.hpp"
-#include "mpc_lateral_controller/mpc_cgmres.hpp"
-#include "mpc_lateral_controller/qp_solver/qp_solver_interface.hpp"
+#include "autoware_mpc_lateral_controller/mpc_cgmres.hpp"
+#include "autoware_mpc_lateral_controller/qp_solver/qp_solver_interface.hpp"
 #include "osqp_interface/osqp_interface.hpp"
 #include "rclcpp/rclcpp.hpp"
 

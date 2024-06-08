@@ -15,7 +15,7 @@
 #ifndef AUTOWARE_MPC_LATERAL_CONTROLLER__QP_SOLVER__QP_SOLVER_INTERFACE_HPP_
 #define AUTOWARE_MPC_LATERAL_CONTROLLER__QP_SOLVER__QP_SOLVER_INTERFACE_HPP_
 
-#include "mpc_lateral_controller/mpc_trajectory.hpp"
+#include "autoware_mpc_lateral_controller/mpc_trajectory.hpp"
 
 #include <Eigen/Core>
 
