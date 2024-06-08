@@ -201,6 +201,10 @@ std::vector<PullOutPath> ShiftPullOut::calcPullOutPaths(
   const RouteHandler & route_handler, const lanelet::ConstLanelets & road_lanes,
   const Pose & start_pose, const Pose & goal_pose)
 {
+
+  // pull_out_distance:
+  // pull_out_distance_converted:
+  // before_shifted_pull_out_distance:
   std::vector<PullOutPath> candidate_paths{};
 
   if (road_lanes.empty()) {
@@ -219,18 +223,19 @@ std::vector<PullOutPath> ShiftPullOut::calcPullOutPaths(
   const int lateral_acceleration_sampling_num = parameters_.lateral_acceleration_sampling_num;
 
   // set minimum acc for breaking loop when sampling num is 1
-  const double acc_resolution = std::max(
+  const double lateral_acc_resolution = std::max(
     std::abs(maximum_lateral_acc - minimum_lateral_acc) / lateral_acceleration_sampling_num,
     std::numeric_limits<double>::epsilon());
 
   // generate road lane reference path
   const auto arc_position_start = getArcCoordinates(road_lanes, start_pose);
-  const double s_start = std::max(arc_position_start.length - backward_path_length, 0.0);
   const auto path_end_info = behavior_path_planner::utils::parking_departure::calcEndArcLength(
     s_start, forward_path_length, road_lanes, goal_pose);
-  const double s_end = path_end_info.first;
+  // comment
   const bool path_terminal_is_goal = path_end_info.second;
 
+  const double s_start = std::max(arc_position_start.length - backward_path_length, 0.0);
+  const double s_end = path_end_info.first;
   PathWithLaneId road_lane_reference_path = utils::resamplePathWithSpline(
     route_handler.getCenterLinePath(road_lanes, s_start, s_end),
     parameters_.center_line_path_interval);
@@ -250,7 +255,7 @@ std::vector<PullOutPath> ShiftPullOut::calcPullOutPaths(
 
   bool has_non_shifted_path = false;
   for (double lateral_acc = minimum_lateral_acc; lateral_acc <= maximum_lateral_acc;
-       lateral_acc += acc_resolution) {
+       lateral_acc += lateral_acc_resolution) {
     PathShifter path_shifter{};
 
     path_shifter.setPath(road_lane_reference_path);
@@ -267,14 +272,18 @@ std::vector<PullOutPath> ShiftPullOut::calcPullOutPaths(
     // calculate pull out distance, longitudinal acc, terminal velocity
     const size_t shift_start_idx =
       findNearestIndex(road_lane_reference_path.points, start_pose.position);
+    // ここではreference pathの最近傍点を取得していることに注意
     const double road_velocity =
       road_lane_reference_path.points.at(shift_start_idx).point.longitudinal_velocity_mps;
+    // 横方向のジャーク、縦方向の加速度からshift_length移動するのにかかる時間を計算。
     const double shift_time =
       PathShifter::calcShiftTimeFromJerk(shift_length, lateral_jerk, lateral_acc);
     const double longitudinal_acc = std::clamp(road_velocity / shift_time, 0.0, /* max acc */ 1.0);
+    // 勘だけど、pull_out_distanceが正しく計算出来ていなさそう。
     const auto pull_out_distance = calcPullOutLongitudinalDistance(
       longitudinal_acc, shift_time, shift_length, maximum_curvature,
       minimum_shift_pull_out_distance);
+    // 　velocity at shift end pose?
     const double terminal_velocity = longitudinal_acc * shift_time;
 
     // Extract the reference path from the ego pose
@@ -282,6 +291,7 @@ std::vector<PullOutPath> ShiftPullOut::calcPullOutPaths(
     road_lane_reference_path_from_ego.points.erase(
       road_lane_reference_path_from_ego.points.begin(),
       road_lane_reference_path_from_ego.points.begin() + shift_start_idx);
+    // wakaranai PR: https://github.com/autowarefoundation/autoware.universe/pull/2335
 
     // Calculate the pull_out distance
     // Note: pull_out_distance represents the required distance on the shifted path,
