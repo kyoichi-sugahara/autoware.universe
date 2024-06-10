@@ -201,7 +201,6 @@ std::vector<PullOutPath> ShiftPullOut::calcPullOutPaths(
   const RouteHandler & route_handler, const lanelet::ConstLanelets & road_lanes,
   const Pose & start_pose, const Pose & goal_pose)
 {
-
   // pull_out_distance:
   // pull_out_distance_converted:
   // before_shifted_pull_out_distance:
@@ -223,19 +222,19 @@ std::vector<PullOutPath> ShiftPullOut::calcPullOutPaths(
   const int lateral_acceleration_sampling_num = parameters_.lateral_acceleration_sampling_num;
 
   // set minimum acc for breaking loop when sampling num is 1
-  const double lateral_acc_resolution = std::max(
+  const double acc_resolution = std::max(
     std::abs(maximum_lateral_acc - minimum_lateral_acc) / lateral_acceleration_sampling_num,
     std::numeric_limits<double>::epsilon());
 
   // generate road lane reference path
   const auto arc_position_start = getArcCoordinates(road_lanes, start_pose);
+  const double s_start = std::max(arc_position_start.length - backward_path_length, 0.0);
   const auto path_end_info = behavior_path_planner::utils::parking_departure::calcEndArcLength(
     s_start, forward_path_length, road_lanes, goal_pose);
+  const double s_end = path_end_info.first;
   // comment
   const bool path_terminal_is_goal = path_end_info.second;
 
-  const double s_start = std::max(arc_position_start.length - backward_path_length, 0.0);
-  const double s_end = path_end_info.first;
   PathWithLaneId road_lane_reference_path = utils::resamplePathWithSpline(
     route_handler.getCenterLinePath(road_lanes, s_start, s_end),
     parameters_.center_line_path_interval);
@@ -255,7 +254,7 @@ std::vector<PullOutPath> ShiftPullOut::calcPullOutPaths(
 
   bool has_non_shifted_path = false;
   for (double lateral_acc = minimum_lateral_acc; lateral_acc <= maximum_lateral_acc;
-       lateral_acc += lateral_acc_resolution) {
+       lateral_acc += acc_resolution) {
     PathShifter path_shifter{};
 
     path_shifter.setPath(road_lane_reference_path);

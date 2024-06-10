@@ -779,13 +779,13 @@ PidLongitudinalController::Motion PidLongitudinalController::calcCtrlCmd(
     raw_ctrl_cmd.acc = applyVelocityFeedback(control_data);
     raw_ctrl_cmd = keepBrakeBeforeStop(control_data, raw_ctrl_cmd, target_idx);
 
-    // RCLCPP_DEBUG(
-    //   logger_,
-    //   "[feedback control]  vel: %3.3f, acc: %3.3f, dt: %3.3f, v_curr: %3.3f, v_ref: %3.3f "
-    //   "feedback_ctrl_cmd.ac: %3.3f",
-    //   raw_ctrl_cmd.vel, raw_ctrl_cmd.acc, control_data.dt, control_data.current_motion.vel,
-    //   control_data.interpolated_traj.points.at(control_data.target_idx).longitudinal_velocity_mps,
-    //   raw_ctrl_cmd.acc);
+    RCLCPP_DEBUG(
+      logger_,
+      "[feedback control]  vel: %3.3f, acc: %3.3f, dt: %3.3f, v_curr: %3.3f, v_ref: %3.3f "
+      "feedback_ctrl_cmd.ac: %3.3f",
+      raw_ctrl_cmd.vel, raw_ctrl_cmd.acc, control_data.dt, control_data.current_motion.vel,
+      control_data.interpolated_traj.points.at(control_data.target_idx).longitudinal_velocity_mps,
+      raw_ctrl_cmd.acc);
   } else if (m_control_state == ControlState::STOPPING) {
     raw_ctrl_cmd.acc = m_smooth_stop.calculate(
       control_data.stop_dist, control_data.current_motion.vel, control_data.current_motion.acc,

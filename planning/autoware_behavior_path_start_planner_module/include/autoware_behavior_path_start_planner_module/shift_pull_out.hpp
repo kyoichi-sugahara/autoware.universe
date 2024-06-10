@@ -63,7 +63,7 @@ private:
    * @param[in] min_distance Minimum distance
    * @return The minimum longitudinal distance during pull out
    */
-  double ShiftPullOut::calcPullOutLongitudinalDistance(
+  double calcPullOutLongitudinalDistance(
     const double lon_acc, const double shift_time, const double shift_length,
     const double max_curvature, const double min_distance) const;
 };

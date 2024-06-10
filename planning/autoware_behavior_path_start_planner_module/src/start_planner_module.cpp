@@ -571,7 +571,6 @@ bool StartPlannerModule::isExecutionReady() const
 {
   // Evaluate safety. The situation is not safe if any of the following conditions are met:
   // - Pull out path has not been found
-  // - There is a moving objects aroud ego
   // - there is a moving objects around ego
   // - waiting for approval and there is a collision with dynamic objects
 
@@ -1042,13 +1041,6 @@ std::vector<DrivableLanes> StartPlannerModule::generateDrivableLanes(
 // change name
 void StartPlannerModule::updatePullOutStatus()
 {
-  const auto & route_handler = planner_data_->route_handler;
-  const auto & current_pose = planner_data_->self_odometry->pose.pose;
-  const auto & goal_pose = planner_data_->route_handler->getGoalPose();
-  const auto pull_out_lanes = start_planner_utils::getPullOutLanes(
-    planner_data_, planner_data_->parameters.backward_path_length + parameters_->max_back_distance);
-
-  // this should be called from outside
   // skip updating if enough time has not passed for preventing chattering between back and
   // start_planner
   if (!receivedNewRoute()) {
@@ -1061,6 +1053,10 @@ void StartPlannerModule::updatePullOutStatus()
     }
   }
   last_pull_out_start_update_time_ = std::make_unique<rclcpp::Time>(clock_->now());
+
+  const auto & route_handler = planner_data_->route_handler;
+  const auto & current_pose = planner_data_->self_odometry->pose.pose;
+  const auto & goal_pose = planner_data_->route_handler->getGoalPose();
 
   // refine start pose with pull out lanes.
   // 1) backward driving is not allowed: use refined pose just as start pose.
@@ -1087,6 +1083,8 @@ void StartPlannerModule::updatePullOutStatus()
 
   debug_data_.refined_start_pose = *refined_start_pose;
   debug_data_.start_pose_candidates = start_pose_candidates;
+  const auto pull_out_lanes = start_planner_utils::getPullOutLanes(
+    planner_data_, planner_data_->parameters.backward_path_length + parameters_->max_back_distance);
 
   if (hasFinishedBackwardDriving()) {
     updateStatusAfterBackwardDriving();
@@ -1118,8 +1116,6 @@ PathWithLaneId StartPlannerModule::calcBackwardPathFromStartPose() const
     planner_data_, planner_data_->parameters.backward_path_length + parameters_->max_back_distance);
 
   const auto arc_position_pose = lanelet::utils::getArcCoordinates(pull_out_lanes, start_pose);
-  std::cerr << "arc_position_pose.distance: " << arc_position_pose.distance << "\n\n\n"
-            << std::endl;
   // arc_position_pose.distance is negative when the pose is right side of the center
 
   // common buffer distance for both front and back
