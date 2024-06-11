@@ -1163,26 +1163,27 @@ PathWithLaneId StartPlannerModule::calcBackwardPathFromStartPose() const
       motion_utils::findNearestSegmentIndex(left_boundary_path, search_pose.position);
     const auto yaw = tier4_autoware_utils::calcAzimuthAngle(
       left_boundary_path[closest_index], left_boundary_path[closest_index + 1]);
-    std::cerr << "closest_index: " << closest_index << "\n\n\n" << std::endl;
-    std::cerr << "yaw: " << yaw << "\n\n\n" << std::endl;
+    // std::cerr << "closest_index: " << closest_index << "\n\n\n" << std::endl;
+    // std::cerr << "yaw: " << yaw << "/n/n/n" << std::endl;
 
     return std::make_pair(left_lateral_offset, yaw);
   };
 
   const double dis_left_bound_to_start_pose = calc_absolute_lateral_offset(start_pose).first;
-  std::cerr << "dis_left_bound_to_start_pose: " << dis_left_bound_to_start_pose << "\n\n\n"
-            << std::endl;
+  // std::cerr << "dis_left_bound_to_start_pose: " << dis_left_bound_to_start_pose << "\n\n\n"
+  //           << std::endl;
   // shift all path points laterally to align with the start pose
   for (auto & path_point : path.points) {
     const double dis_left_bound_to_center =
       calc_absolute_lateral_offset(path_point.point.pose).first;
-    std::cerr << "dis_left_bound_to_center: " << dis_left_bound_to_center << "/n/n/n" << std::endl;
+    // std::cerr << "dis_left_bound_to_center: " << dis_left_bound_to_center << "/n/n/n" <<
+    // std::endl;
     const double shift_length = dis_left_bound_to_start_pose - dis_left_bound_to_center;
     // path_point.point.pose = calcOffsetPose(path_point.point.pose, 0, arc_position_pose.distance,
     // 0);
-    std::cerr << "shift_length: " << shift_length << "\n\n\n" << std::endl;
-    std::cerr << "arc_length.pose.distance: " << arc_position_pose.distance << "\n\n\n "
-              << std::endl;
+    // std::cerr << "shift_length: " << shift_length << "\n\n\n" << std::endl;
+    // std::cerr << "arc_length.pose.distance: " << arc_position_pose.distance << "\n\n\n "
+    //           << std::endl;
     path_point.point.pose = calcOffsetPose(
       path_point.point.pose, 0, shift_length,
       calc_absolute_lateral_offset(path_point.point.pose).second);
