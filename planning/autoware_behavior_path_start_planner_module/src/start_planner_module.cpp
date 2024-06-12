@@ -930,8 +930,10 @@ bool StartPlannerModule::findPullOutPath(
   // if start_pose_candidate is far from refined_start_pose, backward driving is necessary
   constexpr double epsilon = 0.01;
   // ここでtrueにならなかったら、後方の点でも後退しない可能性があるのでは？
-  const bool backward_is_unnecessary =
-    tier4_autoware_utils::calcDistance2d(start_pose_candidate, refined_start_pose) < epsilon;
+
+  const double backwards_distance =
+    tier4_autoware_utils::calcDistance2d(start_pose_candidate, refined_start_pose);
+  const bool backward_is_unnecessary = backwards_distance < epsilon;
 
   planner->setCollisionCheckMargin(collision_check_margin);
   planner->setPlannerData(planner_data_);
