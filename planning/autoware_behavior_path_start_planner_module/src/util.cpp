@@ -36,7 +36,7 @@
 #include <string>
 #include <vector>
 
-namespace behavior_path_planner::start_planner_utils
+namespace autoware::behavior_path_planner::start_planner_utils
 {
 PathWithLaneId getBackwardPath(
   const RouteHandler & route_handler, const lanelet::ConstLanelets & shoulder_lanes,
@@ -171,4 +171,4 @@ std::optional<PathWithLaneId> extractCollisionCheckSection(
   return collision_check_section;
 }
 
-}  // namespace behavior_path_planner::start_planner_utils
+}  // namespace autoware::behavior_path_planner::start_planner_utils

@@ -40,8 +40,8 @@
 #include <utility>
 #include <vector>
 
-using behavior_path_planner::utils::parking_departure::initializeCollisionCheckDebugMap;
-using behavior_path_planner::utils::path_safety_checker::ExtendedPredictedObject;
+using autoware::behavior_path_planner::utils::parking_departure::initializeCollisionCheckDebugMap;
+using autoware::behavior_path_planner::utils::path_safety_checker::ExtendedPredictedObject;
 using motion_utils::calcLateralOffset;
 using motion_utils::calcLongitudinalOffsetPose;
 using tier4_autoware_utils::calcOffsetPose;
@@ -51,7 +51,7 @@ using tier4_autoware_utils::calcOffsetPose;
 #define DEBUG_PRINT(...) \
   RCLCPP_DEBUG_EXPRESSION(getLogger(), parameters_->print_debug_info, __VA_ARGS__)
 
-namespace behavior_path_planner
+namespace autoware::behavior_path_planner
 {
 StartPlannerModule::StartPlannerModule(
   const std::string & name, rclcpp::Node & node,
@@ -484,7 +484,7 @@ bool StartPlannerModule::isPreventingRearVehicleFromPassingThrough() const
     lanelet::ConstLanelet closest_lanelet_const(closest_lanelet.constData());
     // Check backwards just in case the Vehicle behind ego is in a different lanelet
     constexpr double backwards_length = 200.0;
-    const auto prev_lanes = behavior_path_planner::utils::getBackwardLanelets(
+    const auto prev_lanes = autoware::behavior_path_planner::utils::getBackwardLanelets(
       *route_handler, target_lanes, current_pose, backwards_length);
     // return all the relevant lanelets
     lanelet::ConstLanelets relevant_lanelets{closest_lanelet_const};
@@ -664,7 +664,7 @@ BehaviorModuleOutput StartPlannerModule::plan()
     if (!status_.is_safe_dynamic_objects) {
       auto current_path = getCurrentPath();
       const auto stop_path =
-        behavior_path_planner::utils::parking_departure::generateFeasibleStopPath(
+        autoware::behavior_path_planner::utils::parking_departure::generateFeasibleStopPath(
           current_path, planner_data_, stop_pose_, parameters_->maximum_deceleration_for_stop,
           parameters_->maximum_jerk_for_stop);
 
@@ -850,19 +850,11 @@ void StartPlannerModule::planWithPriority(
 
   auto get_accumulated_debug_stream = [](const std::vector<PlannerDebugData> & debug_data_vector) {
     std::stringstream ss;
-    ss << std::fixed << std::setprecision(1);
-    ss << std::left << std::setw(20) << "| Planner type " << std::setw(20) << "| Required margin "
-       << std::setw(20) << "| Backward distance " << std::setw(25) << "| Condition evaluation |"
-       << "\n";
+    if (debug_data_vector.empty()) return ss;
+    ss << debug_data_vector.front().header_str();
     for (const auto & debug_data : debug_data_vector) {
-      for (const auto & result : debug_data.conditions_evaluation) {
-        ss << std::setw(23) << magic_enum::enum_name(debug_data.planner_type) << std::setw(23)
-           << (std::to_string(debug_data.required_margin) + "[m]") << std::setw(23)
-           << (std::to_string(debug_data.backward_distance) + "[m]") << std::setw(25) << result
-           << "\n";
-      }
+      ss << debug_data.str();
     }
-    ss << std::setw(40);
     return ss;
   };
 
@@ -942,11 +934,9 @@ bool StartPlannerModule::findPullOutPath(
 
   const auto pull_out_path = planner->plan(start_pose_candidate, goal_pose, debug_data);
   debug_data_vector.push_back(debug_data);
-  // If no path is found, return false
   if (!pull_out_path) {
     return false;
   }
-
   if (backward_is_unnecessary) {
     updateStatusWithCurrentPath(*pull_out_path, start_pose_candidate, planner->getPlannerType());
     return true;
@@ -958,8 +948,8 @@ bool StartPlannerModule::findPullOutPath(
 }
 
 void StartPlannerModule::updateStatusWithCurrentPath(
-  const behavior_path_planner::PullOutPath & path, const Pose & start_pose,
-  const behavior_path_planner::PlannerType & planner_type)
+  const autoware::behavior_path_planner::PullOutPath & path, const Pose & start_pose,
+  const autoware::behavior_path_planner::PlannerType & planner_type)
 {
   const std::lock_guard<std::mutex> lock(mutex_);
   status_.driving_forward = true;
@@ -970,8 +960,8 @@ void StartPlannerModule::updateStatusWithCurrentPath(
 }
 
 void StartPlannerModule::updateStatusWithNextPath(
-  const behavior_path_planner::PullOutPath & path, const Pose & start_pose,
-  const behavior_path_planner::PlannerType & planner_type)
+  const autoware::behavior_path_planner::PullOutPath & path, const Pose & start_pose,
+  const autoware::behavior_path_planner::PlannerType & planner_type)
 {
   const std::lock_guard<std::mutex> lock(mutex_);
   status_.driving_forward = false;
@@ -1486,7 +1476,7 @@ bool StartPlannerModule::isSafePath() const
   const bool is_object_front = true;
   const bool limit_to_max_velocity = true;
   const auto ego_predicted_path =
-    behavior_path_planner::utils::path_safety_checker::createPredictedPath(
+    autoware::behavior_path_planner::utils::path_safety_checker::createPredictedPath(
       ego_predicted_path_params_, pull_out_path.points, current_pose, current_velocity, ego_seg_idx,
       is_object_front, limit_to_max_velocity);
 
@@ -1516,7 +1506,7 @@ bool StartPlannerModule::isSafePath() const
   merged_target_object.insert(
     merged_target_object.end(), target_objects_on_lane.on_shoulder_lane.begin(),
     target_objects_on_lane.on_shoulder_lane.end());
-  return behavior_path_planner::utils::path_safety_checker::checkSafetyWithRSS(
+  return autoware::behavior_path_planner::utils::path_safety_checker::checkSafetyWithRSS(
     pull_out_path, ego_predicted_path, merged_target_object, debug_data_.collision_check,
     planner_data_->parameters, safety_check_params_->rss_params,
     objects_filtering_params_->use_all_predicted_path, hysteresis_factor);
@@ -1606,7 +1596,9 @@ std::optional<PullOutStatus> StartPlannerModule::planFreespacePath(
     freespace_planner_->setPlannerData(planner_data);
     PlannerDebugData debug_data{freespace_planner_->getPlannerType(), {}, 0.0, 0.0};
     auto freespace_path = freespace_planner_->plan(current_pose, end_pose, debug_data);
-    DEBUG_PRINT("\nFreespace Pull out path search results\n%s", debug_data.str().c_str());
+    DEBUG_PRINT(
+      "\nFreespace Pull out path search results\n%s%s", debug_data.header_str().c_str(),
+      debug_data.str().c_str());
     if (!freespace_path) {
       continue;
     }
@@ -1969,4 +1961,4 @@ void StartPlannerModule::StartPlannerData::update(
   main_thread_pull_out_status = pull_out_status_;
   is_stopped = is_stopped_;
 }
-}  // namespace behavior_path_planner
+}  // namespace autoware::behavior_path_planner

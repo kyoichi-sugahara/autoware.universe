@@ -30,42 +30,11 @@
 #include <string>
 #include <vector>
 
-namespace behavior_path_planner
+namespace autoware::behavior_path_planner
 {
 using geometry_msgs::msg::Pose;
 using tier4_autoware_utils::LinearRing2d;
 using tier4_planning_msgs::msg::PathWithLaneId;
-
-enum class PlannerType {
-  NONE = 0,
-  SHIFT = 1,
-  GEOMETRIC = 2,
-  STOP = 3,
-  FREESPACE = 4,
-};
-
-struct PlannerDebugData
-{
-public:
-  PlannerType planner_type;
-  std::vector<std::string> conditions_evaluation;
-  double required_margin{0.0};
-  double backward_distance{0.0};
-  auto str() const
-  {
-    std::stringstream ss;
-    ss << std::left << std::setw(20) << "| Planner type " << std::setw(20) << "| Required margin "
-       << std::setw(20) << "| Backward distance " << std::setw(25) << "| Condition evaluation |"
-       << "\n";
-    for (const auto & result : conditions_evaluation) {
-      ss << std::setw(23) << magic_enum::enum_name(planner_type) << std::setw(23)
-         << (std::to_string(required_margin) + "[m]") << std::setw(23)
-         << (std::to_string(backward_distance) + "[m]") << std::setw(25) << result << "\n";
-    }
-    ss << std::setw(40);
-    return ss.str();
-  }
-};
 
 class PullOutPlannerBase
 {
@@ -93,7 +62,7 @@ public:
 
 protected:
   bool isPullOutPathCollided(
-    behavior_path_planner::PullOutPath & pull_out_path,
+    autoware::behavior_path_planner::PullOutPath & pull_out_path,
     double collision_check_distance_from_end) const
   {
     // check for collisions
@@ -114,7 +83,7 @@ protected:
       pull_out_lane_stop_objects, parameters_.object_types_to_check_for_path_generation);
 
     const auto collision_check_section_path =
-      behavior_path_planner::start_planner_utils::extractCollisionCheckSection(
+      autoware::behavior_path_planner::start_planner_utils::extractCollisionCheckSection(
         pull_out_path, collision_check_distance_from_end);
     if (!collision_check_section_path) return true;
 
@@ -128,6 +97,6 @@ protected:
   StartPlannerParameters parameters_;
   double collision_check_margin_;
 };
-}  // namespace behavior_path_planner
+}  // namespace autoware::behavior_path_planner
 
 #endif  // AUTOWARE_BEHAVIOR_PATH_START_PLANNER_MODULE__PULL_OUT_PLANNER_BASE_HPP_

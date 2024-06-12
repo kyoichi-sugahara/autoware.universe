@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "ament_index_cpp/get_package_share_directory.hpp"
+#include "autoware_test_utils/autoware_test_utils.hpp"
 #include "gtest/gtest.h"
 #include "mpc_lateral_controller/mpc.hpp"
 #include "mpc_lateral_controller/qp_solver/qp_solver_osqp.hpp"
@@ -20,7 +21,6 @@
 #include "mpc_lateral_controller/vehicle_model/vehicle_model_bicycle_dynamics.hpp"
 #include "mpc_lateral_controller/vehicle_model/vehicle_model_bicycle_kinematics.hpp"
 #include "mpc_lateral_controller/vehicle_model/vehicle_model_bicycle_kinematics_no_delay.hpp"
-#include "planning_test_utils/planning_test_utils.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 #include "autoware_auto_vehicle_msgs/msg/steering_report.hpp"

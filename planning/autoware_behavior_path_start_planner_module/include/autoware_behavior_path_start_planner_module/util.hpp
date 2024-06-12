@@ -34,12 +34,12 @@
 #include <memory>
 #include <utility>
 
-namespace behavior_path_planner::start_planner_utils
+namespace autoware::behavior_path_planner::start_planner_utils
 {
+using autoware::behavior_path_planner::utils::path_safety_checker::EgoPredictedPathParams;
 using autoware::route_handler::RouteHandler;
 using autoware_perception_msgs::msg::PredictedObjects;
 using autoware_perception_msgs::msg::PredictedPath;
-using behavior_path_planner::utils::path_safety_checker::EgoPredictedPathParams;
 using geometry_msgs::msg::Pose;
 using geometry_msgs::msg::Twist;
 using tier4_planning_msgs::msg::PathWithLaneId;
@@ -77,6 +77,6 @@ double getArcLengthForPoint(
 
 std::optional<PathWithLaneId> extractCollisionCheckSection(
   const PullOutPath & path, const double collision_check_distance_from_end);
-}  // namespace behavior_path_planner::start_planner_utils
+}  // namespace autoware::behavior_path_planner::start_planner_utils
 
 #endif  // AUTOWARE_BEHAVIOR_PATH_START_PLANNER_MODULE__UTIL_HPP_
