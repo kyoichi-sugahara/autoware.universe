@@ -871,7 +871,7 @@ void StartPlannerModule::planWithPriority(
         debug_data_.margin_for_start_pose_candidate = collision_check_margin;
         if (parameters_->print_debug_info) {
           const auto ss = get_accumulated_debug_stream(debug_data_vector);
-          DEBUG_PRINT("Pull out path search results:\n%s", ss.str().c_str());
+          DEBUG_PRINT("\nPull out path search results:\n%s", ss.str().c_str());
         }
         return;
       }
@@ -881,7 +881,7 @@ void StartPlannerModule::planWithPriority(
 
   if (parameters_->print_debug_info) {
     const auto ss = get_accumulated_debug_stream(debug_data_vector);
-    DEBUG_PRINT("Pull out path search results:\n%s", ss.str().c_str());
+    DEBUG_PRINT("\nPull out path search results:\n%s", ss.str().c_str());
   }
   updateStatusIfNoSafePathFound();
 }
