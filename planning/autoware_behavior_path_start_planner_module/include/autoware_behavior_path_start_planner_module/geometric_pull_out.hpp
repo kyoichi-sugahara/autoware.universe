@@ -36,9 +36,7 @@ public:
       lane_departure_checker);
 
   PlannerType getPlannerType() const override { return PlannerType::GEOMETRIC; };
-  std::optional<PullOutPath> plan(
-    const Pose & start_pose, const Pose & goal_pose,
-    PlannerDebugData & planner_debug_data) override;
+  std::optional<PullOutPath> plan(const Pose & start_pose, const Pose & goal_pose) override;
 
   GeometricParallelParking planner_;
   ParallelParkingParameters parallel_parking_parameters_;

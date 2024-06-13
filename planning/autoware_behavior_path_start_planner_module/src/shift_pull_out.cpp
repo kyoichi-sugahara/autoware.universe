@@ -42,8 +42,7 @@ ShiftPullOut::ShiftPullOut(
 {
 }
 
-std::optional<PullOutPath> ShiftPullOut::plan(
-  const Pose & start_pose, const Pose & goal_pose, PlannerDebugData & planner_debug_data)
+std::optional<PullOutPath> ShiftPullOut::plan(const Pose & start_pose, const Pose & goal_pose)
 {
   const auto & route_handler = planner_data_->route_handler;
   const auto & common_parameters = planner_data_->parameters;
@@ -56,7 +55,6 @@ std::optional<PullOutPath> ShiftPullOut::plan(
   // find candidate paths
   auto pull_out_paths = calcPullOutPaths(*route_handler, road_lanes, start_pose, goal_pose);
   if (pull_out_paths.empty()) {
-    planner_debug_data.conditions_evaluation.emplace_back("no path found");
     return std::nullopt;
   }
 
@@ -86,7 +84,7 @@ std::optional<PullOutPath> ShiftPullOut::plan(
         return parameters_.check_shift_path_lane_departure;
 
       PathWithLaneId path_with_only_first_pose{};
-      path_with_only_first_pose.points.push_back(path_shift_start_to_end.points.front());
+      path_with_only_first_pose.points.push_back(path_shift_start_to_end.points.at(0));
       return !lane_departure_checker_->checkPathWillLeaveLane(
         lanelet_map_ptr, path_with_only_first_pose);
     });
@@ -99,7 +97,6 @@ std::optional<PullOutPath> ShiftPullOut::plan(
     if (
       is_lane_departure_check_required &&
       lane_departure_checker_->checkPathWillLeaveLane(lanelet_map_ptr, path_shift_start_to_end)) {
-      planner_debug_data.conditions_evaluation.emplace_back("lane departure");
       continue;
     }
 
@@ -114,10 +111,7 @@ std::optional<PullOutPath> ShiftPullOut::plan(
 
     const auto cropped_path = lane_departure_checker_->cropPointsOutsideOfLanes(
       lanelet_map_ptr, shift_path, start_segment_idx);
-    if (cropped_path.points.empty()) {
-      planner_debug_data.conditions_evaluation.emplace_back("cropped path is empty");
-      continue;
-    }
+    if (cropped_path.points.empty()) continue;
 
     // check that the path is not cropped in excess and there is not excessive longitudinal
     // deviation between the first 2 points
@@ -137,19 +131,14 @@ std::optional<PullOutPath> ShiftPullOut::plan(
       return std::abs(long_offset_to_closest_point - long_offset_to_next_point) < max_long_offset;
     };
 
-    if (!validate_cropped_path(cropped_path)) {
-      planner_debug_data.conditions_evaluation.emplace_back("cropped path is invalid");
-      continue;
-    }
+    if (!validate_cropped_path(cropped_path)) continue;
     shift_path.points = cropped_path.points;
     shift_path.header = planner_data_->route_handler->getRouteHeader();
 
     if (isPullOutPathCollided(pull_out_path, parameters_.shift_collision_check_distance_from_end)) {
-      planner_debug_data.conditions_evaluation.emplace_back("collision");
       continue;
     }
 
-    planner_debug_data.conditions_evaluation.emplace_back("success");
     return pull_out_path;
   }
 

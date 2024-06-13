@@ -239,8 +239,7 @@ private:
     const std::string & search_priority, const size_t start_pose_candidates_num);
   bool findPullOutPath(
     const Pose & start_pose_candidate, const std::shared_ptr<PullOutPlannerBase> & planner,
-    const Pose & refined_start_pose, const Pose & goal_pose, const double collision_check_margin,
-    std::vector<PlannerDebugData> & debug_data_vector);
+    const Pose & refined_start_pose, const Pose & goal_pose, const double collision_check_margin);
 
   PathWithLaneId extractCollisionCheckSection(
     const PullOutPath & path, const autoware::behavior_path_planner::PlannerType & planner_type);

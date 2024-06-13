@@ -848,41 +848,21 @@ void StartPlannerModule::planWithPriority(
   // 　ここでreturnした後の処理が不明
   if (start_pose_candidates.empty()) return;
 
-  auto get_accumulated_debug_stream = [](const std::vector<PlannerDebugData> & debug_data_vector) {
-    std::stringstream ss;
-    if (debug_data_vector.empty()) return ss;
-    ss << debug_data_vector.front().header_str();
-    for (const auto & debug_data : debug_data_vector) {
-      ss << debug_data.str();
-    }
-    return ss;
-  };
-
   const PriorityOrder order_priority =
     determinePriorityOrder(search_priority, start_pose_candidates.size());
 
-  std::vector<PlannerDebugData> debug_data_vector;
   for (const auto & collision_check_margin : parameters_->collision_check_margins) {
     for (const auto & [index, planner] : order_priority) {
       if (findPullOutPath(
             start_pose_candidates[index], planner, refined_start_pose, goal_pose,
-            collision_check_margin, debug_data_vector)) {
+            collision_check_margin)) {
         debug_data_.selected_start_pose_candidate_index = index;
         debug_data_.margin_for_start_pose_candidate = collision_check_margin;
-        if (parameters_->print_debug_info) {
-          const auto ss = get_accumulated_debug_stream(debug_data_vector);
-          DEBUG_PRINT("Pull out path search results:\n%s", ss.str().c_str());
-        }
         return;
       }
     }
   }
   // no path
-
-  if (parameters_->print_debug_info) {
-    const auto ss = get_accumulated_debug_stream(debug_data_vector);
-    DEBUG_PRINT("Pull out path search results:\n%s", ss.str().c_str());
-  }
   updateStatusIfNoSafePathFound();
 }
 
@@ -916,8 +896,7 @@ PriorityOrder StartPlannerModule::determinePriorityOrder(
 // ここらへんの関数名も気になる。
 bool StartPlannerModule::findPullOutPath(
   const Pose & start_pose_candidate, const std::shared_ptr<PullOutPlannerBase> & planner,
-  const Pose & refined_start_pose, const Pose & goal_pose, const double collision_check_margin,
-  std::vector<PlannerDebugData> & debug_data_vector)
+  const Pose & refined_start_pose, const Pose & goal_pose, const double collision_check_margin)
 {
   // if start_pose_candidate is far from refined_start_pose, backward driving is necessary
   constexpr double epsilon = 0.01;
@@ -929,11 +908,9 @@ bool StartPlannerModule::findPullOutPath(
 
   planner->setCollisionCheckMargin(collision_check_margin);
   planner->setPlannerData(planner_data_);
-  PlannerDebugData debug_data{
-    planner->getPlannerType(), {}, collision_check_margin, backwards_distance};
+  const auto pull_out_path = planner->plan(start_pose_candidate, goal_pose);
 
-  const auto pull_out_path = planner->plan(start_pose_candidate, goal_pose, debug_data);
-  debug_data_vector.push_back(debug_data);
+  // If no path is found, return false
   if (!pull_out_path) {
     return false;
   }
@@ -1594,11 +1571,8 @@ std::optional<PullOutStatus> StartPlannerModule::planFreespacePath(
   for (const auto & p : center_line_path.points) {
     const Pose end_pose = p.point.pose;
     freespace_planner_->setPlannerData(planner_data);
-    PlannerDebugData debug_data{freespace_planner_->getPlannerType(), {}, 0.0, 0.0};
-    auto freespace_path = freespace_planner_->plan(current_pose, end_pose, debug_data);
-    DEBUG_PRINT(
-      "\nFreespace Pull out path search results\n%s%s", debug_data.header_str().c_str(),
-      debug_data.str().c_str());
+    auto freespace_path = freespace_planner_->plan(current_pose, end_pose);
+
     if (!freespace_path) {
       continue;
     }
