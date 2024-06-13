@@ -25,6 +25,8 @@
 #include <tier4_planning_msgs/msg/path_with_lane_id.hpp>
 
 #include <memory>
+#include <string>
+#include <vector>
 
 namespace autoware::behavior_path_planner
 {
@@ -53,7 +55,8 @@ public:
     collision_check_margin_ = collision_check_margin;
   };
   virtual PlannerType getPlannerType() const = 0;
-  virtual std::optional<PullOutPath> plan(const Pose & start_pose, const Pose & goal_pose) = 0;
+  virtual std::optional<PullOutPath> plan(
+    const Pose & start_pose, const Pose & goal_pose, PlannerDebugData & planner_debug_data) = 0;
 
 protected:
   bool isPullOutPathCollided(
