@@ -570,9 +570,9 @@ bool StartPlannerModule::isStopped()
 bool StartPlannerModule::isExecutionReady() const
 {
   // Evaluate safety. The situation is not safe if any of the following conditions are met:
-  // - Pull out path has not been found
-  // - there is a moving objects around ego
-  // - waiting for approval and there is a collision with dynamic objects
+  // 1. pull out path has not been found
+  // 2. there is a moving objects around ego
+  // 3. waiting for approval and there is a collision with dynamic objects
 
   const bool is_safe = [&]() -> bool {
     if (!status_.found_pull_out_path) return false;
@@ -1405,11 +1405,11 @@ TurnSignalInfo StartPlannerModule::calcTurnSignalInfo()
   constexpr bool egos_lane_is_shifted = true;
   constexpr bool is_pull_out = true;
 
-  // In Geometric pull out, the ego stops once and then steers the wheels to the opposite
-  // direction. This sometimes causes the getBehaviorTurnSignalInfo method to detect the ego as
-  // stopped and close to complete its shift, so it wrongly turns off the blinkers, this override
-  // helps avoid this issue. Also, if the ego is not engaged (so it is stopped), the blinkers
-  // should still be activated.
+  // In Geometric pull out, the ego stops once and then steers the wheels to the opposite direction.
+  // This sometimes causes the getBehaviorTurnSignalInfo method to detect the ego as stopped and
+  // close to complete its shift, so it wrongly turns off the blinkers, this override helps avoid
+  // this issue. Also, if the ego is not engaged (so it is stopped), the blinkers should still be
+  // activated.
 
   const bool geometric_planner_has_not_finished_first_path = std::invoke([&]() {
     if (status_.planner_type != PlannerType::GEOMETRIC) {

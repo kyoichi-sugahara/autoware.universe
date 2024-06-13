@@ -21,8 +21,6 @@
 #include "autoware_behavior_path_start_planner_module/pull_out_path.hpp"
 #include "autoware_behavior_path_start_planner_module/util.hpp"
 
-#include <magic_enum.hpp>
-
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <tier4_planning_msgs/msg/path_with_lane_id.hpp>
 

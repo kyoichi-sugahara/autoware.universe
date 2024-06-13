@@ -212,9 +212,6 @@ std::vector<PullOutPath> ShiftPullOut::calcPullOutPaths(
   const RouteHandler & route_handler, const lanelet::ConstLanelets & road_lanes,
   const Pose & start_pose, const Pose & goal_pose)
 {
-  // pull_out_distance:
-  // pull_out_distance_converted:
-  // before_shifted_pull_out_distance:
   std::vector<PullOutPath> candidate_paths{};
 
   if (road_lanes.empty()) {
@@ -244,14 +241,12 @@ std::vector<PullOutPath> ShiftPullOut::calcPullOutPaths(
     autoware::behavior_path_planner::utils::parking_departure::calcEndArcLength(
       s_start, forward_path_length, road_lanes, goal_pose);
   const double s_end = path_end_info.first;
-  // comment
   const bool path_terminal_is_goal = path_end_info.second;
 
   PathWithLaneId road_lane_reference_path = utils::resamplePathWithSpline(
     route_handler.getCenterLinePath(road_lanes, s_start, s_end),
     parameters_.center_line_path_interval);
 
-  // 関数切り出したい。
   // non_shifted_path for when shift length or pull out distance is too short
   const PullOutPath non_shifted_path = std::invoke([&]() {
     PullOutPath non_shifted_path{};
@@ -283,36 +278,28 @@ std::vector<PullOutPath> ShiftPullOut::calcPullOutPaths(
     // calculate pull out distance, longitudinal acc, terminal velocity
     const size_t shift_start_idx =
       findNearestIndex(road_lane_reference_path.points, start_pose.position);
-    // ここではreference pathの最近傍点を取得していることに注意
     const double road_velocity =
       road_lane_reference_path.points.at(shift_start_idx).point.longitudinal_velocity_mps;
-    // 横方向のジャーク、縦方向の加速度からshift_length移動するのにかかる時間を計算。
     const double shift_time =
       PathShifter::calcShiftTimeFromJerk(shift_length, lateral_jerk, lateral_acc);
     const double longitudinal_acc = std::clamp(road_velocity / shift_time, 0.0, /* max acc */ 1.0);
-    // 勘だけど、pull_out_distanceが正しく計算出来ていなさそう。
     const auto pull_out_distance = calcPullOutLongitudinalDistance(
       longitudinal_acc, shift_time, shift_length, maximum_curvature,
       minimum_shift_pull_out_distance);
-    // 　velocity at shift end pose?
     const double terminal_velocity = longitudinal_acc * shift_time;
 
-    // Extract the reference path from the ego pose
+    // clip from ego pose
     PathWithLaneId road_lane_reference_path_from_ego = road_lane_reference_path;
     road_lane_reference_path_from_ego.points.erase(
       road_lane_reference_path_from_ego.points.begin(),
       road_lane_reference_path_from_ego.points.begin() + shift_start_idx);
-    // wakaranai PR: https://github.com/autowarefoundation/autoware.universe/pull/2335
-
-    // Calculate the pull_out distance
-    // Note: pull_out_distance represents the required distance on the shifted path,
-    // but we need to calculate the distance on the center line used for generating the shifted
-    // path. The calcBeforeShiftedArcLength() function performs an approximate conversion from
-    // center line to center line, but the conversion result may be too long or too short compared
-    // to the actual distance. To prevent a distance that is too short, we take the maximum value
-    // with the original distance.
-
-    // TODO(kosuke55):  Update the conversion function and remove the comparison with the original
+    // before means distance on road lane
+    // Note: the pull_out_distance is the required distance on the shifted path. Now we need to
+    // calculate the distance on the center line used for the shift path generation. However, since
+    // the calcBeforeShiftedArcLength is an approximate conversion from center line to center line
+    // (not shift path to centerline), the conversion result may too long or short. To prevent too
+    // short length, take maximum with the original distance.
+    // TODO(kosuke55): update the conversion function and get rid of the comparison with original
     // distance.
     const double pull_out_distance_converted = calcBeforeShiftedArcLength(
       road_lane_reference_path_from_ego, pull_out_distance, shift_length);
@@ -405,7 +392,6 @@ std::vector<PullOutPath> ShiftPullOut::calcPullOutPaths(
   return candidate_paths;
 }
 
-// 外出ししたい。
 double ShiftPullOut::calcPullOutLongitudinalDistance(
   const double lon_acc, const double shift_time, const double shift_length,
   const double max_curvature, const double min_distance) const
