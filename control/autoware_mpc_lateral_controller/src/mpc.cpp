@@ -616,7 +616,7 @@ std::pair<bool, VectorXd> MPC::executeOptimization(
   addSteerWeightF(prediction_dt, f);
 
   MatrixXd A = MatrixXd::Identity(DIM_U_N, DIM_U_N);
-  // A.bottomLeftCorner(DIM_U_N - 1, DIM_U_N - 1) = -MatrixXd::Identity(DIM_U_N - 1, DIM_U_N - 1);
+  // A.block(1, 0, DIM_U_N - 1, DIM_U_N - 1) = -MatrixXd::Identity(DIM_U_N - 1, DIM_U_N - 1);
   for (int i = 1; i < DIM_U_N; i++) {
     A(i, i - 1) = -1.0;
   }
