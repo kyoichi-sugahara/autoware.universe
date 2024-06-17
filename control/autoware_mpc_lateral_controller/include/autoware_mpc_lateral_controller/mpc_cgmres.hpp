@@ -16,8 +16,8 @@
 // (https://github.com/ohtsukalab/autogenu-jupyter). The autogenu-jupyter copyright holders make no
 // ownership claim of its contents.
 
-#ifndef MPC_LATERAL_CONTROLLER__MPC_CGMRES_HPP_
-#define MPC_LATERAL_CONTROLLER__MPC_CGMRES_HPP_
+#ifndef AUTOWARE_MPC_LATERAL_CONTROLLER__MPC_CGMRES_HPP_
+#define AUTOWARE_MPC_LATERAL_CONTROLLER__MPC_CGMRES_HPP_
 
 #define _USE_MATH_DEFINES
 
@@ -84,7 +84,7 @@ public:
   std::array<double, nx> q_terminal = {1.0, 0.1, 0.0};
   std::array<double, nx> x_ref = {0, 0, 0};
   std::array<double, nu> u_ref = {-0.948853649067464};
-  std::array<double, nu> r = {0.2};
+  std::array<double, nu> r = {1.0};
 
   static constexpr std::array<int, 1> ubound_indices = {0};
   std::array<double, 1> umin = {-15.0};
@@ -444,4 +444,4 @@ public:
 
 }  // namespace cgmres
 
-#endif  // MPC_LATERAL_CONTROLLER__MPC_CGMRES_HPP_
+#endif  // AUTOWARE_MPC_LATERAL_CONTROLLER__MPC_CGMRES_HPP_
