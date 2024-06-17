@@ -2,8 +2,6 @@ cmake_minimum_required(VERSION 3.14)
 project(autoware_trajectory_follower_node)
 
 find_package(autoware_cmake REQUIRED)
-find_package(rosbag2_cpp REQUIRED)
-find_package(rosbag2_storage REQUIRED)
 autoware_package()
 
 set(CONTROLLER_NODE controller_node)
@@ -35,7 +33,7 @@ if(BUILD_TESTING)
     test/trajectory_follower_test_utils.hpp
     test/test_controller_node.cpp
   )
-  ament_target_dependencies(${TRAJECTORY_FOLLOWER_NODES_TEST} fake_test_node)
+  ament_target_dependencies(${TRAJECTORY_FOLLOWER_NODES_TEST} fake_test_node tf2 tf2_geometry_msgs)
   target_link_libraries(
     ${TRAJECTORY_FOLLOWER_NODES_TEST} ${CONTROLLER_NODE})
 

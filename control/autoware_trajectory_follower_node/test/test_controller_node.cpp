@@ -29,6 +29,9 @@
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "nav_msgs/msg/odometry.hpp"
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+
+#include <tf2/utils.h>
 
 #include <memory>
 #include <vector>
@@ -102,6 +105,8 @@ public:
 
   Control::SharedPtr cmd_msg;
   bool received_control_command = false;
+  VehicleOdometry::SharedPtr odom_msg;
+  bool received_odom_msg = false;
   Trajectory::SharedPtr resampled_reference_trajectory;
   bool received_resampled_reference_trajectory = false;
   Trajectory::SharedPtr predicted_trajectory_in_frenet_coordinate;
@@ -201,6 +206,14 @@ public:
       cmd_msg = msg;
       received_control_command = true;
     });
+
+  rclcpp::Subscription<VehicleOdometry>::SharedPtr odom_sub =
+    fnf->create_subscription<VehicleOdometry>(
+      "controller/input/current_odometry", *fnf->get_fake_node(),
+      [this](const VehicleOdometry::SharedPtr msg) {
+        odom_msg = msg;
+        received_odom_msg = true;
+      });
 
   rclcpp::Subscription<Trajectory>::SharedPtr predicted_traj_in_frenet_sub =
     fnf->create_subscription<Trajectory>(
@@ -414,6 +427,12 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
   for (size_t i = 0; i < iter_num; i++) {
     publishTrajectory(curvature_sign);
     test_utils::waitForMessage(tester.node, this, tester.received_control_command);
+    std::cerr << "tester.received_odom_msg: " << tester.received_odom_msg << std::endl;
+    std::cerr << "odom vx: " << tester.odom_msg->twist.twist.linear.x << std::endl;
+    std::cerr << "odom x: " << tester.odom_msg->pose.pose.position.x << std::endl;
+    std::cerr << "odom y: " << tester.odom_msg->pose.pose.position.y << std::endl;
+    std::cerr << "odom z: " << tester.odom_msg->pose.pose.position.z << std::endl;
+    std::cerr << "odom yaw: " << tf2::getYaw(tester.odom_msg->pose.pose.orientation) << std::endl;
 
     test_utils::writeTrajectoriesToFiles(
       ref_trajectory, *tester.resampled_reference_trajectory, *tester.predicted_trajectory,
@@ -428,6 +447,8 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
     // EXPECT_LT(tester.cmd_msg->lateral.steering_tire_angle, 0.0f);
     // EXPECT_LT(tester.cmd_msg->lateral.steering_tire_rotation_rate, 0.0f);
     tester.received_control_command = false;
+    test_utils::updateOdom(
+      *tester.odom_msg, tester.cmd_msg->lateral.steering_tire_angle, 0.03, 2.74);
   }
 
   // ASSERT_TRUE(tester.received_resampled_reference_trajectory);

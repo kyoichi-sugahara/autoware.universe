@@ -22,10 +22,12 @@
 #include "tf2_ros/static_transform_broadcaster.h"
 
 #include "geometry_msgs/msg/transform_stamped.hpp"
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <tf2/utils.h>
 #include <unistd.h>
 
 #include <cmath>
@@ -40,6 +42,7 @@ namespace test_utils
 {
 using FakeNodeFixture = autoware::tools::testing::FakeTestNode;
 using TrajectoryPointArray = std::vector<autoware_planning_msgs::msg::TrajectoryPoint>;
+using VehicleOdometry = nav_msgs::msg::Odometry;
 using autoware_planning_msgs::msg::Trajectory;
 using autoware_planning_msgs::msg::TrajectoryPoint;
 
@@ -164,6 +167,21 @@ inline void spinWhile(T & node)
     const auto dt{std::chrono::milliseconds{100LL}};
     std::this_thread::sleep_for(dt);
   }
+}
+
+// x_{k+1} &= x_{k} + v\cos\theta_{k} \, \text{d}t
+// y_{k+1} &= y_{k} + v\sin\theta_{k} \, \text{d}t
+// \theta_{k+1} &= \theta_{k} + \frac{v}{L} \tan\delta \, \text{d}t
+inline void updateOdom(
+  VehicleOdometry & odom, const float steering_angle, const double dt, const float wheelbase)
+{
+  double yaw = tf2::getYaw(odom.pose.pose.orientation);
+
+  odom.pose.pose.position.x += odom.twist.twist.linear.x * cos(yaw) * dt;
+  odom.pose.pose.position.y += odom.twist.twist.linear.x * sin(yaw) * dt;
+  yaw += (odom.twist.twist.linear.x / wheelbase) * tan(steering_angle) * dt;
+
+  odom.pose.pose.orientation = tf2::toMsg(tf2::Quaternion(tf2::Vector3(0, 0, 1), yaw));
 }
 
 void writeTrajectoryToFile(
