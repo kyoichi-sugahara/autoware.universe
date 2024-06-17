@@ -644,6 +644,7 @@ std::pair<bool, VectorXd> MPC::executeOptimization(
     auto t = std::chrono::duration_cast<std::chrono::milliseconds>(t_end - t_start).count();
     RCLCPP_DEBUG(m_logger, "qp solver calculation time = %ld [ms]", t);
   }
+  // std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
   if (Uex.array().isNaN().any()) {
     warn_throttle("model Uex includes NaN, stop MPC.");
