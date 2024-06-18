@@ -412,7 +412,7 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
   tester.publish_autonomous_operation_mode();
   tester.publish_default_steer();
   tester.publish_default_acc();
-  const double velocity = 1.0;
+  const double velocity = 3.0;
   const double trajectory_arc_length = 50.0;
 
   VehicleOdometry odom_msg;
