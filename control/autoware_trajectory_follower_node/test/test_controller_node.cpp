@@ -137,6 +137,8 @@ public:
     odom_pub->publish(odom_msg);
   };
 
+  void publish_odom(const VehicleOdometry & odom) { odom_pub->publish(odom); }
+
   void publish_default_steer()
   {
     SteeringReport steer_msg;
@@ -407,24 +409,38 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
   ControllerTester tester(this, node_options);
   Trajectory ref_trajectory;
   tester.send_default_transform();
-  tester.publish_odom_vx(1.0);
   tester.publish_autonomous_operation_mode();
   tester.publish_default_steer();
   tester.publish_default_acc();
+
+  VehicleOdometry odom_msg;
+  odom_msg.header.stamp = tester.node->now();
+  odom_msg.header.frame_id = "map";
+  odom_msg.pose.pose.position.x = 0.0;
+  odom_msg.pose.pose.position.y = 0.0;
+  odom_msg.pose.pose.position.z = 0.0;
+  odom_msg.twist.twist.linear.x = 1.0;
 
   auto publishTrajectory = [&tester, &ref_trajectory](double end_curvature) {
     std_msgs::msg::Header header;
     header.stamp = tester.node->now();
     header.frame_id = "map";
-    ref_trajectory = test_utils::generateClothoidTrajectory(header, end_curvature, 5.0, 1.0);
+    ref_trajectory = test_utils::generateClothoidTrajectory(header, end_curvature, 7.0, 1.0);
 
     tester.traj_pub->publish(ref_trajectory);
   };
 
   double curvature_sign = -0.25;
 
-  constexpr size_t iter_num = 10;
+  constexpr size_t iter_num = 30;
   for (size_t i = 0; i < iter_num; i++) {
+    if (i == 0) {
+      tester.publish_odom(odom_msg);
+    } else {
+      tester.publish_odom(*tester.odom_msg);
+    }
+
+    // tester.publish_odom(*tester.odom_msg);
     publishTrajectory(curvature_sign);
     test_utils::waitForMessage(tester.node, this, tester.received_control_command);
     std::cerr << "tester.received_odom_msg: " << tester.received_odom_msg << std::endl;
