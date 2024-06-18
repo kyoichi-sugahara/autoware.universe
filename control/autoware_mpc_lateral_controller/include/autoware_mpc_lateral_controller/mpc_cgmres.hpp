@@ -169,10 +169,10 @@ public:
       for (size_t i = 0; i < curvature_ref_array.size(); i++) {
         u_ref_array[i][0] = std::atan(curvature_ref_array[i] * wheel_base);
       }
-      u_ref[0] = std::atan(curvature_ref_array[0] * wheel_base);
-      // std::cerr << "u_ref is updated as: " << u_ref[0] << std::endl;
-      // std::cerr << "curvature_in_reference_trajectory is updated as: "
-      //           << curvature_in_reference_trajectory << std::endl;
+      curvature_in_reference_trajectory = curvature_ref_array[0];
+      v_in_reference_trajectory = v_ref_array[0];
+      u_ref[0] = u_ref_array[0][0];
+
     } else {
       // std::cerr << "external_reference is nullptr" << std::endl;
     }
