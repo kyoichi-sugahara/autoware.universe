@@ -412,6 +412,8 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
   tester.publish_autonomous_operation_mode();
   tester.publish_default_steer();
   tester.publish_default_acc();
+  const double velocity = 1.0;
+  const double trajectory_arc_length = 15.0;
 
   VehicleOdometry odom_msg;
   odom_msg.header.stamp = tester.node->now();
@@ -419,7 +421,7 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
   odom_msg.pose.pose.position.x = 0.0;
   odom_msg.pose.pose.position.y = 0.0;
   odom_msg.pose.pose.position.z = 0.0;
-  odom_msg.twist.twist.linear.x = 1.0;
+  odom_msg.twist.twist.linear.x = velocity;
 
   // tester.od  om_msg->header.stamp = tester.node->now();
   // tester.odom_msg->header.frame_id = "map";
@@ -428,18 +430,20 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
   // tester.odom_msg->pose.pose.position.z = 0.0;
   // tester.odom_msg->twist.twist.linear.x = 1.0;
 
-  auto publishTrajectory = [&tester, &ref_trajectory](double end_curvature) {
+  auto publishTrajectory = [&tester, &ref_trajectory, &trajectory_arc_length,
+                            &velocity](double end_curvature) {
     std_msgs::msg::Header header;
     header.stamp = tester.node->now();
     header.frame_id = "map";
-    ref_trajectory = test_utils::generateClothoidTrajectory(header, end_curvature, 7.0, 1.0);
+    ref_trajectory = test_utils::generateClothoidTrajectory(
+      header, end_curvature, trajectory_arc_length, velocity);
 
     tester.traj_pub->publish(ref_trajectory);
   };
 
   double curvature_sign = -0.25;
 
-  constexpr size_t iter_num = 30;
+  constexpr size_t iter_num = 100;
   for (size_t i = 0; i < iter_num; i++) {
     if (i == 0) {
       tester.publish_odom(odom_msg);

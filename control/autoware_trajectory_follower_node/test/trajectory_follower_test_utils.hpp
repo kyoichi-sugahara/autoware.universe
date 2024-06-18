@@ -131,9 +131,9 @@ inline Trajectory generateClothoidTrajectory(
   Trajectory trajectory;
   trajectory.header = header;
 
-  const int points = 20;                               // Number of points in the trajectory
-  double curvature_rate = end_curvature / arc_length;  // Curvature change rate
-  double step_length = arc_length / points;            // Length of each segment
+  const int points = static_cast<int>(arc_length * 3);  // Number of points in the trajectory
+  double curvature_rate = end_curvature / arc_length;   // Curvature change rate
+  double step_length = arc_length / points;             // Length of each segment
 
   double x = 0.0;
   double y = 0.0;
