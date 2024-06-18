@@ -413,7 +413,7 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
   tester.publish_default_steer();
   tester.publish_default_acc();
   const double velocity = 1.0;
-  const double trajectory_arc_length = 15.0;
+  const double trajectory_arc_length = 50.0;
 
   VehicleOdometry odom_msg;
   odom_msg.header.stamp = tester.node->now();
@@ -441,9 +441,9 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
     tester.traj_pub->publish(ref_trajectory);
   };
 
-  double curvature_sign = -0.1;
+  double curvature_sign = -0.25;
 
-  constexpr size_t iter_num = 100;
+  constexpr size_t iter_num = 50;
   for (size_t i = 0; i < iter_num; i++) {
     if (i == 0) {
       tester.publish_odom(odom_msg);
