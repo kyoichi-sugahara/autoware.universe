@@ -68,11 +68,12 @@ bool MPC::calculateMPC(
   // calculate initial state of the error dynamics
   const auto x0 = getInitialState(mpc_data);
 
-  // const bool success_delay = true;
-  // const VectorXd x0_delayed = x0;
   // apply time delay compensation to the initial state
   const auto [success_delay, x0_delayed] =
     updateStateForDelayCompensation(reference_trajectory, mpc_data.nearest_time, x0);
+  RCLCPP_DEBUG(
+    m_logger, "x0_delayed = %f, %f, %f, %f", x0_delayed(0), x0_delayed(1), x0_delayed(2),
+    x0_delayed(3));
 
   if (!success_delay) {
     return fail_warn_throttle("delay compensation failed. Stop MPC.");
@@ -111,10 +112,8 @@ bool MPC::calculateMPC(
   }
 
   if (qp_solver_type == "cgmres") {
-    double success_opt;
-    VectorXd Ugmres;
     auto start_time_cgmres = std::chrono::high_resolution_clock::now();
-    std::tie(success_opt, Ugmres) = executeOptimization(
+    const auto [success_opt, Ugmres] = executeOptimization(
       x0_delayed, prediction_dt, mpc_resampled_ref_trajectory,
       current_kinematics.twist.twist.linear.x);
     auto end_time_cgmres = std::chrono::high_resolution_clock::now();
@@ -666,7 +665,6 @@ std::pair<bool, VectorXd> MPC::executeOptimization(
   const VectorXd & x0, const double prediction_dt, const MPCTrajectory & resampled_ref_trajectory,
   const double current_velocity)
 {
-  // const int N = m_param.prediction_horizon;
   VectorXd Uex;
   const double elapsed_time_ms =
     std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -675,7 +673,6 @@ std::pair<bool, VectorXd> MPC::executeOptimization(
     1.0e-6;
 
   // auto t_start = std::chrono::system_clock::now();
-  bool solve_result = false;
   bool warm_start = false;
 
   if (0 < elapsed_time_ms && elapsed_time_ms < 150.0) {
@@ -685,12 +682,12 @@ std::pair<bool, VectorXd> MPC::executeOptimization(
     // RCLCPP_DEBUG(m_logger, "execute optimization without warm start (CGMRES)");
   }
   m_qpsolver_ptr->updateEquation(prediction_dt, resampled_ref_trajectory);
-  solve_result = m_qpsolver_ptr->solveCGMRES(x0, Uex, warm_start);
+  const bool solve_result = m_qpsolver_ptr->solveCGMRES(x0, Uex, warm_start);
   m_previous_optimal_solution_time = std::chrono::system_clock::now();
   // auto t_end = std::chrono::system_clock::now();
 
   if (!solve_result) {
-    warn_throttle("qp solver error");
+    warn_throttle("cgmres solver error");
     return {false, {}};
   }
 
