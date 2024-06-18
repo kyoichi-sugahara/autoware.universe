@@ -96,7 +96,7 @@ bool MPC::calculateMPC(
   auto end_time_generate_matrix = std::chrono::high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(
     end_time_generate_matrix - start_time_osqp);
-  RCLCPP_DEBUG(m_logger, "generateMPCMatrix time = %ld [ns]", duration.count());
+  RCLCPP_DEBUG(m_logger, "generateMPCMatrix time = %.3f [ms]", duration.count() / 1e6);
 
   // solve Optimization problem
   const auto [success_opt, Uex] = executeOptimization(
@@ -104,7 +104,7 @@ bool MPC::calculateMPC(
     current_kinematics.twist.twist.linear.x);
   auto end_time_osqp = std::chrono::high_resolution_clock::now();
   duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time_osqp - start_time_osqp);
-  RCLCPP_DEBUG(m_logger, "executeOptimization time = %ld [ns]", duration.count());
+  RCLCPP_DEBUG(m_logger, "executeOptimization time = %.3f [ms]", duration.count() / 1e6);
 
   if (!success_opt) {
     return fail_warn_throttle("optimization failed. Stop MPC.");
@@ -120,7 +120,7 @@ bool MPC::calculateMPC(
     auto end_time_cgmres = std::chrono::high_resolution_clock::now();
     duration =
       std::chrono::duration_cast<std::chrono::nanoseconds>(end_time_cgmres - start_time_cgmres);
-    RCLCPP_DEBUG(m_logger, "executeOptimization (cgmres) time = %ld [ns]", duration.count());
+    RCLCPP_DEBUG(m_logger, "executeOptimization (cgmres) time = %.3f [ms]", duration.count() / 1e6);
 
     /* calculate predicted trajectory */
     predicted_trajectory = calculatePredictedTrajectory(

@@ -421,6 +421,13 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
   odom_msg.pose.pose.position.z = 0.0;
   odom_msg.twist.twist.linear.x = 1.0;
 
+  // tester.od  om_msg->header.stamp = tester.node->now();
+  // tester.odom_msg->header.frame_id = "map";
+  // tester.odom_msg->pose.pose.position.x = 0.0;
+  // tester.odom_msg->pose.pose.position.y = 0.0;
+  // tester.odom_msg->pose.pose.position.z = 0.0;
+  // tester.odom_msg->twist.twist.linear.x = 1.0;
+
   auto publishTrajectory = [&tester, &ref_trajectory](double end_curvature) {
     std_msgs::msg::Header header;
     header.stamp = tester.node->now();
@@ -440,7 +447,6 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
       tester.publish_odom(*tester.odom_msg);
     }
 
-    // tester.publish_odom(*tester.odom_msg);
     publishTrajectory(curvature_sign);
     test_utils::waitForMessage(tester.node, this, tester.received_control_command);
     std::cerr << "tester.received_odom_msg: " << tester.received_odom_msg << std::endl;
@@ -463,6 +469,7 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
     // EXPECT_LT(tester.cmd_msg->lateral.steering_tire_angle, 0.0f);
     // EXPECT_LT(tester.cmd_msg->lateral.steering_tire_rotation_rate, 0.0f);
     tester.received_control_command = false;
+    tester.received_odom_msg = false;
     test_utils::updateOdom(
       *tester.odom_msg, tester.cmd_msg->lateral.steering_tire_angle, 0.03, 2.74);
   }
