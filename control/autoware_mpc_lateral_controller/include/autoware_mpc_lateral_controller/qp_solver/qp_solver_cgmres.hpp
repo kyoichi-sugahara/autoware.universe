@@ -12,16 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef MPC_LATERAL_CONTROLLER__QP_SOLVER__QP_SOLVER_CGMRES_HPP_
-#define MPC_LATERAL_CONTROLLER__QP_SOLVER__QP_SOLVER_CGMRES_HPP_
+#ifndef AUTOWARE_MPC_LATERAL_CONTROLLER__QP_SOLVER__QP_SOLVER_CGMRES_HPP_
+#define AUTOWARE_MPC_LATERAL_CONTROLLER__QP_SOLVER__QP_SOLVER_CGMRES_HPP_
 
+#include "autoware_mpc_lateral_controller/mpc_cgmres.hpp"
+#include "autoware_mpc_lateral_controller/qp_solver/qp_solver_interface.hpp"
 #include "cgmres/horizon.hpp"
 #include "cgmres/logger.hpp"
 #include "cgmres/single_shooting_cgmres_solver.hpp"
 #include "cgmres/solver_settings.hpp"
 #include "cgmres/zero_horizon_ocp_solver.hpp"
-#include "autoware_mpc_lateral_controller/mpc_cgmres.hpp"
-#include "autoware_mpc_lateral_controller/qp_solver/qp_solver_interface.hpp"
 #include "osqp_interface/osqp_interface.hpp"
 #include "rclcpp/rclcpp.hpp"
 
@@ -77,4 +77,4 @@ private:
     initialized_time_;  // First MPC solution timestamp.
 };
 }  // namespace autoware::motion::control::mpc_lateral_controller
-#endif  // MPC_LATERAL_CONTROLLER__QP_SOLVER__QP_SOLVER_CGMRES_HPP_
+#endif  // AUTOWARE_MPC_LATERAL_CONTROLLER__QP_SOLVER__QP_SOLVER_CGMRES_HPP_
