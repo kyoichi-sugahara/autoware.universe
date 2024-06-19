@@ -228,6 +228,7 @@ private:
   rclcpp::Publisher<Trajectory>::SharedPtr m_debug_frenet_predicted_trajectory_pub;
   rclcpp::Publisher<Trajectory>::SharedPtr m_debug_resampled_reference_trajectory_pub;
   rclcpp::Publisher<Float64MultiArray>::SharedPtr m_debug_resampled_reference_curvature_pub;
+  rclcpp::Publisher<Float64MultiArray>::SharedPtr m_debug_resampled_reference_velocity_pub;
   rclcpp::Publisher<Trajectory>::SharedPtr m_debug_cgmres_frenet_predicted_trajectory_pub;
   rclcpp::Publisher<Trajectory>::SharedPtr m_debug_cgmres_predicted_trajectory_pub;
 

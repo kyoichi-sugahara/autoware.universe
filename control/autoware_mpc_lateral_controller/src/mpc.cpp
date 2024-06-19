@@ -48,6 +48,8 @@ MPC::MPC(rclcpp::Node & node)
     node.create_publisher<Trajectory>("~/debug/resampled_reference_trajectory", rclcpp::QoS(1));
   m_debug_resampled_reference_curvature_pub = node.create_publisher<Float64MultiArray>(
     "~/debug/resampled_reference_curvature", rclcpp::QoS(1));
+  m_debug_resampled_reference_velocity_pub = node.create_publisher<Float64MultiArray>(
+    "~/debug/resampled_reference_velocity", rclcpp::QoS(1));
 }
 
 bool MPC::calculateMPC(
@@ -363,6 +365,10 @@ std::pair<bool, MPCTrajectory> MPC::resampleMPCTrajectoryByTime(
     std_msgs::msg::Float64MultiArray curvature_msg;
     curvature_msg.data = resampled_curvature;
     m_debug_resampled_reference_curvature_pub->publish(curvature_msg);
+    std::vector<double> resampled_velocity = MPCUtils::extract_trajectory_velocities(output);
+    std_msgs::msg::Float64MultiArray velocity_msg;
+    velocity_msg.data = resampled_velocity;
+    m_debug_resampled_reference_velocity_pub->publish(velocity_msg);
   }
   return {true, output};
 }
