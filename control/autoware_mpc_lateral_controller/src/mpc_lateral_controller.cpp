@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "autoware/mpc_lateral_controller/mpc_lateral_controller.hpp"
+
 #include "autoware/motion_utils/trajectory/trajectory.hpp"
 #include "autoware/mpc_lateral_controller/qp_solver/qp_solver_cgmres.hpp"
 #include "autoware/mpc_lateral_controller/qp_solver/qp_solver_osqp.hpp"
@@ -101,6 +102,16 @@ MpcLateralController::MpcLateralController(rclcpp::Node & node)
   auto vehicle_model_ptr =
     createVehicleModel(wheelbase, m_mpc->m_steer_lim, m_mpc->m_param.steer_tau, node);
   m_mpc->setVehicleModel(vehicle_model_ptr);
+
+  /* cgmres solver parameter setup */
+  m_max_iter_for_zero_horizon = node.declare_parameter<int64_t>("max_iter_for_zero_horizon", 100);
+  m_opterr_tol_for_zero_horizon =
+    node.declare_parameter<double>("opterr_tol_for_zero_horizon", 1.0e-04);
+  m_finite_difference_epsilon =
+    node.declare_parameter<double>("finite_difference_epsilon", 1.0e-08);
+  m_min_dummy = node.declare_parameter<double>("min_dummy", 1.0e-03);
+  m_verbose_level = node.declare_parameter<int64_t>("verbose_level", 0);
+  m_horizon_alpha = node.declare_parameter<double>("horizon_alpha", 0.0);
 
   /* QP solver setup */
   m_mpc->setVehicleModel(vehicle_model_ptr);
@@ -220,7 +231,18 @@ std::shared_ptr<QPSolverInterface> MpcLateralController::createQPSolverInterface
       throw std::runtime_error("Environment variable HOME not set.");
     }
     std::filesystem::path log_dir = std::filesystem::path(home_dir) / ".ros" / "log" / "";
-    qpsolver_ptr = std::make_shared<QPSolverCGMRES>(logger_, log_dir);
+    cgmres::SolverSettings solver_settings{
+      m_max_iter_for_zero_horizon,    // maximum number of iterations of
+                                      // the ZeroHorizonOCPSolver method
+      m_opterr_tol_for_zero_horizon,  // termination criterion of the ZeroHorizonOCPSolver method.
+      m_finite_difference_epsilon,    // finite_difference_epsilon
+      m_mpc->m_ctrl_period,           // sampling_time
+      1 / m_mpc->m_ctrl_period,       // zeta
+      m_min_dummy,                    // min_dummy
+      m_verbose_level                 // verbose_level
+    };
+    cgmres::Horizon horizon{m_mpc->m_param.prediction_dt, m_horizon_alpha};
+    qpsolver_ptr = std::make_shared<QPSolverCGMRES>(logger_, log_dir, solver_settings, horizon);
     return qpsolver_ptr;
   }
 

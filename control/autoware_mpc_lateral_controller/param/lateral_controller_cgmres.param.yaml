@@ -43,6 +43,14 @@
     mpc_velocity_time_constant: 0.3              # time constant used for velocity smoothing
     mpc_min_prediction_length: 5.0               # minimum prediction length
 
+    # -- cgmres solver setting --
+    max_iter_for_zero_horizon: 100
+    opterr_tol_for_zero_horizon: 1.0e-04
+    finite_difference_epsilon: 1.0e-08
+    min_dummy: 1.0e-03
+    verbose_level: 0
+    horizon_alpha: 0.0
+
     # -- vehicle model --
     vehicle_model_type: "kinematics" # vehicle model type for mpc prediction. option is kinematics, kinematics_no_delay, and dynamics
     input_delay: 0.00                # steering input delay time for delay compensation [s] changed to 0.0 for unit testing

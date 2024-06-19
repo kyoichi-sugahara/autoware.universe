@@ -423,12 +423,12 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
   odom_msg.pose.pose.position.z = 0.0;
   odom_msg.twist.twist.linear.x = velocity;
 
-  // tester.od  om_msg->header.stamp = tester.node->now();
+  // tester.odom_msg->header.stamp = tester.node->now();
   // tester.odom_msg->header.frame_id = "map";
   // tester.odom_msg->pose.pose.position.x = 0.0;
   // tester.odom_msg->pose.pose.position.y = 0.0;
   // tester.odom_msg->pose.pose.position.z = 0.0;
-  // tester.odom_msg->twist.twist.linear.x = 1.0;
+  // tester.odom_msg->twist.twist.linear.x = velocity;
 
   auto publishTrajectory = [&tester, &ref_trajectory, &trajectory_arc_length,
                             &velocity](double end_curvature) {

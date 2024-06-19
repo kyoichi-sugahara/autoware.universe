@@ -21,31 +21,26 @@
 
 namespace autoware::motion::control::mpc_lateral_controller
 {
-QPSolverCGMRES::QPSolverCGMRES(const rclcpp::Logger & logger, const std::string & log_dir)
+QPSolverCGMRES::QPSolverCGMRES(
+  const rclcpp::Logger & logger, const std::string & log_dir,
+  const cgmres::SolverSettings & solver_settings, const cgmres::Horizon & horizon)
 : logger_{logger},
   cgmres_logger_(log_dir),
-  settings_{
-    50,     // maximum number of iterations of the ZeroHorizonOCPSolver method
-    1e-06,  // termination criterion of the ZeroHorizonOCPSolver method.
-    1e-08,  // finite_difference_epsilon
-    0.03,   // sampling_time
-    33.3,   // zeta
-    1e-03,  // min_dummy
-    0       // verbose_level
-  },
+  settings_{solver_settings},
   external_reference_(std::make_shared<cgmres::OCP_lateral_control::ExternalReference>()),
   initializer_(ocp_, settings_)
 {
   ocp_.external_reference = external_reference_;
   mpc_ = cgmres::SingleShootingCGMRESSolver<cgmres::OCP_lateral_control, N, kmax>(
-    ocp_, cgmres::Horizon(0.1, 0.0), settings_);
+    ocp_, horizon, settings_);
+  settings_.disp(std::cerr);
+  solver_settings.disp(std::cerr);
+  ocp_.disp(std::cerr);
+  mpc_.disp(std::cerr);
 }
 
-void QPSolverCGMRES::updateEquation(
-  const double prediction_dt, const MPCTrajectory & resampled_ref_trajectory)
+void QPSolverCGMRES::updateEquation(const MPCTrajectory & resampled_ref_trajectory)
 {
-  const double alpha = 0.0;
-  [[maybe_unused]] cgmres::Horizon horizon(prediction_dt, alpha);
   // calculate the average curvature of the reference trajectory
   double curvature_sum = 0.0;
   for (size_t i = 0; i < resampled_ref_trajectory.k.size(); ++i) {

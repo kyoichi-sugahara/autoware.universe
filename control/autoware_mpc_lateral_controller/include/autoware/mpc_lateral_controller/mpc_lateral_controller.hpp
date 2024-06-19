@@ -131,6 +131,14 @@ private:
   // Threshold yaw for the ego vehicle in nearest index search.
   double m_ego_nearest_yaw_threshold;
 
+  // cgmres solver settings
+  size_t m_max_iter_for_zero_horizon;
+  double m_opterr_tol_for_zero_horizon;
+  double m_finite_difference_epsilon;
+  double m_min_dummy;
+  size_t m_verbose_level;
+  double m_horizon_alpha;
+
   // Flag indicating whether auto steering offset removal is enabled.
   bool enable_auto_steering_offset_removal_;
 
