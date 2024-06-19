@@ -29,6 +29,7 @@
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "nav_msgs/msg/odometry.hpp"
+#include "std_msgs/msg/float64_multi_array.hpp"
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include <tf2/utils.h>
@@ -44,6 +45,7 @@ using VehicleOdometry = nav_msgs::msg::Odometry;
 using SteeringReport = autoware_vehicle_msgs::msg::SteeringReport;
 using autoware_adapi_v1_msgs::msg::OperationModeState;
 using geometry_msgs::msg::AccelWithCovarianceStamped;
+using std_msgs::msg::Float64MultiArray;
 
 using FakeNodeFixture = autoware::tools::testing::FakeTestNode;
 
@@ -109,6 +111,8 @@ public:
   bool received_odom_msg = false;
   Trajectory::SharedPtr resampled_reference_trajectory;
   bool received_resampled_reference_trajectory = false;
+  Float64MultiArray::SharedPtr resampled_reference_curvature;
+  bool received_resampled_reference_curvature = false;
   Trajectory::SharedPtr predicted_trajectory_in_frenet_coordinate;
   bool received_predicted_trajectory_in_frenet_coordinate = false;
   Trajectory::SharedPtr predicted_trajectory;
@@ -255,6 +259,14 @@ public:
       [this](const Trajectory::SharedPtr msg) {
         resampled_reference_trajectory = msg;
         received_resampled_reference_trajectory = true;
+      });
+
+  rclcpp::Subscription<Float64MultiArray>::SharedPtr resampled_ref_curvature_sub =
+    fnf->create_subscription<Float64MultiArray>(
+      "controller/debug/resampled_reference_curvature", *fnf->get_fake_node(),
+      [this](const Float64MultiArray::SharedPtr msg) {
+        resampled_reference_curvature = msg;
+        received_resampled_reference_curvature = true;
       });
 
   std::shared_ptr<tf2_ros::StaticTransformBroadcaster> br =
@@ -464,7 +476,8 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
     // std::endl;
 
     test_utils::writeTrajectoriesToFiles(
-      ref_trajectory, *tester.resampled_reference_trajectory, *tester.predicted_trajectory,
+      ref_trajectory, *tester.resampled_reference_trajectory,
+      tester.resampled_reference_curvature->data, *tester.predicted_trajectory,
       *tester.predicted_trajectory_in_frenet_coordinate,
       *tester.cgmres_predicted_trajectory_in_frenet_coordinate, *tester.cgmres_predicted_trajectory,
       tester.cmd_msg->stamp);

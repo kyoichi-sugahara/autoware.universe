@@ -46,6 +46,8 @@ MPC::MPC(rclcpp::Node & node)
 
   m_debug_resampled_reference_trajectory_pub =
     node.create_publisher<Trajectory>("~/debug/resampled_reference_trajectory", rclcpp::QoS(1));
+  m_debug_resampled_reference_curvature_pub = node.create_publisher<Float64MultiArray>(
+    "~/debug/resampled_reference_curvature", rclcpp::QoS(1));
 }
 
 bool MPC::calculateMPC(
@@ -357,6 +359,10 @@ std::pair<bool, MPCTrajectory> MPC::resampleMPCTrajectoryByTime(
   if (m_debug_publish_resampled_reference_trajectory) {
     const auto converted_output = MPCUtils::convertToAutowareTrajectory(output);
     m_debug_resampled_reference_trajectory_pub->publish(converted_output);
+    std::vector<double> resampled_curvature = MPCUtils::extract_trajectory_curvatures(output);
+    std_msgs::msg::Float64MultiArray curvature_msg;
+    curvature_msg.data = resampled_curvature;
+    m_debug_resampled_reference_curvature_pub->publish(curvature_msg);
   }
   return {true, output};
 }
