@@ -137,6 +137,7 @@ private:
   double m_finite_difference_epsilon;
   double m_min_dummy;
   size_t m_verbose_level;
+  double m_horizon;
   double m_horizon_alpha;
 
   // Flag indicating whether auto steering offset removal is enabled.

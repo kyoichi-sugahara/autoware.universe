@@ -453,12 +453,13 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
 
     publishTrajectory(curvature_sign);
     test_utils::waitForMessage(tester.node, this, tester.received_control_command);
-    std::cerr << "tester.received_odom_msg: " << tester.received_odom_msg << std::endl;
-    std::cerr << "odom vx: " << tester.odom_msg->twist.twist.linear.x << std::endl;
-    std::cerr << "odom x: " << tester.odom_msg->pose.pose.position.x << std::endl;
-    std::cerr << "odom y: " << tester.odom_msg->pose.pose.position.y << std::endl;
-    std::cerr << "odom z: " << tester.odom_msg->pose.pose.position.z << std::endl;
-    std::cerr << "odom yaw: " << tf2::getYaw(tester.odom_msg->pose.pose.orientation) << std::endl;
+    // std::cerr << "tester.received_odom_msg: " << tester.received_odom_msg << std::endl;
+    // std::cerr << "odom vx: " << tester.odom_msg->twist.twist.linear.x << std::endl;
+    // std::cerr << "odom x: " << tester.odom_msg->pose.pose.position.x << std::endl;
+    // std::cerr << "odom y: " << tester.odom_msg->pose.pose.position.y << std::endl;
+    // std::cerr << "odom z: " << tester.odom_msg->pose.pose.position.z << std::endl;
+    // std::cerr << "odom yaw: " << tf2::getYaw(tester.odom_msg->pose.pose.orientation) <<
+    // std::endl;
 
     test_utils::writeTrajectoriesToFiles(
       ref_trajectory, *tester.resampled_reference_trajectory, *tester.predicted_trajectory,
