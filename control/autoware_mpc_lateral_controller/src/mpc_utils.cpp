@@ -292,6 +292,26 @@ Trajectory convertToAutowareTrajectory(const MPCTrajectory & input)
   return output;
 }
 
+std::vector<double> extract_trajectory_velocities(const MPCTrajectory & trajectory)
+{
+  return extract_trajectory_attribute(trajectory, &MPCTrajectory::vx);
+}
+
+std::vector<double> extract_trajectory_curvatures(const MPCTrajectory & trajectory)
+{
+  return extract_trajectory_attribute(trajectory, &MPCTrajectory::k);
+}
+
+std::vector<double> extract_trajectory_smoothed_curvature(const MPCTrajectory & trajectory)
+{
+  return extract_trajectory_attribute(trajectory, &MPCTrajectory::smooth_k);
+}
+
+std::vector<double> extract_trajectory_relative_time(const MPCTrajectory & trajectory)
+{
+  return extract_trajectory_attribute(trajectory, &MPCTrajectory::relative_time);
+}
+
 bool calcMPCTrajectoryTime(MPCTrajectory & traj)
 {
   constexpr auto min_dt = 1.0e-4;  // must be positive value to avoid duplication in time

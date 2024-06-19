@@ -85,6 +85,23 @@ MPCTrajectory convertToMPCTrajectory(const Trajectory & input);
  */
 Trajectory convertToAutowareTrajectory(const MPCTrajectory & input);
 
+template <typename T>
+std::vector<double> extract_trajectory_attribute(
+  const MPCTrajectory & trajectory, const std::vector<T> MPCTrajectory::*attribute)
+{
+  std::vector<double> attributes;
+  attributes.reserve(trajectory.size());
+  for (size_t i = 0; i < trajectory.size(); ++i) {
+    attributes.push_back((trajectory.*attribute).at(i));
+  }
+  return attributes;
+}
+
+std::vector<double> extract_trajectory_velocities(const MPCTrajectory & trajectory);
+std::vector<double> extract_trajectory_curvatures(const MPCTrajectory & trajectory);
+std::vector<double> extract_trajectory_smoothed_curvature(const MPCTrajectory & trajectory);
+std::vector<double> extract_trajectory_relative_time(const MPCTrajectory & trajectory);
+
 /**
  * @brief calculate the arc length at each point of the given trajectory
  * @param [in] trajectory trajectory for which to calculate the arc length
