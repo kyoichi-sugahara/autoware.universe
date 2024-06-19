@@ -16,8 +16,8 @@
 // (https://github.com/ohtsukalab/autogenu-jupyter). The autogenu-jupyter copyright holders make no
 // ownership claim of its contents.
 
-#ifndef AUTOWARE_MPC_LATERAL_CONTROLLER__MPC_CGMRES_HPP_
-#define AUTOWARE_MPC_LATERAL_CONTROLLER__MPC_CGMRES_HPP_
+#ifndef AUTOWARE__MPC_LATERAL_CONTROLLER__MPC_CGMRES_HPP_
+#define AUTOWARE__MPC_LATERAL_CONTROLLER__MPC_CGMRES_HPP_
 
 #define _USE_MATH_DEFINES
 
@@ -74,7 +74,7 @@ public:
   double curvature_in_reference_trajectory = -0.5;
   double smoothed_curvature_in_reference_trajectory = -0.5;
   double wheel_base = 2.74;  // arctan(wheel base * curvature_in_reference_trajectory)
-  double tau_ = 0.3;
+  double steer_tau = 0.3;
 
   std::vector<double> curvature_ref_array;
   std::vector<double> v_ref_array;
@@ -106,7 +106,7 @@ public:
     os << "  smoothed_curvature_in_reference_trajectory: "
        << smoothed_curvature_in_reference_trajectory << std::endl;
     os << "  wheel_base: " << wheel_base << std::endl;
-    os << "  tau: " << tau_ << std::endl;
+    os << "  steer_tau: " << steer_tau << std::endl;
     os << std::endl;
     Eigen::IOFormat fmt(4, 0, ", ", "", "[", "]");
     Eigen::IOFormat intfmt(1, 0, ", ", "", "[", "]");
@@ -193,7 +193,7 @@ public:
     dx[0] = v_in_reference_trajectory * sin(x[1]);
     dx[1] = -curvature_in_reference_trajectory * v_in_reference_trajectory * cos(x[1]) +
             v_in_reference_trajectory * tan(x[2]) / wheel_base;
-    dx[2] = -(-u[0] + x[2]) / tau_;
+    dx[2] = -(-u[0] + x[2]) / steer_tau;
   }
 
   ///
@@ -211,7 +211,7 @@ public:
     dx[0] = v_ref_array[i] * sin(x[1]);
     dx[1] = -curvature_ref_array[i] * v_ref_array[i] * cos(x[1]) +
             v_ref_array[i] * tan(x[2]) / wheel_base;
-    dx[2] = -(-u[0] + x[2]) / tau_;
+    dx[2] = -(-u[0] + x[2]) / steer_tau;
   }
 
   ///
@@ -252,7 +252,7 @@ public:
     hx[1] = curvature_in_reference_trajectory * x0 * sin(x[1]) +
             lmd[0] * v_in_reference_trajectory * cos(x[1]) +
             (1.0 / 2.0) * q[1] * (2 * x[1] - 2 * x_ref[1]);
-    hx[2] = -lmd[2] / tau_ + (1.0 / 2.0) * q[2] * (2 * x[2] - 2 * x_ref[2]) +
+    hx[2] = -lmd[2] / steer_tau + (1.0 / 2.0) * q[2] * (2 * x[2] - 2 * x_ref[2]) +
             x0 * (pow(tan(x[2]), 2) + 1) / wheel_base;
   }
 
@@ -277,7 +277,7 @@ public:
     hx[0] = (1.0 / 2.0) * q[0] * (2 * x[0] - 2 * x_ref[0]);
     hx[1] = curvature_ref_array[i] * x0 * sin(x[1]) + lmd[0] * v_ref_array[i] * cos(x[1]) +
             (1.0 / 2.0) * q[1] * (2 * x[1] - 2 * x_ref[1]);
-    hx[2] = -lmd[2] / tau_ + (1.0 / 2.0) * q[2] * (2 * x[2] - 2 * x_ref[2]) +
+    hx[2] = -lmd[2] / steer_tau + (1.0 / 2.0) * q[2] * (2 * x[2] - 2 * x_ref[2]) +
             x0 * (pow(tan(x[2]), 2) + 1) / wheel_base;
   }
 
@@ -297,7 +297,7 @@ public:
   void eval_hu(
     const double t, const double * x, const double * u, const double * lmd, double * hu) const
   {
-    hu[0] = lmd[2] / tau_ + (1.0 / 2.0) * r[0] * (2 * u[0] - 2 * u_ref[0]);
+    hu[0] = lmd[2] / steer_tau + (1.0 / 2.0) * r[0] * (2 * u[0] - 2 * u_ref[0]);
   }
 
   ///
@@ -317,7 +317,7 @@ public:
     const double t, const int i, const double * x, const double * u, const double * lmd,
     double * hu) const
   {
-    hu[0] = lmd[2] / tau_ + (1.0 / 2.0) * r[0] * (2 * u[0] - 2 * u_ref_array[i][0]);
+    hu[0] = lmd[2] / steer_tau + (1.0 / 2.0) * r[0] * (2 * u[0] - 2 * u_ref_array[i][0]);
   }
 
   ///
@@ -444,4 +444,4 @@ public:
 
 }  // namespace cgmres
 
-#endif  // AUTOWARE_MPC_LATERAL_CONTROLLER__MPC_CGMRES_HPP_
+#endif  // AUTOWARE__MPC_LATERAL_CONTROLLER__MPC_CGMRES_HPP_

@@ -683,7 +683,7 @@ std::pair<bool, VectorXd> MPC::executeOptimization(
   } else {
     // RCLCPP_DEBUG(m_logger, "execute optimization without warm start (CGMRES)");
   }
-  m_qpsolver_ptr->updateEquation(resampled_ref_trajectory);
+  m_qpsolver_ptr->updateEquation(resampled_ref_trajectory, m_param.steer_tau);
   const bool solve_result = m_qpsolver_ptr->solveCGMRES(x0, Uex, warm_start);
   m_previous_optimal_solution_time = std::chrono::system_clock::now();
   // auto t_end = std::chrono::system_clock::now();
