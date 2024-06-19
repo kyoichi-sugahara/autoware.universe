@@ -435,10 +435,10 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
   tester.publish_default_steer();
   tester.publish_default_acc();
 
-  const double velocity = 3.0;
+  const double velocity = 5.0;
   const double trajectory_arc_length = 50.0;
-  const double curvature_sign = -0.5;
-  const double step_length = 1.5;
+  const double curvature_sign = -0.1;
+  const double step_length = 1.0;
   const double wheel_base = 2.74;
   const double delta_time = 0.03;
 

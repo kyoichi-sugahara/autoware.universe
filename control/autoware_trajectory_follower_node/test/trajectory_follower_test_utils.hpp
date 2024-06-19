@@ -127,7 +127,7 @@ inline Trajectory generateConstantCurvatureTrajectory(
 
 inline Trajectory generateClothoidTrajectory(
   std_msgs::msg::Header header, double end_curvature, double arc_length, double velocity,
-  double step_length)
+  double step_length, double backward_distance = 5.0)
 {
   Trajectory trajectory;
   trajectory.header = header;
@@ -147,11 +147,13 @@ inline Trajectory generateClothoidTrajectory(
   double y_b = 0.0;
   double theta_b = 0.0;  // Initial angle, curvature is zero
 
+  const int backward_points = static_cast<int>(backward_distance / step_length);
+
   // Add the origin point first
   trajectory.points.push_back(make_traj_point(0.0, 0.0, velocity));
 
-  // Generate points along the clothoid in backward direction and add them to the front
-  for (int i = 1; i <= points; ++i) {
+  // Generate points along the backward straight line and add them to the front
+  for (int i = 1; i <= backward_points; ++i) {
     // Calculate the next point using Euler's method
     double next_x_b = x_b - step_length * cos(theta_b);
     double next_y_b = y_b - step_length * sin(theta_b);
