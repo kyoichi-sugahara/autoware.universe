@@ -293,8 +293,9 @@ void openOutputFilesInWriteMode(
   const std::string & trajectory_directory, std::ofstream & output_file_orig_ref_x,
   std::ofstream & output_file_orig_ref_y, std::ofstream & output_file_resampled_ref_x,
   std::ofstream & output_file_resampled_ref_y, std::ofstream & output_file_resampled_k,
-  std::ofstream & output_file_predicted_x, std::ofstream & output_file_predicted_y,
-  std::ofstream & output_file_predicted_frenet_x, std::ofstream & output_file_predicted_frenet_y,
+  std::ofstream & output_file_resampled_vx, std::ofstream & output_file_predicted_x,
+  std::ofstream & output_file_predicted_y, std::ofstream & output_file_predicted_frenet_x,
+  std::ofstream & output_file_predicted_frenet_y,
   std::ofstream & output_file_cgmres_predicted_frenet_x,
   std::ofstream & output_file_cgmres_predicted_frenet_y,
   std::ofstream & output_file_cgmres_predicted_x, std::ofstream & output_file_cgmres_predicted_y,
@@ -305,6 +306,7 @@ void openOutputFilesInWriteMode(
   output_file_resampled_ref_x.open(trajectory_directory + "resampled_ref_x.log");
   output_file_resampled_ref_y.open(trajectory_directory + "resampled_ref_y.log");
   output_file_resampled_k.open(trajectory_directory + "resampled_k.log");
+  output_file_resampled_vx.open(trajectory_directory + "resampled_vx.log");
   output_file_predicted_x.open(trajectory_directory + "predicted_x.log");
   output_file_predicted_y.open(trajectory_directory + "predicted_y.log");
   output_file_predicted_frenet_x.open(trajectory_directory + "predicted_frenet_x.log");
@@ -322,8 +324,9 @@ void openOutputFilesInAppendMode(
   const std::string & trajectory_directory, std::ofstream & output_file_orig_ref_x,
   std::ofstream & output_file_orig_ref_y, std::ofstream & output_file_resampled_ref_x,
   std::ofstream & output_file_resampled_ref_y, std::ofstream & output_file_resampled_k,
-  std::ofstream & output_file_predicted_x, std::ofstream & output_file_predicted_y,
-  std::ofstream & output_file_predicted_frenet_x, std::ofstream & output_file_predicted_frenet_y,
+  std::ofstream & output_file_resampled_vx, std::ofstream & output_file_predicted_x,
+  std::ofstream & output_file_predicted_y, std::ofstream & output_file_predicted_frenet_x,
+  std::ofstream & output_file_predicted_frenet_y,
   std::ofstream & output_file_cgmres_predicted_frenet_x,
   std::ofstream & output_file_cgmres_predicted_frenet_y,
   std::ofstream & output_file_cgmres_predicted_x, std::ofstream & output_file_cgmres_predicted_y,
@@ -334,6 +337,7 @@ void openOutputFilesInAppendMode(
   output_file_resampled_ref_x.open(trajectory_directory + "resampled_ref_x.log", std::ios::app);
   output_file_resampled_ref_y.open(trajectory_directory + "resampled_ref_y.log", std::ios::app);
   output_file_resampled_k.open(trajectory_directory + "resampled_k.log", std::ios::app);
+  output_file_resampled_vx.open(trajectory_directory + "resampled_vx.log", std::ios::app);
   output_file_predicted_x.open(trajectory_directory + "predicted_x.log", std::ios::app);
   output_file_predicted_y.open(trajectory_directory + "predicted_y.log", std::ios::app);
   output_file_predicted_frenet_x.open(
@@ -403,9 +407,9 @@ std::string openOutputFiles(
   const std::string & log_directory, const std::string & latest_directory,
   std::ofstream & output_file_orig_x, std::ofstream & output_file_orig_y,
   std::ofstream & output_file_resampled_x, std::ofstream & output_file_resampled_y,
-  std::ofstream & output_file_resampled_k, std::ofstream & output_file_predicted_x,
-  std::ofstream & output_file_predicted_y, std::ofstream & output_file_predicted_frenet_x,
-  std::ofstream & output_file_predicted_frenet_y,
+  std::ofstream & output_file_resampled_k, std::ofstream & output_file_resampled_vx,
+  std::ofstream & output_file_predicted_x, std::ofstream & output_file_predicted_y,
+  std::ofstream & output_file_predicted_frenet_x, std::ofstream & output_file_predicted_frenet_y,
   std::ofstream & output_file_cgmres_predicted_frenet_x,
   std::ofstream & output_file_cgmres_predicted_frenet_y,
   std::ofstream & output_file_cgmres_predicted_x, std::ofstream & output_file_cgmres_predicted_y,
@@ -436,36 +440,40 @@ std::string openOutputFiles(
         trajectory_directory = log_directory + latest_directory + "/";
         openOutputFilesInAppendMode(
           trajectory_directory, output_file_orig_x, output_file_orig_y, output_file_resampled_x,
-          output_file_resampled_y, output_file_resampled_k, output_file_predicted_x,
-          output_file_predicted_y, output_file_predicted_frenet_x, output_file_predicted_frenet_y,
-          output_file_cgmres_predicted_frenet_x, output_file_cgmres_predicted_frenet_y,
-          output_file_cgmres_predicted_x, output_file_cgmres_predicted_y, output_file_time);
+          output_file_resampled_y, output_file_resampled_k, output_file_resampled_vx,
+          output_file_predicted_x, output_file_predicted_y, output_file_predicted_frenet_x,
+          output_file_predicted_frenet_y, output_file_cgmres_predicted_frenet_x,
+          output_file_cgmres_predicted_frenet_y, output_file_cgmres_predicted_x,
+          output_file_cgmres_predicted_y, output_file_time);
       } else {
         trajectory_directory = createTrajectoryDirectory(log_directory);
         openOutputFilesInWriteMode(
           trajectory_directory, output_file_orig_x, output_file_orig_y, output_file_resampled_x,
-          output_file_resampled_y, output_file_resampled_k, output_file_predicted_x,
-          output_file_predicted_y, output_file_predicted_frenet_x, output_file_predicted_frenet_y,
-          output_file_cgmres_predicted_frenet_x, output_file_cgmres_predicted_frenet_y,
-          output_file_cgmres_predicted_x, output_file_cgmres_predicted_y, output_file_time);
+          output_file_resampled_y, output_file_resampled_k, output_file_resampled_vx,
+          output_file_predicted_x, output_file_predicted_y, output_file_predicted_frenet_x,
+          output_file_predicted_frenet_y, output_file_cgmres_predicted_frenet_x,
+          output_file_cgmres_predicted_frenet_y, output_file_cgmres_predicted_x,
+          output_file_cgmres_predicted_y, output_file_time);
       }
     } else {
       trajectory_directory = createTrajectoryDirectory(log_directory);
       openOutputFilesInWriteMode(
         trajectory_directory, output_file_orig_x, output_file_orig_y, output_file_resampled_x,
-        output_file_resampled_y, output_file_resampled_k, output_file_predicted_x,
-        output_file_predicted_y, output_file_predicted_frenet_x, output_file_predicted_frenet_y,
-        output_file_cgmres_predicted_frenet_x, output_file_cgmres_predicted_frenet_y,
-        output_file_cgmres_predicted_x, output_file_cgmres_predicted_y, output_file_time);
+        output_file_resampled_y, output_file_resampled_k, output_file_resampled_vx,
+        output_file_predicted_x, output_file_predicted_y, output_file_predicted_frenet_x,
+        output_file_predicted_frenet_y, output_file_cgmres_predicted_frenet_x,
+        output_file_cgmres_predicted_frenet_y, output_file_cgmres_predicted_x,
+        output_file_cgmres_predicted_y, output_file_time);
     }
   } else {
     trajectory_directory = createTrajectoryDirectory(log_directory);
     openOutputFilesInWriteMode(
       trajectory_directory, output_file_orig_x, output_file_orig_y, output_file_resampled_x,
-      output_file_resampled_y, output_file_resampled_k, output_file_predicted_x,
-      output_file_predicted_y, output_file_predicted_frenet_x, output_file_predicted_frenet_y,
-      output_file_cgmres_predicted_frenet_x, output_file_cgmres_predicted_frenet_y,
-      output_file_cgmres_predicted_x, output_file_cgmres_predicted_y, output_file_time);
+      output_file_resampled_y, output_file_resampled_k, output_file_resampled_vx,
+      output_file_predicted_x, output_file_predicted_y, output_file_predicted_frenet_x,
+      output_file_predicted_frenet_y, output_file_cgmres_predicted_frenet_x,
+      output_file_cgmres_predicted_frenet_y, output_file_cgmres_predicted_x,
+      output_file_cgmres_predicted_y, output_file_time);
   }
 
   return trajectory_directory;
@@ -494,7 +502,8 @@ std::string getLatestDirectory(const std::string & log_directory)
 
 void writeTrajectoriesToFiles(
   const Trajectory & original_ref_trajectory, const Trajectory & resampled_ref_trajectory,
-  const std::vector<double> & resampled_ref_curvature, const Trajectory & predicted_trajectory,
+  const std::vector<double> & resampled_ref_curvature,
+  const std::vector<double> & resampled_ref_velocity, const Trajectory & predicted_trajectory,
   const Trajectory & predicted_trajectory_in_frenet_coordinate,
   const Trajectory & cgmres_predicted_trajectory_in_frenet_coordinate,
   const Trajectory & cgmres_predicted_trajectory, const rclcpp::Time & stamp)
@@ -512,22 +521,24 @@ void writeTrajectoriesToFiles(
 
   // Open output files
   std::ofstream output_file_orig_x, output_file_orig_y, output_file_resampled_x,
-    output_file_resampled_y, output_file_resampled_k, output_file_predicted_x,
-    output_file_predicted_y, output_file_predicted_frenet_x, output_file_predicted_frenet_y,
-    output_file_cgmres_predicted_frenet_x, output_file_cgmres_predicted_frenet_y,
-    output_file_cgmres_predicted_x, output_file_cgmres_predicted_y, output_file_time;
-  std::string trajectory_directory = openOutputFiles(
-    log_directory, latest_directory, output_file_orig_x, output_file_orig_y,
-    output_file_resampled_x, output_file_resampled_y, output_file_resampled_k,
+    output_file_resampled_y, output_file_resampled_k, output_file_resampled_vx,
     output_file_predicted_x, output_file_predicted_y, output_file_predicted_frenet_x,
     output_file_predicted_frenet_y, output_file_cgmres_predicted_frenet_x,
     output_file_cgmres_predicted_frenet_y, output_file_cgmres_predicted_x,
-    output_file_cgmres_predicted_y, output_file_time, stamp);
+    output_file_cgmres_predicted_y, output_file_time;
+  std::string trajectory_directory = openOutputFiles(
+    log_directory, latest_directory, output_file_orig_x, output_file_orig_y,
+    output_file_resampled_x, output_file_resampled_y, output_file_resampled_k,
+    output_file_resampled_vx, output_file_predicted_x, output_file_predicted_y,
+    output_file_predicted_frenet_x, output_file_predicted_frenet_y,
+    output_file_cgmres_predicted_frenet_x, output_file_cgmres_predicted_frenet_y,
+    output_file_cgmres_predicted_x, output_file_cgmres_predicted_y, output_file_time, stamp);
 
   // Write trajectories to files
   writeTrajectoryToFile(original_ref_trajectory, output_file_orig_x, output_file_orig_y);
   writeTrajectoryToFile(resampled_ref_trajectory, output_file_resampled_x, output_file_resampled_y);
   writeValuesToFile(resampled_ref_curvature, output_file_resampled_k);
+  writeValuesToFile(resampled_ref_velocity, output_file_resampled_vx);
   writeTrajectoryToFile(predicted_trajectory, output_file_predicted_x, output_file_predicted_y);
   writeTrajectoryToFile(
     predicted_trajectory_in_frenet_coordinate, output_file_predicted_frenet_x,

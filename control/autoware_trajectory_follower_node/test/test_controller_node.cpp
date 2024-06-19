@@ -113,6 +113,8 @@ public:
   bool received_resampled_reference_trajectory = false;
   Float64MultiArray::SharedPtr resampled_reference_curvature;
   bool received_resampled_reference_curvature = false;
+  Float64MultiArray::SharedPtr resampled_reference_velocity;
+  bool received_resampled_reference_velocity = false;
   Trajectory::SharedPtr predicted_trajectory_in_frenet_coordinate;
   bool received_predicted_trajectory_in_frenet_coordinate = false;
   Trajectory::SharedPtr predicted_trajectory;
@@ -267,6 +269,14 @@ public:
       [this](const Float64MultiArray::SharedPtr msg) {
         resampled_reference_curvature = msg;
         received_resampled_reference_curvature = true;
+      });
+
+  rclcpp::Subscription<Float64MultiArray>::SharedPtr resampled_ref_velocity_sub =
+    fnf->create_subscription<Float64MultiArray>(
+      "controller/debug/resampled_reference_velocity", *fnf->get_fake_node(),
+      [this](const Float64MultiArray::SharedPtr msg) {
+        resampled_reference_velocity = msg;
+        received_resampled_reference_velocity = true;
       });
 
   std::shared_ptr<tf2_ros::StaticTransformBroadcaster> br =
@@ -477,8 +487,8 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
 
     test_utils::writeTrajectoriesToFiles(
       ref_trajectory, *tester.resampled_reference_trajectory,
-      tester.resampled_reference_curvature->data, *tester.predicted_trajectory,
-      *tester.predicted_trajectory_in_frenet_coordinate,
+      tester.resampled_reference_curvature->data, tester.resampled_reference_velocity->data,
+      *tester.predicted_trajectory, *tester.predicted_trajectory_in_frenet_coordinate,
       *tester.cgmres_predicted_trajectory_in_frenet_coordinate, *tester.cgmres_predicted_trajectory,
       tester.cmd_msg->stamp);
     ASSERT_TRUE(tester.received_control_command);
