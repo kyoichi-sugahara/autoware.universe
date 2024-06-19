@@ -173,15 +173,94 @@ inline void spinWhile(T & node)
 // y_{k+1} &= y_{k} + v\sin\theta_{k} \, \text{d}t
 // \theta_{k+1} &= \theta_{k} + \frac{v}{L} \tan\delta \, \text{d}t
 inline void updateOdom(
-  VehicleOdometry & odom, const float steering_angle, const double dt, const float wheelbase)
+  VehicleOdometry & odom, const float steering_angle, const double dt, const float wheelbase,
+  [[maybe_unused]] const int num_steps = 10)
 {
-  double yaw = tf2::getYaw(odom.pose.pose.orientation);
+  // double original_x = odom.pose.pose.position.x;
+  // double original_y = odom.pose.pose.position.y;
+  double original_yaw = tf2::getYaw(odom.pose.pose.orientation);
+  double velocity = odom.twist.twist.linear.x;
 
-  odom.pose.pose.position.x += odom.twist.twist.linear.x * cos(yaw) * dt;
-  odom.pose.pose.position.y += odom.twist.twist.linear.x * sin(yaw) * dt;
-  yaw += (odom.twist.twist.linear.x / wheelbase) * tan(steering_angle) * dt;
+  odom.pose.pose.position.x += velocity * cos(original_yaw) * dt;
+  odom.pose.pose.position.y += velocity * sin(original_yaw) * dt;
+  double updated_yaw = original_yaw + (velocity / wheelbase) * tan(steering_angle) * dt;
+  odom.pose.pose.orientation = tf2::toMsg(tf2::Quaternion(tf2::Vector3(0, 0, 1), updated_yaw));
 
-  odom.pose.pose.orientation = tf2::toMsg(tf2::Quaternion(tf2::Vector3(0, 0, 1), yaw));
+  // double euler_x = original_x + velocity * cos(original_yaw) * dt;
+  // double euler_y = original_y + velocity * sin(original_yaw) * dt;
+  // double euler_yaw = original_yaw + (velocity / wheelbase) * tan(steering_angle) * dt;
+
+  // double k1_x = velocity * cos(original_yaw);
+  // double k1_y = velocity * sin(original_yaw);
+  // double k1_yaw = (velocity / wheelbase) * tan(steering_angle);
+
+  // double k2_x = velocity * cos(original_yaw + k1_yaw * dt / 2);
+  // double k2_y = velocity * sin(original_yaw + k1_yaw * dt / 2);
+  // double k2_yaw = (velocity / wheelbase) * tan(steering_angle);
+
+  // double k3_x = velocity * cos(original_yaw + k2_yaw * dt / 2);
+  // double k3_y = velocity * sin(original_yaw + k2_yaw * dt / 2);
+  // double k3_yaw = (velocity / wheelbase) * tan(steering_angle);
+
+  // double k4_x = velocity * cos(original_yaw + k3_yaw * dt);
+  // double k4_y = velocity * sin(original_yaw + k3_yaw * dt);
+  // double k4_yaw = (velocity / wheelbase) * tan(steering_angle);
+
+  // double rungekutta_x = original_x + (k1_x + 2 * k2_x + 2 * k3_x + k4_x) * dt / 6;
+  // double rungekutta_y = original_y + (k1_y + 2 * k2_y + 2 * k3_y + k4_y) * dt / 6;
+  // double rungekutta_yaw = original_yaw + (k1_yaw + 2 * k2_yaw + 2 * k3_yaw + k4_yaw) * dt / 6;
+
+  // double euler_x_split = original_x;
+  // double euler_y_split = original_y;
+  // double euler_yaw_split = original_yaw;
+
+  // double rungekutta_x_split = original_x;
+  // double rungekutta_y_split = original_y;
+  // double rungekutta_yaw_split = original_yaw;
+
+  // double dt_step = dt / num_steps;
+
+  // for (int i = 0; i < num_steps; ++i) {
+  //   euler_x_split += velocity * cos(euler_yaw_split) * dt_step;
+  //   euler_y_split += velocity * sin(euler_yaw_split) * dt_step;
+  //   euler_yaw_split += (velocity / wheelbase) * tan(steering_angle) * dt_step;
+
+  //   double k1_x = velocity * cos(rungekutta_yaw_split);
+  //   double k1_y = velocity * sin(rungekutta_yaw_split);
+  //   double k1_yaw = (velocity / wheelbase) * tan(steering_angle);
+
+  //   double k2_x = velocity * cos(rungekutta_yaw_split + k1_yaw * dt_step / 2);
+  //   double k2_y = velocity * sin(rungekutta_yaw_split + k1_yaw * dt_step / 2);
+  //   double k2_yaw = (velocity / wheelbase) * tan(steering_angle);
+
+  //   double k3_x = velocity * cos(rungekutta_yaw_split + k2_yaw * dt_step / 2);
+  //   double k3_y = velocity * sin(rungekutta_yaw_split + k2_yaw * dt_step / 2);
+  //   double k3_yaw = (velocity / wheelbase) * tan(steering_angle);
+
+  //   double k4_x = velocity * cos(rungekutta_yaw_split + k3_yaw * dt_step);
+  //   double k4_y = velocity * sin(rungekutta_yaw_split + k3_yaw * dt_step);
+  //   double k4_yaw = (velocity / wheelbase) * tan(steering_angle);
+
+  //   rungekutta_x_split += (k1_x + 2 * k2_x + 2 * k3_x + k4_x) * dt_step / 6;
+  //   rungekutta_y_split += (k1_y + 2 * k2_y + 2 * k3_y + k4_y) * dt_step / 6;
+  //   rungekutta_yaw_split += (k1_yaw + 2 * k2_yaw + 2 * k3_yaw + k4_yaw) * dt_step / 6;
+  // }
+
+  // std::cerr << "euler_x: " << euler_x << std::endl;
+  // std::cerr << "euler_y: " << euler_y << std::endl;
+  // std::cerr << "euler_yaw: " << euler_yaw << std::endl;
+
+  // std::cerr << "rungekutta_x: " << rungekutta_x << std::endl;
+  // std::cerr << "rungekutta_y: " << rungekutta_y << std::endl;
+  // std::cerr << "rungekutta_yaw: " << rungekutta_yaw << std::endl;
+
+  // std::cerr << "euler_x_split: " << euler_x_split << std::endl;
+  // std::cerr << "euler_y_split: " << euler_y_split << std::endl;
+  // std::cerr << "euler_yaw_split: " << euler_yaw_split << std::endl;
+
+  // std::cerr << "rungekutta_x_split: " << rungekutta_x_split << std::endl;
+  // std::cerr << "rungekutta_y_split: " << rungekutta_y_split << std::endl;
+  // std::cerr << "rungekutta_yaw_split: " << rungekutta_yaw_split << std::endl;
 }
 
 void writeTrajectoryToFile(
