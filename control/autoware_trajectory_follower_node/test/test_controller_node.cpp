@@ -412,8 +412,13 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
   tester.publish_autonomous_operation_mode();
   tester.publish_default_steer();
   tester.publish_default_acc();
+
   const double velocity = 3.0;
   const double trajectory_arc_length = 50.0;
+  const double curvature_sign = -0.5;
+  const double step_length = 1.5;
+  const double wheel_base = 2.74;
+  const double delta_time = 0.03;
 
   VehicleOdometry odom_msg;
   odom_msg.header.stamp = tester.node->now();
@@ -429,19 +434,16 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
   // tester.odom_msg->pose.pose.position.y = 0.0;
   // tester.odom_msg->pose.pose.position.z = 0.0;
   // tester.odom_msg->twist.twist.linear.x = velocity;
-
-  auto publishTrajectory = [&tester, &ref_trajectory, &trajectory_arc_length,
-                            &velocity](double end_curvature) {
+  auto publishTrajectory = [&tester, &ref_trajectory, curvature_sign, trajectory_arc_length,
+                            velocity, step_length]() {
     std_msgs::msg::Header header;
     header.stamp = tester.node->now();
     header.frame_id = "map";
     ref_trajectory = test_utils::generateClothoidTrajectory(
-      header, end_curvature, trajectory_arc_length, velocity);
+      header, curvature_sign, trajectory_arc_length, velocity, step_length);
 
     tester.traj_pub->publish(ref_trajectory);
   };
-
-  double curvature_sign = -0.25;
 
   constexpr size_t iter_num = 50;
   for (size_t i = 0; i < iter_num; i++) {
@@ -451,7 +453,7 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
       tester.publish_odom(*tester.odom_msg);
     }
 
-    publishTrajectory(curvature_sign);
+    publishTrajectory();
     test_utils::waitForMessage(tester.node, this, tester.received_control_command);
     // std::cerr << "tester.received_odom_msg: " << tester.received_odom_msg << std::endl;
     // std::cerr << "odom vx: " << tester.odom_msg->twist.twist.linear.x << std::endl;
@@ -476,7 +478,7 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
     tester.received_control_command = false;
     tester.received_odom_msg = false;
     test_utils::updateOdom(
-      *tester.odom_msg, tester.cmd_msg->lateral.steering_tire_angle, 0.03, 2.74);
+      *tester.odom_msg, tester.cmd_msg->lateral.steering_tire_angle, delta_time, wheel_base);
   }
 
   // ASSERT_TRUE(tester.received_resampled_reference_trajectory);

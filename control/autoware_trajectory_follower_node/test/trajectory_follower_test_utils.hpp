@@ -126,14 +126,15 @@ inline Trajectory generateConstantCurvatureTrajectory(
 }
 
 inline Trajectory generateClothoidTrajectory(
-  std_msgs::msg::Header header, double end_curvature, double arc_length, double velocity)
+  std_msgs::msg::Header header, double end_curvature, double arc_length, double velocity,
+  double step_length)
 {
   Trajectory trajectory;
   trajectory.header = header;
 
-  const int points = static_cast<int>(arc_length * 3);  // Number of points in the trajectory
-  double curvature_rate = end_curvature / arc_length;   // Curvature change rate
-  double step_length = arc_length / points;             // Length of each segment
+  const int points =
+    static_cast<int>(arc_length / step_length);        // Number of points in the trajectory
+  double curvature_rate = end_curvature / arc_length;  // Curvature change rate
 
   double x = 0.0;
   double y = 0.0;
@@ -173,42 +174,43 @@ inline void spinWhile(T & node)
 // y_{k+1} &= y_{k} + v\sin\theta_{k} \, \text{d}t
 // \theta_{k+1} &= \theta_{k} + \frac{v}{L} \tan\delta \, \text{d}t
 inline void updateOdom(
-  VehicleOdometry & odom, const float steering_angle, const double dt, const float wheelbase,
-  [[maybe_unused]] const int num_steps = 10)
+  VehicleOdometry & odom, const float steering_angle, const double delta_time,
+  const float wheelbase, [[maybe_unused]] const int num_steps = 10)
 {
   // double original_x = odom.pose.pose.position.x;
   // double original_y = odom.pose.pose.position.y;
   double original_yaw = tf2::getYaw(odom.pose.pose.orientation);
   double velocity = odom.twist.twist.linear.x;
 
-  odom.pose.pose.position.x += velocity * cos(original_yaw) * dt;
-  odom.pose.pose.position.y += velocity * sin(original_yaw) * dt;
-  double updated_yaw = original_yaw + (velocity / wheelbase) * tan(steering_angle) * dt;
+  odom.pose.pose.position.x += velocity * cos(original_yaw) * delta_time;
+  odom.pose.pose.position.y += velocity * sin(original_yaw) * delta_time;
+  double updated_yaw = original_yaw + (velocity / wheelbase) * tan(steering_angle) * delta_time;
   odom.pose.pose.orientation = tf2::toMsg(tf2::Quaternion(tf2::Vector3(0, 0, 1), updated_yaw));
 
-  // double euler_x = original_x + velocity * cos(original_yaw) * dt;
-  // double euler_y = original_y + velocity * sin(original_yaw) * dt;
-  // double euler_yaw = original_yaw + (velocity / wheelbase) * tan(steering_angle) * dt;
+  // double euler_x = original_x + velocity * cos(original_yaw) * delta_time;
+  // double euler_y = original_y + velocity * sin(original_yaw) * delta_time;
+  // double euler_yaw = original_yaw + (velocity / wheelbase) * tan(steering_angle) * delta_time;
 
   // double k1_x = velocity * cos(original_yaw);
   // double k1_y = velocity * sin(original_yaw);
   // double k1_yaw = (velocity / wheelbase) * tan(steering_angle);
 
-  // double k2_x = velocity * cos(original_yaw + k1_yaw * dt / 2);
-  // double k2_y = velocity * sin(original_yaw + k1_yaw * dt / 2);
+  // double k2_x = velocity * cos(original_yaw + k1_yaw * delta_time / 2);
+  // double k2_y = velocity * sin(original_yaw + k1_yaw * delta_time / 2);
   // double k2_yaw = (velocity / wheelbase) * tan(steering_angle);
 
-  // double k3_x = velocity * cos(original_yaw + k2_yaw * dt / 2);
-  // double k3_y = velocity * sin(original_yaw + k2_yaw * dt / 2);
+  // double k3_x = velocity * cos(original_yaw + k2_yaw * delta_time / 2);
+  // double k3_y = velocity * sin(original_yaw + k2_yaw * delta_time / 2);
   // double k3_yaw = (velocity / wheelbase) * tan(steering_angle);
 
-  // double k4_x = velocity * cos(original_yaw + k3_yaw * dt);
-  // double k4_y = velocity * sin(original_yaw + k3_yaw * dt);
+  // double k4_x = velocity * cos(original_yaw + k3_yaw * delta_time);
+  // double k4_y = velocity * sin(original_yaw + k3_yaw * delta_time);
   // double k4_yaw = (velocity / wheelbase) * tan(steering_angle);
 
-  // double rungekutta_x = original_x + (k1_x + 2 * k2_x + 2 * k3_x + k4_x) * dt / 6;
-  // double rungekutta_y = original_y + (k1_y + 2 * k2_y + 2 * k3_y + k4_y) * dt / 6;
-  // double rungekutta_yaw = original_yaw + (k1_yaw + 2 * k2_yaw + 2 * k3_yaw + k4_yaw) * dt / 6;
+  // double rungekutta_x = original_x + (k1_x + 2 * k2_x + 2 * k3_x + k4_x) * delta_time / 6;
+  // double rungekutta_y = original_y + (k1_y + 2 * k2_y + 2 * k3_y + k4_y) * delta_time / 6;
+  // double rungekutta_yaw = original_yaw + (k1_yaw + 2 * k2_yaw + 2 * k3_yaw + k4_yaw) * delta_time
+  // / 6;
 
   // double euler_x_split = original_x;
   // double euler_y_split = original_y;
@@ -218,7 +220,7 @@ inline void updateOdom(
   // double rungekutta_y_split = original_y;
   // double rungekutta_yaw_split = original_yaw;
 
-  // double dt_step = dt / num_steps;
+  // double dt_step = delta_time / num_steps;
 
   // for (int i = 0; i < num_steps; ++i) {
   //   euler_x_split += velocity * cos(euler_yaw_split) * dt_step;
