@@ -136,23 +136,46 @@ inline Trajectory generateClothoidTrajectory(
     static_cast<int>(arc_length / step_length);        // Number of points in the trajectory
   double curvature_rate = end_curvature / arc_length;  // Curvature change rate
 
-  double x = 0.0;
-  double y = 0.0;
-  double theta = 0.0;  // Initial angle
-  double curvature = 0.0;
+  // Variables for forward direction
+  double x_f = 0.0;
+  double y_f = 0.0;
+  double theta_f = 0.0;  // Initial angle
+  double curvature_f = 0.0;
 
-  // Generate points along the clothoid
-  for (int i = 0; i <= points; ++i) {
+  // Variables for backward direction
+  double x_b = 0.0;
+  double y_b = 0.0;
+  double theta_b = 0.0;  // Initial angle, curvature is zero
+
+  // Add the origin point first
+  trajectory.points.push_back(make_traj_point(0.0, 0.0, velocity));
+
+  // Generate points along the clothoid in backward direction and add them to the front
+  for (int i = 1; i <= points; ++i) {
     // Calculate the next point using Euler's method
-    double next_x = x + step_length * cos(theta);
-    double next_y = y + step_length * sin(theta);
-    trajectory.points.push_back(make_traj_point(next_x, next_y, velocity));
+    double next_x_b = x_b - step_length * cos(theta_b);
+    double next_y_b = y_b - step_length * sin(theta_b);
+    trajectory.points.insert(
+      trajectory.points.begin(), make_traj_point(next_x_b, next_y_b, velocity));
 
     // Update the parameters
-    x = next_x;
-    y = next_y;
-    curvature += curvature_rate * step_length;  // Increment curvature
-    theta += curvature * step_length;           // Increment angle by the current curvature
+    x_b = next_x_b;
+    y_b = next_y_b;
+    // Curvature is zero for backward direction, so theta_b remains the same
+  }
+
+  // Generate points along the clothoid in forward direction
+  for (int i = 1; i <= points; ++i) {  // Start from 1 to avoid duplicate point at the origin
+    // Calculate the next point using Euler's method
+    double next_x_f = x_f + step_length * cos(theta_f);
+    double next_y_f = y_f + step_length * sin(theta_f);
+    trajectory.points.push_back(make_traj_point(next_x_f, next_y_f, velocity));
+
+    // Update the parameters
+    x_f = next_x_f;
+    y_f = next_y_f;
+    curvature_f += curvature_rate * step_length;  // Increment curvature
+    theta_f += curvature_f * step_length;         // Increment angle by the current curvature
   }
 
   return trajectory;
