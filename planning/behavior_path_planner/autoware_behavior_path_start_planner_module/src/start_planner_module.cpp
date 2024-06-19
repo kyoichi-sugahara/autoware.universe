@@ -44,7 +44,9 @@ using autoware::behavior_path_planner::utils::parking_departure::initializeColli
 using autoware::behavior_path_planner::utils::path_safety_checker::ExtendedPredictedObject;
 using autoware_motion_utils::calcLateralOffset;
 using autoware_motion_utils::calcLongitudinalOffsetPose;
+using autoware_universe_utils::calcAzimuthAngle;
 using autoware_universe_utils::calcOffsetPose;
+using autoware_universe_utils::createPoint;
 
 // set as macro so that calling function name will be printed.
 // debug print is heavy. turn on only when debugging.
@@ -389,7 +391,7 @@ bool StartPlannerModule::isPreventingRearVehicleFromPassingThrough() const
       boundary_line.begin(), boundary_line.end(), [&boundary_path](const auto & boundary_point) {
         const double x = boundary_point.x();
         const double y = boundary_point.y();
-        boundary_path.push_back(autoware_universe_utils::createPoint(x, y, 0.0));
+        boundary_path.push_back(createPoint(x, y, 0.0));
       });
 
     return std::fabs(calcLateralOffset(boundary_path, search_pose.position));
@@ -402,8 +404,8 @@ bool StartPlannerModule::isPreventingRearVehicleFromPassingThrough() const
     autoware_motion_utils::findNearestSegmentIndex(centerline_path.points, start_pose);
   if (!start_pose_nearest_segment_index) return false;
 
-  const auto start_pose_point_msg = autoware_universe_utils::createPoint(
-    start_pose.position.x, start_pose.position.y, start_pose.position.z);
+  const auto start_pose_point_msg =
+    createPoint(start_pose.position.x, start_pose.position.y, start_pose.position.z);
   const auto starting_pose_lateral_offset = autoware_motion_utils::calcLateralOffset(
     centerline_path.points, start_pose_point_msg, start_pose_nearest_segment_index.value());
   if (std::isnan(starting_pose_lateral_offset)) return false;
@@ -1168,7 +1170,7 @@ PathWithLaneId StartPlannerModule::calcBackwardPathFromStartPose() const
       [&left_boundary_path](const auto & boundary_point) {
         const double x = boundary_point.x();
         const double y = boundary_point.y();
-        left_boundary_path.push_back(tier4_autoware_utils::createPoint(x, y, 0.0));
+        left_boundary_path.push_back(createPoint(x, y, 0.0));
       });
 
     std::for_each(
@@ -1176,7 +1178,7 @@ PathWithLaneId StartPlannerModule::calcBackwardPathFromStartPose() const
       [&right_boundary_path](const auto & boundary_point) {
         const double x = boundary_point.x();
         const double y = boundary_point.y();
-        right_boundary_path.push_back(tier4_autoware_utils::createPoint(x, y, 0.0));
+        right_boundary_path.push_back(createPoint(x, y, 0.0));
       });
 
     const double left_lateral_offset = calcLateralOffset(left_boundary_path, search_pose.position);
@@ -1184,9 +1186,9 @@ PathWithLaneId StartPlannerModule::calcBackwardPathFromStartPose() const
       calcLateralOffset(right_boundary_path, search_pose.position);
 
     const auto closest_index =
-      motion_utils::findNearestSegmentIndex(left_boundary_path, search_pose.position);
-    const auto yaw = tier4_autoware_utils::calcAzimuthAngle(
-      left_boundary_path[closest_index], left_boundary_path[closest_index + 1]);
+      autoware_motion_utils::findNearestSegmentIndex(left_boundary_path, search_pose.position);
+    const auto yaw =
+      calcAzimuthAngle(left_boundary_path[closest_index], left_boundary_path[closest_index + 1]);
     // std::cerr << "closest_index: " << closest_index << "\n\n\n" << std::endl;
     // std::cerr << "yaw: " << yaw << "/n/n/n" << std::endl;
 

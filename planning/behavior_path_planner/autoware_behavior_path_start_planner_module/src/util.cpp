@@ -105,14 +105,14 @@ lanelet::ConstLanelets getPullOutLanes(
 }
 
 double calcMinArcLengthDistanceFromEgoToObjects(
-  const tier4_autoware_utils::LinearRing2d & local_vehicle_footprint, const Pose & ego_pose,
+  const LinearRing2d & local_vehicle_footprint, const Pose & ego_pose,
   const lanelet::ConstLanelets & lanelets, const PredictedObjects & static_objects)
 {
   double min_distance = std::numeric_limits<double>::max();
   const auto vehicle_footprint =
-    transformVector(local_vehicle_footprint, tier4_autoware_utils::pose2transform(ego_pose));
+    transformVector(local_vehicle_footprint, autoware_universe_utils::pose2transform(ego_pose));
   for (const auto & obj : static_objects.objects) {
-    const auto obj_polygon = tier4_autoware_utils::toPolygon2d(obj);
+    const auto obj_polygon = autoware_universe_utils::toPolygon2d(obj);
     for (const auto & obj_outer_point : obj_polygon.outer()) {
       const auto obj_pose_arc_length = getArcLengthForPoint(lanelets, obj_outer_point);
       for (const auto & vehicle_corner_point : vehicle_footprint) {
@@ -126,8 +126,7 @@ double calcMinArcLengthDistanceFromEgoToObjects(
   return min_distance;
 }
 
-double getArcLengthForPoint(
-  const lanelet::ConstLanelets & lanelets, const tier4_autoware_utils::Point2d & point)
+double getArcLengthForPoint(const lanelet::ConstLanelets & lanelets, const Point2d & point)
 {
   geometry_msgs::msg::Pose pose;
   pose.position.x = point.x();
