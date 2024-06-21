@@ -432,12 +432,12 @@ std::string openOutputFiles(
   const std::string & log_directory, const std::string & latest_directory,
   std::ofstream & output_file_orig_x, std::ofstream & output_file_orig_y,
   std::ofstream & output_file_resampled_x, std::ofstream & output_file_resampled_y,
-  std::ofstream & output_file_resampled_k, std::ofstream & output_file_resampled_vx,
   std::ofstream & output_file_predicted_x, std::ofstream & output_file_predicted_y,
   std::ofstream & output_file_predicted_frenet_x, std::ofstream & output_file_predicted_frenet_y,
   std::ofstream & output_file_cgmres_predicted_frenet_x,
   std::ofstream & output_file_cgmres_predicted_frenet_y,
   std::ofstream & output_file_cgmres_predicted_x, std::ofstream & output_file_cgmres_predicted_y,
+  std::ofstream & output_file_resampled_k, std::ofstream & output_file_resampled_vx,
   std::ofstream & output_file_time, const rclcpp::Time & stamp)
 {
   std::string trajectory_directory;
@@ -527,11 +527,12 @@ std::string getLatestDirectory(const std::string & log_directory)
 
 void writeTrajectoriesToFiles(
   const Trajectory & original_ref_trajectory, const Trajectory & resampled_ref_trajectory,
-  const std::vector<double> & resampled_ref_curvature,
-  const std::vector<double> & resampled_ref_velocity, const Trajectory & predicted_trajectory,
+  const Trajectory & predicted_trajectory,
   const Trajectory & predicted_trajectory_in_frenet_coordinate,
   const Trajectory & cgmres_predicted_trajectory_in_frenet_coordinate,
-  const Trajectory & cgmres_predicted_trajectory, const rclcpp::Time & stamp)
+  const Trajectory & cgmres_predicted_trajectory,
+  const std::vector<double> & resampled_ref_curvature,
+  const std::vector<double> & resampled_ref_velocity, const rclcpp::Time & stamp)
 {
   // Get home directory path
   const char * home_dir = std::getenv("HOME");
@@ -546,24 +547,22 @@ void writeTrajectoriesToFiles(
 
   // Open output files
   std::ofstream output_file_orig_x, output_file_orig_y, output_file_resampled_x,
-    output_file_resampled_y, output_file_resampled_k, output_file_resampled_vx,
-    output_file_predicted_x, output_file_predicted_y, output_file_predicted_frenet_x,
-    output_file_predicted_frenet_y, output_file_cgmres_predicted_frenet_x,
-    output_file_cgmres_predicted_frenet_y, output_file_cgmres_predicted_x,
-    output_file_cgmres_predicted_y, output_file_time;
-  std::string trajectory_directory = openOutputFiles(
-    log_directory, latest_directory, output_file_orig_x, output_file_orig_y,
-    output_file_resampled_x, output_file_resampled_y, output_file_resampled_k,
-    output_file_resampled_vx, output_file_predicted_x, output_file_predicted_y,
+    output_file_resampled_y, output_file_predicted_x, output_file_predicted_y,
     output_file_predicted_frenet_x, output_file_predicted_frenet_y,
     output_file_cgmres_predicted_frenet_x, output_file_cgmres_predicted_frenet_y,
-    output_file_cgmres_predicted_x, output_file_cgmres_predicted_y, output_file_time, stamp);
+    output_file_cgmres_predicted_x, output_file_cgmres_predicted_y, output_file_resampled_k,
+    output_file_resampled_vx, output_file_time;
+  std::string trajectory_directory = openOutputFiles(
+    log_directory, latest_directory, output_file_orig_x, output_file_orig_y,
+    output_file_resampled_x, output_file_resampled_y, output_file_predicted_x,
+    output_file_predicted_y, output_file_predicted_frenet_x, output_file_predicted_frenet_y,
+    output_file_cgmres_predicted_frenet_x, output_file_cgmres_predicted_frenet_y,
+    output_file_cgmres_predicted_x, output_file_cgmres_predicted_y, output_file_resampled_k,
+    output_file_resampled_vx, output_file_time, stamp);
 
   // Write trajectories to files
   writeTrajectoryToFile(original_ref_trajectory, output_file_orig_x, output_file_orig_y);
   writeTrajectoryToFile(resampled_ref_trajectory, output_file_resampled_x, output_file_resampled_y);
-  writeValuesToFile(resampled_ref_curvature, output_file_resampled_k);
-  writeValuesToFile(resampled_ref_velocity, output_file_resampled_vx);
   writeTrajectoryToFile(predicted_trajectory, output_file_predicted_x, output_file_predicted_y);
   writeTrajectoryToFile(
     predicted_trajectory_in_frenet_coordinate, output_file_predicted_frenet_x,
@@ -573,6 +572,8 @@ void writeTrajectoriesToFiles(
     output_file_cgmres_predicted_frenet_y);
   writeTrajectoryToFile(
     cgmres_predicted_trajectory, output_file_cgmres_predicted_x, output_file_cgmres_predicted_y);
+  writeValuesToFile(resampled_ref_curvature, output_file_resampled_k);
+  writeValuesToFile(resampled_ref_velocity, output_file_resampled_vx);
 
   // Write timestamp to file
   double time_in_seconds = stamp.seconds() + static_cast<double>(stamp.nanoseconds()) / 1e9;

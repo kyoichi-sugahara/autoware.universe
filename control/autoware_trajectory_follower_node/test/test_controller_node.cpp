@@ -486,10 +486,10 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
     // std::endl;
 
     test_utils::writeTrajectoriesToFiles(
-      ref_trajectory, *tester.resampled_reference_trajectory,
-      tester.resampled_reference_curvature->data, tester.resampled_reference_velocity->data,
-      *tester.predicted_trajectory, *tester.predicted_trajectory_in_frenet_coordinate,
+      ref_trajectory, *tester.resampled_reference_trajectory, *tester.predicted_trajectory,
+      *tester.predicted_trajectory_in_frenet_coordinate,
       *tester.cgmres_predicted_trajectory_in_frenet_coordinate, *tester.cgmres_predicted_trajectory,
+      tester.resampled_reference_curvature->data, tester.resampled_reference_velocity->data,
       tester.cmd_msg->stamp);
     ASSERT_TRUE(tester.received_control_command);
     std::cerr << "lat steer tire angle: " << tester.cmd_msg->lateral.steering_tire_angle
