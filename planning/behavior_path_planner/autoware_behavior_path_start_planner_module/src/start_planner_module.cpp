@@ -389,7 +389,6 @@ bool StartPlannerModule::isPreventingRearVehicleFromPassingThrough() const
       boundary_line.begin(), boundary_line.end(), [&boundary_path](const auto & boundary_point) {
         const double x = boundary_point.x();
         const double y = boundary_point.y();
-        boundary_path.push_back(createPoint(x, y, 0.0));
         boundary_path.push_back(autoware::universe_utils::createPoint(x, y, 0.0));
       });
 
@@ -1165,7 +1164,7 @@ PathWithLaneId StartPlannerModule::calcBackwardPathFromStartPose() const
       [&left_boundary_path](const auto & boundary_point) {
         const double x = boundary_point.x();
         const double y = boundary_point.y();
-        left_boundary_path.push_back(createPoint(x, y, 0.0));
+        left_boundary_path.push_back(autoware::universe_utils::createPoint(x, y, 0.0));
       });
 
     std::for_each(
@@ -1173,7 +1172,7 @@ PathWithLaneId StartPlannerModule::calcBackwardPathFromStartPose() const
       [&right_boundary_path](const auto & boundary_point) {
         const double x = boundary_point.x();
         const double y = boundary_point.y();
-        right_boundary_path.push_back(createPoint(x, y, 0.0));
+        right_boundary_path.push_back(autoware::universe_utils::createPoint(x, y, 0.0));
       });
 
     const double left_lateral_offset = calcLateralOffset(left_boundary_path, search_pose.position);
@@ -1181,9 +1180,9 @@ PathWithLaneId StartPlannerModule::calcBackwardPathFromStartPose() const
       calcLateralOffset(right_boundary_path, search_pose.position);
 
     const auto closest_index =
-      autoware_motion_utils::findNearestSegmentIndex(left_boundary_path, search_pose.position);
-    const auto yaw =
-      calcAzimuthAngle(left_boundary_path[closest_index], left_boundary_path[closest_index + 1]);
+      autoware::motion_utils::findNearestSegmentIndex(left_boundary_path, search_pose.position);
+    const auto yaw = autoware::universe_utils::calcAzimuthAngle(
+      left_boundary_path[closest_index], left_boundary_path[closest_index + 1]);
     // std::cerr << "closest_index: " << closest_index << "\n\n\n" << std::endl;
     // std::cerr << "yaw: " << yaw << "/n/n/n" << std::endl;
 

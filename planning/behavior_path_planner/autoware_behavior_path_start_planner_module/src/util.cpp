@@ -110,9 +110,9 @@ double calcMinArcLengthDistanceFromEgoToObjects(
 {
   double min_distance = std::numeric_limits<double>::max();
   const auto vehicle_footprint =
-    transformVector(local_vehicle_footprint, autoware_universe_utils::pose2transform(ego_pose));
+    transformVector(local_vehicle_footprint, autoware::universe_utils::pose2transform(ego_pose));
   for (const auto & obj : static_objects.objects) {
-    const auto obj_polygon = autoware_universe_utils::toPolygon2d(obj);
+    const auto obj_polygon = autoware::universe_utils::toPolygon2d(obj);
     for (const auto & obj_outer_point : obj_polygon.outer()) {
       const auto obj_pose_arc_length = getArcLengthForPoint(lanelets, obj_outer_point);
       for (const auto & vehicle_corner_point : vehicle_footprint) {
