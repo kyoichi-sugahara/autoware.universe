@@ -12,16 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "ament_index_cpp/get_package_share_directory.hpp"
 #include "autoware/mpc_lateral_controller/mpc.hpp"
 #include "autoware/mpc_lateral_controller/qp_solver/qp_solver_osqp.hpp"
 #include "autoware/mpc_lateral_controller/qp_solver/qp_solver_unconstraint_fast.hpp"
 #include "autoware/mpc_lateral_controller/vehicle_model/vehicle_model_bicycle_dynamics.hpp"
 #include "autoware/mpc_lateral_controller/vehicle_model/vehicle_model_bicycle_kinematics.hpp"
 #include "autoware/mpc_lateral_controller/vehicle_model/vehicle_model_bicycle_kinematics_no_delay.hpp"
-#include "autoware_test_utils/autoware_test_utils.hpp"
 #include "gtest/gtest.h"
 #include "rclcpp/rclcpp.hpp"
+
+#include <ament_index_cpp/get_package_share_directory.hpp>
+#include <autoware_planning_test_manager/autoware_planning_test_manager.hpp>
+#include <autoware_test_utils/autoware_test_utils.hpp>
 
 #include "autoware_control_msgs/msg/lateral.hpp"
 #include "autoware_planning_msgs/msg/trajectory.hpp"
@@ -114,9 +116,10 @@ protected:
   {
     rclcpp::NodeOptions node_options;
 
-    const auto share_dir = ament_index_cpp::get_package_share_directory("mpc_lateral_controller");
+    const auto share_dir =
+      ament_index_cpp::get_package_share_directory("autoware_mpc_lateral_controller");
 
-    test_utils::updateNodeOptions(
+    autoware::test_utils::updateNodeOptions(
       node_options, {share_dir + "/param/lateral_controller_defaults.param.yaml",
                      share_dir + "/test/test_vehicle_info.param.yaml"});
 
