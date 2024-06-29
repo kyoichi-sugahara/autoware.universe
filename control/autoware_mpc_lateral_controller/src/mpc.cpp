@@ -927,14 +927,14 @@ Trajectory MPC::calculatePredictedTrajectory(
     MPCUtils::clipTrajectoryByLength(predicted_mpc_trajectory, predicted_length);
 
   const auto predicted_trajectory = MPCUtils::convertToAutowareTrajectory(clipped_trajectory);
-  m_debug_cgmres_frenet_predicted_trajectory_pub->publish(predicted_trajectory);
   // Publish trajectory in relative coordinate for debug purpose.
   const auto frenet = m_vehicle_model_ptr->calculatePredictedTrajectoryInFrenetCoordinate(
     mpc_matrix.Aex, mpc_matrix.Bex, mpc_matrix.Cex, mpc_matrix.Wex, x0, Ugmres,
     reference_trajectory, dt);
   const auto frenet_clipped = MPCUtils::convertToAutowareTrajectory(
     MPCUtils::clipTrajectoryByLength(frenet, predicted_length));
-  m_debug_cgmres_predicted_trajectory_pub->publish(frenet_clipped);
+  m_debug_cgmres_frenet_predicted_trajectory_pub->publish(frenet_clipped);
+  m_debug_cgmres_predicted_trajectory_pub->publish(predicted_trajectory);
 
   return predicted_trajectory;
 }
