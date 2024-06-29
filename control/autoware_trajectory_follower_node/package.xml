@@ -36,7 +36,6 @@
   <depend>rclcpp</depend>
   <depend>rclcpp_components</depend>
   <depend>rosbag2_cpp</depend>
-  <depend>tier4_autoware_utils</depend>
   <depend>visualization_msgs</depend>
 
   <exec_depend>ros2launch</exec_depend>

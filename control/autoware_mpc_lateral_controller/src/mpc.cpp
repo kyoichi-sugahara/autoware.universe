@@ -100,13 +100,12 @@ bool MPC::calculateMPC(
   const auto mpc_matrix = generateMPCMatrix(mpc_resampled_ref_trajectory, prediction_dt);
   auto end_time_generate_matrix = std::chrono::high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(
-    end_time_generate_mastrix - start_time_osqp);
+    end_time_generate_matrix - start_time_osqp);
   RCLCPP_DEBUG(m_logger, "generateMPCMatrix time = %.3f [ms]", duration.count() / 1e6);
 
   // solve Optimization problem
-  const auto [success_opt, Uex] = executeOptimization(
-    mpc_matrix, x0_delayed, prediction_dt, mpc_resampled_ref_trajectory,
-    current_kinematics.twist.twist.linear.x);
+  const auto [success_opt, Uex] =
+    executeOptimization(mpc_matrix, x0_delayed, prediction_dt, mpc_resampled_ref_trajectory);
   auto end_time_osqp = std::chrono::high_resolution_clock::now();
   duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time_osqp - start_time_osqp);
   RCLCPP_DEBUG(m_logger, "executeOptimization time = %.3f [ms]", duration.count() / 1e6);
@@ -117,9 +116,8 @@ bool MPC::calculateMPC(
 
   if (qp_solver_type == "cgmres") {
     auto start_time_cgmres = std::chrono::high_resolution_clock::now();
-    const auto [success_opt, Ugmres] = executeOptimization(
-      x0_delayed, prediction_dt, mpc_resampled_ref_trajectory,
-      current_kinematics.twist.twist.linear.x);
+    const auto [success_opt, Ugmres] =
+      executeOptimization(x0_delayed, prediction_dt, mpc_resampled_ref_trajectory);
     auto end_time_cgmres = std::chrono::high_resolution_clock::now();
     duration =
       std::chrono::duration_cast<std::chrono::nanoseconds>(end_time_cgmres - start_time_cgmres);
@@ -675,8 +673,7 @@ std::pair<bool, VectorXd> MPC::executeOptimization(
  *
  */
 std::pair<bool, VectorXd> MPC::executeOptimization(
-  const VectorXd & x0, const double prediction_dt, const MPCTrajectory & resampled_ref_trajectory,
-  const double current_velocity)
+  const VectorXd & x0, const double prediction_dt, const MPCTrajectory & resampled_ref_trajectory)
 {
   VectorXd Uex;
   const double elapsed_time_ms =
