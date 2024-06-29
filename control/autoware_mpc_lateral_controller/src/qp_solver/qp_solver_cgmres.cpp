@@ -51,7 +51,7 @@ void QPSolverCGMRES::updateEquation(
   // set the external reference ptr
   ocp_.curvature_in_reference_trajectory = average_curvature;
   ocp_.u_ref[0] = std::atan(average_curvature * ocp_.wheel_base);
-  ocp_.wheel_base = 2.7;
+  ocp_.wheel_base = 2.74;
   ocp_.steer_tau = steer_tau;
   external_reference_->curvature_ref_array = resampled_ref_trajectory.k;
   external_reference_->v_ref_array = resampled_ref_trajectory.vx;
