@@ -293,8 +293,7 @@ private:
    * @return A pair of a boolean flag indicating success and the optimized input vector.
    */
   std::pair<bool, VectorXd> executeOptimization(
-    const VectorXd & x0, const double prediction_dt, const MPCTrajectory & trajectory,
-    const double current_velocity);
+    const VectorXd & x0, const double prediction_dt, const MPCTrajectory & trajectory);
 
   /**
    * @brief Resample the trajectory with the MPC resampling time.
