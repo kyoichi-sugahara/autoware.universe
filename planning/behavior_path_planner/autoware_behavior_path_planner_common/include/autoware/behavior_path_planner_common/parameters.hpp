@@ -29,6 +29,7 @@ struct ModuleConfigParameters
 
 struct BehaviorPathPlannerParameters
 {
+  size_t max_iteration_num{100};
   double traffic_light_signal_timeout{1.0};
 
   double backward_path_length;

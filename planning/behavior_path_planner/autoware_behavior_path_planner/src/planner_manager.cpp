@@ -30,12 +30,13 @@
 
 namespace autoware::behavior_path_planner
 {
-PlannerManager::PlannerManager(rclcpp::Node & node)
+PlannerManager::PlannerManager(rclcpp::Node & node, const size_t max_iteration_num)
 : plugin_loader_(
     "autoware_behavior_path_planner",
     "autoware::behavior_path_planner::SceneModuleManagerInterface"),
   logger_(node.get_logger().get_child("planner_manager")),
-  clock_(*node.get_clock())
+  clock_(*node.get_clock()),
+  max_iteration_num_{max_iteration_num}
 {
   processing_time_.emplace("total_time", 0.0);
   debug_publisher_ptr_ = std::make_unique<DebugPublisher>(&node, "~/debug");
@@ -127,60 +128,70 @@ BehaviorModuleOutput PlannerManager::run(const std::shared_ptr<PlannerData> & da
       return output;
     }
 
-    /**
-     * STEP1: get approved modules' output
-     */
-    auto approved_modules_output = runApprovedModules(data);
+    for (size_t itr_num = 1;; ++itr_num) {
+      /**
+       * STEP1: get approved modules' output
+       */
+      auto approved_modules_output = runApprovedModules(data);
 
-    /**
-     * STEP2: check modules that need to be launched
-     */
-    const auto request_modules = getRequestModules(approved_modules_output);
+      /**
+       * STEP2: check modules that need to be launched
+       */
+      const auto request_modules = getRequestModules(approved_modules_output);
 
-    /**
-     * STEP3: if there is no module that need to be launched, return approved modules' output
-     */
-    if (request_modules.empty()) {
-      const auto output = runKeepLastModules(data, approved_modules_output);
-      processing_time_.at("total_time") = stop_watch_.toc("total_time", true);
-      return output;
+      /**
+       * STEP3: if there is no module that need to be launched, return approved modules' output
+       */
+      if (request_modules.empty()) {
+        const auto output = runKeepLastModules(data, approved_modules_output);
+        processing_time_.at("total_time") = stop_watch_.toc("total_time", true);
+        return output;
+      }
+
+      /**
+       * STEP4: if there is module that should be launched, execute the module
+       */
+      const auto [highest_priority_module, candidate_modules_output] =
+        runRequestModules(request_modules, data, approved_modules_output);
+
+      /**
+       * STEP5: run keep last approved modules after running candidate modules.
+       * NOTE: if no candidate module is launched, approved_modules_output used as input for keep
+       * last modules and return the result immediately.
+       */
+      const auto output = runKeepLastModules(
+        data, highest_priority_module ? candidate_modules_output : approved_modules_output);
+      if (!highest_priority_module) {
+        processing_time_.at("total_time") = stop_watch_.toc("total_time", true);
+        return output;
+      }
+
+      /**
+       * STEP6: if the candidate module's modification is NOT approved yet, return the result.
+       * NOTE: the result is output of the candidate module, but the output path don't contains path
+       * shape modification that needs approval. On the other hand, it could include velocity
+       * profile modification.
+       */
+      if (highest_priority_module->isWaitingApproval()) {
+        processing_time_.at("total_time") = stop_watch_.toc("total_time", true);
+        return output;
+      }
+
+      /**
+       * STEP7: if the candidate module is approved, push the module into approved_module_ptrs_
+       */
+      addApprovedModule(highest_priority_module);
+      clearCandidateModules();
+      debug_info_.emplace_back(highest_priority_module, Action::ADD, "To Approval");
+
+      if (itr_num >= max_iteration_num_) {
+        RCLCPP_WARN_THROTTLE(
+          logger_, clock_, 1000, "Reach iteration limit (max: %ld). Output current result.",
+          max_iteration_num_);
+        processing_time_.at("total_time") = stop_watch_.toc("total_time", true);
+        return output;
+      }
     }
-
-    /**
-     * STEP4: if there is module that should be launched, execute the module
-     */
-    const auto [highest_priority_module, candidate_modules_output] =
-      runRequestModules(request_modules, data, approved_modules_output);
-
-    /**
-     * STEP5: run keep last approved modules after running candidate modules.
-     * NOTE: if no candidate module is launched, approved_modules_output used as input for keep
-     * last modules and return the result immediately.
-     */
-    const auto output = runKeepLastModules(
-      data, highest_priority_module ? candidate_modules_output : approved_modules_output);
-    if (!highest_priority_module) {
-      processing_time_.at("total_time") = stop_watch_.toc("total_time", true);
-      return output;
-    }
-
-    /**
-     * STEP6: if the candidate module's modification is NOT approved yet, return the result.
-     * NOTE: the result is output of the candidate module, but the output path don't contains path
-     * shape modification that needs approval. On the other hand, it could include velocity
-     * profile modification.
-     */
-    if (highest_priority_module->isWaitingApproval()) {
-      processing_time_.at("total_time") = stop_watch_.toc("total_time", true);
-      return output;
-    }
-
-    /**
-     * STEP7: if the candidate module is approved, push the module into approved_module_ptrs_
-     */
-    addApprovedModule(highest_priority_module);
-    clearCandidateModules();
-    debug_info_.emplace_back(highest_priority_module, Action::ADD, "To Approval");
 
     return BehaviorModuleOutput{};  // something wrong.
   }();
