@@ -400,7 +400,8 @@ private:
    * @details in this function, expired modules (ModuleStatus::FAILURE or ModuleStatus::SUCCESS) are
    * removed from approved_module_ptrs_.
    */
-  BehaviorModuleOutput runApprovedModules(const std::shared_ptr<PlannerData> & data);
+  BehaviorModuleOutput runApprovedModules(
+    const std::shared_ptr<PlannerData> & data, std::vector<SceneModulePtr> & deleted_modules);
 
   /**
    * @brief select a module that should be execute at first.
@@ -423,7 +424,8 @@ private:
    * @return request modules.
    */
   std::vector<SceneModulePtr> getRequestModules(
-    const BehaviorModuleOutput & previous_module_output) const;
+    const BehaviorModuleOutput & previous_module_output,
+    const std::vector<SceneModulePtr> & deleted_modules) const;
 
   /**
    * @brief checks whether a path of trajectory has forward driving direction
