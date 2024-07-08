@@ -116,7 +116,7 @@ public:
    * @param number of scene module
    *
    */
-  void setMaxIterationNum(const size_t scene_module_num);
+  void calculateMaxIterationNum(const size_t scene_module_num);
 
   /**
    * @brief unregister managers.
