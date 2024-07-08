@@ -112,6 +112,13 @@ public:
   void launchScenePlugin(rclcpp::Node & node, const std::string & name);
 
   /**
+   * @brief set max iteration numbers
+   * @param number of scene module
+   *
+   */
+  void setMaxIterationNum(const size_t scene_module_num);
+
+  /**
    * @brief unregister managers.
    * @param node.
    * @param plugin name.
@@ -396,9 +403,10 @@ private:
    * @brief run all modules in approved_module_ptrs_ and get a planning result as
    * approved_modules_output.
    * @param planner data.
+   * @param deleted modules.
    * @return valid planning result.
    * @details in this function, expired modules (ModuleStatus::FAILURE or ModuleStatus::SUCCESS) are
-   * removed from approved_module_ptrs_.
+   * removed from approved_module_ptrs_ and added to deleted_modules.
    */
   BehaviorModuleOutput runApprovedModules(
     const std::shared_ptr<PlannerData> & data, std::vector<SceneModulePtr> & deleted_modules);
@@ -421,6 +429,7 @@ private:
   /**
    * @brief get all modules that make execution request.
    * @param decided (=approved) path.
+   * @param deleted modules.
    * @return request modules.
    */
   std::vector<SceneModulePtr> getRequestModules(

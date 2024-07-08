@@ -35,9 +35,9 @@ PlannerManager::PlannerManager(rclcpp::Node & node, const size_t max_iteration_n
     "autoware_behavior_path_planner",
     "autoware::behavior_path_planner::SceneModuleManagerInterface"),
   logger_(node.get_logger().get_child("planner_manager")),
-  clock_(*node.get_clock()),
-  max_iteration_num_{max_iteration_num}
+  clock_(*node.get_clock())
 {
+  max_iteration_num_ = max_iteration_num;
   processing_time_.emplace("total_time", 0.0);
   debug_publisher_ptr_ = std::make_unique<DebugPublisher>(&node, "~/debug");
   state_publisher_ptr_ = std::make_unique<DebugPublisher>(&node, "~/debug");
@@ -127,7 +127,8 @@ BehaviorModuleOutput PlannerManager::run(const std::shared_ptr<PlannerData> & da
         "Ego is out of route, no module is running. Skip running scene modules.");
       return output;
     }
-    std::vector<SceneModulePtr> deleted_modules;  // store the deleted from approved modules
+    std::vector<SceneModulePtr>
+      deleted_modules;  // store the scene modules deleted from approved modules
 
     for (size_t itr_num = 1;; ++itr_num) {
       const auto outputModules = [this]() {
