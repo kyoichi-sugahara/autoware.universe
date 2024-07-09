@@ -30,14 +30,13 @@
 
 namespace autoware::behavior_path_planner
 {
-PlannerManager::PlannerManager(rclcpp::Node & node, const size_t max_iteration_num)
+PlannerManager::PlannerManager(rclcpp::Node & node)
 : plugin_loader_(
     "autoware_behavior_path_planner",
     "autoware::behavior_path_planner::SceneModuleManagerInterface"),
   logger_(node.get_logger().get_child("planner_manager")),
   clock_(*node.get_clock())
 {
-  max_iteration_num_ = max_iteration_num;
   processing_time_.emplace("total_time", 0.0);
   debug_publisher_ptr_ = std::make_unique<DebugPublisher>(&node, "~/debug");
   state_publisher_ptr_ = std::make_unique<DebugPublisher>(&node, "~/debug");
