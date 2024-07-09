@@ -139,7 +139,7 @@ BehaviorModuleOutput PlannerManager::run(const std::shared_ptr<PlannerData> & da
       deleted_modules;  // store the scene modules deleted from approved modules
 
     for (size_t itr_num = 1;; ++itr_num) {
-      const auto outputModules = [this]() {
+      [[maybe_unused]] const auto outputModules = [this]() {
         const auto printModules = [](const std::string & title, const auto & modules) {
           std::cerr << "\n=== " << title << " ===\n";
           for (const auto & m : modules) {
@@ -152,23 +152,23 @@ BehaviorModuleOutput PlannerManager::run(const std::shared_ptr<PlannerData> & da
         printModules("Candidate Modules", candidate_module_ptrs_);
       };
 
-      std::cerr << "\n==========================\n";
-      std::cerr << "Iteration " << itr_num << "\n";
-      std::cerr << "==========================\n";
+      // std::cerr << "\n==========================\n";
+      // std::cerr << "Iteration " << itr_num << "\n";
+      // std::cerr << "==========================\n";
 
       /**
        * STEP1: get approved modules' output
        */
       auto approved_modules_output = runApprovedModules(data, deleted_modules);
-      std::cerr << "\nSTEP 1: After runApprovedModules \n";
-      outputModules();
+      // std::cerr << "\nSTEP 1: After runApprovedModules \n";
+      // outputModules();
 
       /**
        * STEP2: check modules that need to be launched
        */
       const auto request_modules = getRequestModules(approved_modules_output, deleted_modules);
-      std::cerr << "\nSTEP 2: After getRequestModules \n";
-      outputModules();
+      // std::cerr << "\nSTEP 2: After getRequestModules \n";
+      // outputModules();
 
       /**
        * STEP3: if there is no module that need to be launched, return approved modules' output
@@ -184,9 +184,9 @@ BehaviorModuleOutput PlannerManager::run(const std::shared_ptr<PlannerData> & da
        */
       const auto [highest_priority_module, candidate_modules_output] =
         runRequestModules(request_modules, data, approved_modules_output);
-      std::cerr << "\nSTEP4: After runRequestModules \n" << std::endl;
-      outputModules();
-      std::cerr << "highest_priority_module: " << highest_priority_module->name() << std::endl;
+      // std::cerr << "\nSTEP4: After runRequestModules \n" << std::endl;
+      // outputModules();
+      // std::cerr << "highest_priority_module: " << highest_priority_module->name() << std::endl;
       /**
        * STEP5: run keep last approved modules after running candidate modules.
        * NOTE: if no candidate module is launched, approved_modules_output used as input for keep
@@ -194,8 +194,8 @@ BehaviorModuleOutput PlannerManager::run(const std::shared_ptr<PlannerData> & da
        */
       const auto output = runKeepLastModules(
         data, highest_priority_module ? candidate_modules_output : approved_modules_output);
-      std::cerr << "\nSTEP5: After runKeepLastModules \n" << std::endl;
-      outputModules();
+      // std::cerr << "\nSTEP5: After runKeepLastModules \n" << std::endl;
+      // outputModules();
       if (!highest_priority_module) {
         processing_time_.at("total_time") = stop_watch_.toc("total_time", true);
         return output;
@@ -216,8 +216,8 @@ BehaviorModuleOutput PlannerManager::run(const std::shared_ptr<PlannerData> & da
        * STEP7: if the candidate module is approved, push the module into approved_module_ptrs_
        */
       addApprovedModule(highest_priority_module);
-      std::cerr << "\nSTEP7: After addApprovedModule \n" << std::endl;
-      outputModules();
+      // std::cerr << "\nSTEP7: After addApprovedModule \n" << std::endl;
+      // outputModules();
       clearCandidateModules();
       debug_info_.emplace_back(highest_priority_module, Action::ADD, "To Approval");
 
