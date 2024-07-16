@@ -30,7 +30,6 @@
 
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -54,7 +53,6 @@ protected:
     const PointCloud2ConstPtr & input, const IndicesPtr & indices, PointCloud2 & output,
     const TransformInfo & transform_info);
 
-  image_transport::Publisher image_pub_;
   rclcpp::Publisher<tier4_debug_msgs::msg::Float32Stamped>::SharedPtr visibility_pub_;
 
 private:
@@ -72,7 +70,6 @@ private:
   int noise_threshold_;
   int vertical_bins_;
   int horizontal_bins_;
-  float max_azimuth_diff_;
 
   float min_azimuth_deg_;
   float max_azimuth_deg_;
@@ -104,14 +101,6 @@ private:
   void setUpPointCloudFormat(
     const PointCloud2ConstPtr & input, PointCloud2 & formatted_points, size_t points_size);
   float calculateVisibilityScore(const PointCloud2 & input);
-
-  //   const PointCloud2ConstPtr & input, PointCloud2 & formatted_points, size_t points_size,
-  //   size_t num_fields);
-  // cv::Mat createBinaryImage(const PointCloud2 & input);
-  // float calculateFilledPixels(
-  //   const cv::Mat & frequency_image, const uint32_t vertical_bins, const uint32_t
-  //   horizontal_bins);
-  // sensor_msgs::msg::Image toFrequencyImageMsg(const cv::Mat & frequency_image);
 
 public:
   PCL_MAKE_ALIGNED_OPERATOR_NEW

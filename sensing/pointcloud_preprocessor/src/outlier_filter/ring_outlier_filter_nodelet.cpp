@@ -261,17 +261,8 @@ void RingOutlierFilterComponent::faster_filter(
     outlier.header = input->header;
     outlier_pointcloud_publisher_->publish(outlier);
 
-    const auto frequency_image = createBinaryImage(outlier);
-    const double num_filled_pixels =
-      calculateFilledPixels(frequency_image, vertical_bins_, horizontal_bins_);
-    auto frequency_image_msg = toFrequencyImageMsg(frequency_image);
-
-    frequency_image_msg.header = input->header;
-    // Publish histogram image
-    image_pub_.publish(frequency_image_msg);
-
     tier4_debug_msgs::msg::Float32Stamped visibility_msg;
-    visibility_msg.data = (1.0f - num_filled_pixels);
+    visibility_msg.data = calculateVisibilityScore(outlier);
     visibility_msg.stamp = input->header.stamp;
     visibility_pub_->publish(visibility_msg);
   }
@@ -328,23 +319,20 @@ rcl_interfaces::msg::SetParametersResult RingOutlierFilterComponent::paramCallba
   if (get_param(p, "vertical_bins", vertical_bins_)) {
     RCLCPP_DEBUG(get_logger(), "Setting new vertical_bins to: %d.", vertical_bins_);
   }
-  if (get_param(p, "max_azimuth_diff", max_azimuth_diff_)) {
-    RCLCPP_DEBUG(get_logger(), "Setting new max_azimuth_diff to: %f.", max_azimuth_diff_);
-    if (get_param(p, "horizontal_bins", horizontal_bins_)) {
-      RCLCPP_DEBUG(get_logger(), "Setting new horizontal_bins to: %d.", horizontal_bins_);
-    }
-    if (get_param(p, "noise_threshold", noise_threshold_)) {
-      RCLCPP_DEBUG(get_logger(), "Setting new noise_threshold to: %d.", noise_threshold_);
-    }
-    if (get_param(p, "max_azimuth_deg", max_azimuth_deg_)) {
-      RCLCPP_DEBUG(get_logger(), "Setting new max_azimuth_deg to: %f.", max_azimuth_deg_);
-    }
-    if (get_param(p, "min_azimuth_deg", min_azimuth_deg_)) {
-      RCLCPP_DEBUG(get_logger(), "Setting new min_azimuth_deg to: %f.", min_azimuth_deg_);
-    }
-    if (get_param(p, "max_distance", max_distance_)) {
-      RCLCPP_DEBUG(get_logger(), "Setting new max_distance to: %f.", max_distance_);
-    }
+  if (get_param(p, "horizontal_bins", horizontal_bins_)) {
+    RCLCPP_DEBUG(get_logger(), "Setting new horizontal_bins to: %d.", horizontal_bins_);
+  }
+  if (get_param(p, "noise_threshold", noise_threshold_)) {
+    RCLCPP_DEBUG(get_logger(), "Setting new noise_threshold to: %d.", noise_threshold_);
+  }
+  if (get_param(p, "max_azimuth_deg", max_azimuth_deg_)) {
+    RCLCPP_DEBUG(get_logger(), "Setting new max_azimuth_deg to: %f.", max_azimuth_deg_);
+  }
+  if (get_param(p, "min_azimuth_deg", min_azimuth_deg_)) {
+    RCLCPP_DEBUG(get_logger(), "Setting new min_azimuth_deg to: %f.", min_azimuth_deg_);
+  }
+  if (get_param(p, "max_distance", max_distance_)) {
+    RCLCPP_DEBUG(get_logger(), "Setting new max_distance to: %f.", max_distance_);
   }
 
   rcl_interfaces::msg::SetParametersResult result;
@@ -358,8 +346,7 @@ void RingOutlierFilterComponent::setUpPointCloudFormat(
   const PointCloud2ConstPtr & input, PointCloud2 & formatted_points, size_t points_size)
 {
   formatted_points.data.resize(points_size);
-  // Note that `input->header.frame_id` is data before converted when
-  // `transform_info.need_transform
+  // Note that `input->header.frame_id` is data before converted when `transform_info.need_transform
   // == true`
   formatted_points.header.frame_id =
     !tf_input_frame_.empty() ? tf_input_frame_ : tf_input_orig_frame_;
@@ -377,24 +364,12 @@ void RingOutlierFilterComponent::setUpPointCloudFormat(
   formatted_points.fields = msg_aux.fields;
 }
 
-cv::Mat RingOutlierFilterComponent::createBinaryImage(const sensor_msgs::msg::PointCloud2 & input)
+float RingOutlierFilterComponent::calculateVisibilityScore(
+  const sensor_msgs::msg::PointCloud2 & input)
 {
   pcl::PointCloud<InputPointType>::Ptr input_cloud(new pcl::PointCloud<InputPointType>);
   pcl::fromROSMsg(input, *input_cloud);
 
-  // uint32_t vertical_bins = vertical_bins_;
-  // uint32_t horizontal_bins = horizontal_bins_;
-  // float max_azimuth = max_azimuth_deg_ * 100.0;
-  // float min_azimuth = min_azimuth_deg_ * 100.0;
-  // // Calculate the resolution of the azimuth
-  // uint32_t horizontal_resolution =
-  //   static_cast<uint32_t>((max_azimuth - min_azimuth) / horizontal_bins);
-  // std::vector<pcl::PointCloud<PointXYZIRADRT>> pcl_noise_ring_array(vertical_bins);
-  // cv::Mat frequency_image(cv::Size(horizontal_bins, vertical_bins), CV_8UC1, cv::Scalar(0));
-
-  // // Split into vertical_bins x horizontal_bins degree bins x 40 lines (TODO: change to dynamic)
-  // for (const auto & p : input_cloud->points) {
-  //   pcl_noise_ring_array.at(p.ring).push_back(p);
   const uint32_t vertical_bins = vertical_bins_;
   const uint32_t horizontal_bins = horizontal_bins_;
   const float max_azimuth = max_azimuth_deg_ * (M_PI / 180.f);
@@ -411,60 +386,37 @@ cv::Mat RingOutlierFilterComponent::createBinaryImage(const sensor_msgs::msg::Po
     ring_point_clouds.at(point.channel).push_back(point);
   }
 
-  for (const auto & single_ring : pcl_noise_ring_array) {
-    if (single_ring.points.empty()) continue;
+  // Calculate frequency for each bin in each ring
+  for (const auto & ring_points : ring_point_clouds) {
+    if (ring_points.empty()) continue;
 
-    // uint ring_id = single_ring.points.front().ring;
-    // std::vector<int> noise_frequency_in_single_ring(horizontal_bins, 0);
     const uint ring_id = ring_points.front().channel;
     std::vector<int> frequency_in_ring(horizontal_bins, 0);
 
-    for (const auto & point : single_ring.points) {
+    for (const auto & point : ring_points.points) {
       if (point.azimuth < min_azimuth || point.azimuth >= max_azimuth) continue;
-      for (uint horizontal_index_in_image = 0; horizontal_index_in_image < horizontal_bins;
-           ++horizontal_index_in_image) {
-        uint lower_azimuth = horizontal_index_in_image * horizontal_resolution + min_azimuth;
-        uint upper_azimuth = (horizontal_index_in_image + 1) * horizontal_resolution + min_azimuth;
-        if (
-          point.azimuth >= lower_azimuth && point.azimuth < upper_azimuth &&
-          point.distance < max_distance_) {
-          noise_frequency_in_single_ring[horizontal_index_in_image]++;
-          // Ensure the value is within uchar range
-          noise_frequency_in_single_ring[horizontal_index_in_image] =
-            std::min(noise_frequency_in_single_ring[horizontal_index_in_image], 255);
-          frequency_image.at<uchar>(ring_id, horizontal_index_in_image) =
-            static_cast<uchar>(noise_frequency_in_single_ring[horizontal_index_in_image]);
-          break;
-        }
-      }
+      if (point.distance >= max_distance_) continue;
+
+      const uint bin_index =
+        static_cast<uint>((point.azimuth - min_azimuth) / horizontal_resolution);
+
+      frequency_in_ring[bin_index]++;
+      frequency_in_ring[bin_index] =
+        std::min(frequency_in_ring[bin_index], 255);  // Ensure value is within uchar range
+
+      frequency_image.at<uchar>(ring_id, bin_index) =
+        static_cast<uchar>(frequency_in_ring[bin_index]);
     }
   }
 
   cv::Mat binary_image;
   cv::inRange(frequency_image, noise_threshold_, 255, binary_image);
-  return binary_image;
-}
 
-float RingOutlierFilterComponent::calculateFilledPixels(
-  const cv::Mat & frequency_image, const uint32_t vertical_bins, const uint32_t horizontal_bins)
-{
-  int num_pixels = cv::countNonZero(frequency_image);
-  float num_filled_pixels =
+  const int num_pixels = cv::countNonZero(frequency_image);
+  const float num_filled_pixels =
     static_cast<float>(num_pixels) / static_cast<float>(vertical_bins * horizontal_bins);
-  return num_filled_pixels;
-}
 
-sensor_msgs::msg::Image RingOutlierFilterComponent::toFrequencyImageMsg(
-  const cv::Mat & frequency_image)
-{
-  cv_bridge::CvImage(std_msgs::msg::Header(), "mono8", frequency_image).toImageMsg();
-  // Visualization of histogram
-  cv::Mat frequency_image_colorized;
-  // Multiply bins by four to get pretty colours
-  cv::applyColorMap(frequency_image * 4, frequency_image_colorized, cv::COLORMAP_JET);
-  sensor_msgs::msg::Image::SharedPtr frequency_image_msg =
-    cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", frequency_image_colorized).toImageMsg();
-  return *frequency_image_msg;
+  return 1.0f - num_filled_pixels;
 }
 
 }  // namespace pointcloud_preprocessor
