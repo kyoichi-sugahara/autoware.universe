@@ -78,6 +78,7 @@ bool MPC::calculateMPC(
   RCLCPP_DEBUG(
     m_logger, "x0_delayed = %f, %f, %f, %f", x0_delayed(0), x0_delayed(1), x0_delayed(2),
     x0_delayed(3));
+  RCLCPP_DEBUG(m_logger, "x0 = %f, %f, %f, %f", x0(0), x0(1), x0(2), x0(3));
 
   if (!success_delay) {
     return fail_warn_throttle("delay compensation failed. Stop MPC.");
@@ -913,8 +914,10 @@ Trajectory MPC::calculatePredictedTrajectory(
     const auto frenet = m_vehicle_model_ptr->calculatePredictedTrajectoryInFrenetCoordinate(
       mpc_matrix.Aex, mpc_matrix.Bex, mpc_matrix.Cex, mpc_matrix.Wex, x0, Uex, reference_trajectory,
       dt);
-    const auto frenet_clipped = MPCUtils::convertToAutowareTrajectory(
+    auto frenet_clipped = MPCUtils::convertToAutowareTrajectory(
       MPCUtils::clipTrajectoryByLength(frenet, predicted_length));
+    frenet_clipped.header.stamp = m_clock->now();
+    frenet_clipped.header.frame_id = "map";
     m_debug_frenet_predicted_trajectory_pub->publish(frenet_clipped);
   }
 
@@ -936,13 +939,18 @@ Trajectory MPC::calculatePredictedTrajectory(
   const auto clipped_trajectory =
     MPCUtils::clipTrajectoryByLength(predicted_mpc_trajectory, predicted_length);
 
-  const auto predicted_trajectory = MPCUtils::convertToAutowareTrajectory(clipped_trajectory);
+  auto predicted_trajectory = MPCUtils::convertToAutowareTrajectory(clipped_trajectory);
+  predicted_trajectory.header.stamp = m_clock->now();
+  predicted_trajectory.header.frame_id = "map";
   // Publish trajectory in relative coordinate for debug purpose.
   const auto frenet = m_vehicle_model_ptr->calculatePredictedTrajectoryInFrenetCoordinate(
     mpc_matrix.Aex, mpc_matrix.Bex, mpc_matrix.Cex, mpc_matrix.Wex, x0, Ugmres,
     reference_trajectory, dt);
-  const auto frenet_clipped = MPCUtils::convertToAutowareTrajectory(
+  auto frenet_clipped = MPCUtils::convertToAutowareTrajectory(
     MPCUtils::clipTrajectoryByLength(frenet, predicted_length));
+  frenet_clipped.header.stamp = m_clock->now();
+  frenet_clipped.header.frame_id = "map";
+
   m_debug_cgmres_frenet_predicted_trajectory_pub->publish(frenet_clipped);
   m_debug_cgmres_predicted_trajectory_pub->publish(predicted_trajectory);
 
