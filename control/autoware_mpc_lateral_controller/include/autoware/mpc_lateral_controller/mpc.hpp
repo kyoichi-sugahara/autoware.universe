@@ -28,6 +28,7 @@
 #include "geometry_msgs/msg/pose.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "std_msgs/msg/float64_multi_array.hpp"
+#include "tier4_control_msgs/msg/cgmres_debug.hpp"
 #include "tier4_debug_msgs/msg/float32_multi_array_stamped.hpp"
 
 #include <deque>
@@ -45,6 +46,7 @@ using autoware_vehicle_msgs::msg::SteeringReport;
 using geometry_msgs::msg::Pose;
 using nav_msgs::msg::Odometry;
 using std_msgs::msg::Float64MultiArray;
+using tier4_control_msgs::msg::CgmresDebug;
 using tier4_debug_msgs::msg::Float32MultiArrayStamped;
 
 using Eigen::MatrixXd;
@@ -231,6 +233,7 @@ private:
   rclcpp::Publisher<Float64MultiArray>::SharedPtr m_debug_resampled_reference_velocity_pub;
   rclcpp::Publisher<Trajectory>::SharedPtr m_debug_cgmres_frenet_predicted_trajectory_pub;
   rclcpp::Publisher<Trajectory>::SharedPtr m_debug_cgmres_predicted_trajectory_pub;
+  rclcpp::Publisher<CgmresDebug>::SharedPtr m_debug_cgmres_debug_pub;
 
   /**
    * @brief Get variables for MPC calculation.
@@ -367,11 +370,8 @@ private:
    */
   Trajectory calculatePredictedTrajectory(
     const MPCMatrix & mpc_matrix, const Eigen::MatrixXd & x0, const Eigen::MatrixXd & Uex,
-    const MPCTrajectory & mpc_resampled_ref_traj, const double dt) const;
-
-  Trajectory calculatePredictedTrajectory(
-    const MPCMatrix & mpc_matrix, const Eigen::MatrixXd & x0, const Eigen::MatrixXd & Ugmres,
-    const MPCTrajectory & reference_trajectory, const double dt, const double passed_time) const;
+    const MPCTrajectory & reference_trajectory, const double dt,
+    const std::string & coordinate = "world") const;
 
   /**
    * @brief Check if the MPC matrix has any invalid values.
@@ -391,6 +391,14 @@ private:
              ? m_param.low_curvature_weight
              : m_param.nominal_weight;
   }
+
+  void publish_debug_data(
+    const Trajectory & mpc_resampled_ref_trajectory,
+    const Trajectory & osqp_predicted_trajectory_world,
+    const Trajectory & osqp_predicted_trajectory_frenet,
+    const Trajectory & cgmres_predicted_trajectory_world,
+    const Trajectory & cgmres_predicted_trajectory_frenet, const VectorXd & Uosqp,
+    const VectorXd & Ucgmres) const;
 
   /**
    * @brief Generate diagnostic data for debugging purposes.

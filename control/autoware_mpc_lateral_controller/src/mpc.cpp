@@ -50,6 +50,8 @@ MPC::MPC(rclcpp::Node & node)
     "~/debug/resampled_reference_curvature", rclcpp::QoS(1));
   m_debug_resampled_reference_velocity_pub = node.create_publisher<Float64MultiArray>(
     "~/debug/resampled_reference_velocity", rclcpp::QoS(1));
+  m_debug_cgmres_debug_pub =
+    node.create_publisher<CgmresDebug>("~/debug/cgmres/debug", rclcpp::QoS(1));
 }
 
 bool MPC::calculateMPC(
@@ -116,9 +118,15 @@ bool MPC::calculateMPC(
     return fail_warn_throttle("optimization failed. Stop MPC.");
   }
 
+  Trajectory cgmres_predicted_trajectory_world;
+  Trajectory cgmres_predicted_trajectory_frenet;
+  Trajectory osqp_predicted_trajectory_world;
+  Trajectory osqp_predicted_trajectory_frenet;
+  Eigen::MatrixXd Ucgmres;
   if (qp_solver_type == "cgmres") {
     auto start_time_cgmres = std::chrono::high_resolution_clock::now();
-    const auto [success_opt, Ugmres] =
+    bool success_opt;
+    std::tie(success_opt, Ucgmres) =
       executeOptimization(x0_delayed, prediction_dt, mpc_resampled_ref_trajectory);
     auto end_time_cgmres = std::chrono::high_resolution_clock::now();
     duration =
@@ -126,8 +134,17 @@ bool MPC::calculateMPC(
     RCLCPP_DEBUG(m_logger, "executeOptimization (cgmres) time = %.3f [ms]", duration.count() / 1e6);
 
     /* calculate predicted trajectory */
-    predicted_trajectory = calculatePredictedTrajectory(
-      mpc_matrix, x0, Ugmres, mpc_resampled_ref_trajectory, prediction_dt, 1.0);
+    cgmres_predicted_trajectory_world = calculatePredictedTrajectory(
+      mpc_matrix, x0, Ucgmres, mpc_resampled_ref_trajectory, prediction_dt, "world");
+    cgmres_predicted_trajectory_frenet = calculatePredictedTrajectory(
+      mpc_matrix, x0, Ucgmres, mpc_resampled_ref_trajectory, prediction_dt, "frenet");
+    cgmres_predicted_trajectory_world.header.stamp = m_clock->now();
+    cgmres_predicted_trajectory_world.header.frame_id = "map";
+    cgmres_predicted_trajectory_frenet.header.stamp = m_clock->now();
+    cgmres_predicted_trajectory_frenet.header.frame_id = "map";
+
+    m_debug_cgmres_predicted_trajectory_pub->publish(cgmres_predicted_trajectory_world);
+    m_debug_cgmres_frenet_predicted_trajectory_pub->publish(cgmres_predicted_trajectory_frenet);
   }
 
   // apply filters for the input limitation and low pass filter
@@ -151,14 +168,69 @@ bool MPC::calculateMPC(
   m_raw_steer_cmd_prev = Uex(0);
 
   /* calculate predicted trajectory */
-  predicted_trajectory =
-    calculatePredictedTrajectory(mpc_matrix, x0, Uex, mpc_resampled_ref_trajectory, prediction_dt);
+  predicted_trajectory = calculatePredictedTrajectory(
+    mpc_matrix, x0, Uex, mpc_resampled_ref_trajectory, prediction_dt, "world");
+
+  osqp_predicted_trajectory_world = predicted_trajectory;
+
+  // Publish trajectory in relative coordinate for debug purpose.
+  if (m_debug_publish_predicted_trajectory) {
+    osqp_predicted_trajectory_frenet = calculatePredictedTrajectory(
+      mpc_matrix, x0, Uex, mpc_resampled_ref_trajectory, prediction_dt, "frenet");
+    osqp_predicted_trajectory_frenet.header.stamp = m_clock->now();
+    osqp_predicted_trajectory_frenet.header.frame_id = "map";
+    m_debug_frenet_predicted_trajectory_pub->publish(osqp_predicted_trajectory_frenet);
+  }
 
   // prepare diagnostic message
   diagnostic =
     generateDiagData(reference_trajectory, mpc_data, mpc_matrix, ctrl_cmd, Uex, current_kinematics);
+  // publish debug data
+  if (qp_solver_type == "cgmres") {
+    publish_debug_data(
+      MPCUtils::convertToAutowareTrajectory(mpc_resampled_ref_trajectory),
+      osqp_predicted_trajectory_world, osqp_predicted_trajectory_frenet,
+      cgmres_predicted_trajectory_world, cgmres_predicted_trajectory_frenet, Uex, Ucgmres);
+  }
 
   return true;
+}
+
+void MPC::publish_debug_data(
+  const Trajectory & mpc_resampled_ref_trajectory,
+  const Trajectory & osqp_predicted_trajectory_world,
+  const Trajectory & osqp_predicted_trajectory_frenet,
+  const Trajectory & cgmres_predicted_trajectory_world,
+  const Trajectory & cgmres_predicted_trajectory_frenet, const VectorXd & Uosqp,
+  const VectorXd & Ucgmres) const
+{
+  CgmresDebug debug_data;
+
+  debug_data.stamp = m_clock->now();
+  // Set OSQP solution
+  debug_data.osqp_solution.assign(Uosqp.data(), Uosqp.data() + Uosqp.size());
+
+  // Set CGMRES solution
+  debug_data.cgmres_solution.assign(Ucgmres.data(), Ucgmres.data() + Ucgmres.size());
+  debug_data.resampled_reference_trajectory = mpc_resampled_ref_trajectory;
+  debug_data.osqp_predicted_trajectory_world_coordinate.header =
+    osqp_predicted_trajectory_world.header;
+  debug_data.osqp_predicted_trajectory_world_coordinate.points =
+    osqp_predicted_trajectory_world.points;
+  debug_data.osqp_predicted_trajectory_relative_coordinate.header =
+    osqp_predicted_trajectory_frenet.header;
+  debug_data.osqp_predicted_trajectory_relative_coordinate.points =
+    osqp_predicted_trajectory_frenet.points;
+  debug_data.cgmres_predicted_trajectory_world_coordinate.header =
+    cgmres_predicted_trajectory_world.header;
+  debug_data.cgmres_predicted_trajectory_world_coordinate.points =
+    cgmres_predicted_trajectory_world.points;
+  debug_data.cgmres_predicted_trajectory_relative_coordinate.header =
+    cgmres_predicted_trajectory_frenet.header;
+  debug_data.cgmres_predicted_trajectory_relative_coordinate.points =
+    cgmres_predicted_trajectory_frenet.points;
+
+  m_debug_cgmres_debug_pub->publish(debug_data);
 }
 
 Float32MultiArrayStamped MPC::generateDiagData(
@@ -895,12 +967,21 @@ VectorXd MPC::calcSteerRateLimitOnTrajectory(
 
 Trajectory MPC::calculatePredictedTrajectory(
   const MPCMatrix & mpc_matrix, const Eigen::MatrixXd & x0, const Eigen::MatrixXd & Uex,
-  const MPCTrajectory & reference_trajectory, const double dt) const
+  const MPCTrajectory & reference_trajectory, const double dt, const std::string & coordinate) const
 {
-  const auto predicted_mpc_trajectory =
-    m_vehicle_model_ptr->calculatePredictedTrajectoryInWorldCoordinate(
+  MPCTrajectory predicted_mpc_trajectory;
+
+  if (coordinate == "world") {
+    predicted_mpc_trajectory = m_vehicle_model_ptr->calculatePredictedTrajectoryInWorldCoordinate(
       mpc_matrix.Aex, mpc_matrix.Bex, mpc_matrix.Cex, mpc_matrix.Wex, x0, Uex, reference_trajectory,
       dt);
+  } else if (coordinate == "frenet") {
+    predicted_mpc_trajectory = m_vehicle_model_ptr->calculatePredictedTrajectoryInFrenetCoordinate(
+      mpc_matrix.Aex, mpc_matrix.Bex, mpc_matrix.Cex, mpc_matrix.Wex, x0, Uex, reference_trajectory,
+      dt);
+  } else {
+    throw std::invalid_argument("Invalid coordinate system specified. Use 'world' or 'frenet'.");
+  }
 
   // do not over the reference trajectory
   const auto predicted_length = MPCUtils::calcMPCTrajectoryArcLength(reference_trajectory);
@@ -908,51 +989,6 @@ Trajectory MPC::calculatePredictedTrajectory(
     MPCUtils::clipTrajectoryByLength(predicted_mpc_trajectory, predicted_length);
 
   const auto predicted_trajectory = MPCUtils::convertToAutowareTrajectory(clipped_trajectory);
-
-  // Publish trajectory in relative coordinate for debug purpose.
-  if (m_debug_publish_predicted_trajectory) {
-    const auto frenet = m_vehicle_model_ptr->calculatePredictedTrajectoryInFrenetCoordinate(
-      mpc_matrix.Aex, mpc_matrix.Bex, mpc_matrix.Cex, mpc_matrix.Wex, x0, Uex, reference_trajectory,
-      dt);
-    auto frenet_clipped = MPCUtils::convertToAutowareTrajectory(
-      MPCUtils::clipTrajectoryByLength(frenet, predicted_length));
-    frenet_clipped.header.stamp = m_clock->now();
-    frenet_clipped.header.frame_id = "map";
-    m_debug_frenet_predicted_trajectory_pub->publish(frenet_clipped);
-  }
-
-  return predicted_trajectory;
-}
-
-Trajectory MPC::calculatePredictedTrajectory(
-  const MPCMatrix & mpc_matrix, const Eigen::MatrixXd & x0, const Eigen::MatrixXd & Ugmres,
-  const MPCTrajectory & reference_trajectory, const double dt,
-  [[maybe_unused]] const double passed_time) const
-{
-  const auto predicted_mpc_trajectory =
-    m_vehicle_model_ptr->calculatePredictedTrajectoryInWorldCoordinate(
-      mpc_matrix.Aex, mpc_matrix.Bex, mpc_matrix.Cex, mpc_matrix.Wex, x0, Ugmres,
-      reference_trajectory, dt);
-
-  // do not over the reference trajectory
-  const auto predicted_length = MPCUtils::calcMPCTrajectoryArcLength(reference_trajectory);
-  const auto clipped_trajectory =
-    MPCUtils::clipTrajectoryByLength(predicted_mpc_trajectory, predicted_length);
-
-  auto predicted_trajectory = MPCUtils::convertToAutowareTrajectory(clipped_trajectory);
-  predicted_trajectory.header.stamp = m_clock->now();
-  predicted_trajectory.header.frame_id = "map";
-  // Publish trajectory in relative coordinate for debug purpose.
-  const auto frenet = m_vehicle_model_ptr->calculatePredictedTrajectoryInFrenetCoordinate(
-    mpc_matrix.Aex, mpc_matrix.Bex, mpc_matrix.Cex, mpc_matrix.Wex, x0, Ugmres,
-    reference_trajectory, dt);
-  auto frenet_clipped = MPCUtils::convertToAutowareTrajectory(
-    MPCUtils::clipTrajectoryByLength(frenet, predicted_length));
-  frenet_clipped.header.stamp = m_clock->now();
-  frenet_clipped.header.frame_id = "map";
-
-  m_debug_cgmres_frenet_predicted_trajectory_pub->publish(frenet_clipped);
-  m_debug_cgmres_predicted_trajectory_pub->publish(predicted_trajectory);
 
   return predicted_trajectory;
 }
