@@ -393,7 +393,7 @@ private:
   }
 
   void publish_debug_data(
-    const Trajectory & mpc_resampled_ref_trajectory,
+    const MPCTrajectory & mpc_resampled_ref_trajectory,
     const Trajectory & osqp_predicted_trajectory_world,
     const Trajectory & osqp_predicted_trajectory_frenet,
     const Trajectory & cgmres_predicted_trajectory_world,

@@ -188,16 +188,16 @@ bool MPC::calculateMPC(
   // publish debug data
   if (qp_solver_type == "cgmres") {
     publish_debug_data(
-      MPCUtils::convertToAutowareTrajectory(mpc_resampled_ref_trajectory),
-      osqp_predicted_trajectory_world, osqp_predicted_trajectory_frenet,
-      cgmres_predicted_trajectory_world, cgmres_predicted_trajectory_frenet, Uex, Ucgmres);
+      mpc_resampled_ref_trajectory, osqp_predicted_trajectory_world,
+      osqp_predicted_trajectory_frenet, cgmres_predicted_trajectory_world,
+      cgmres_predicted_trajectory_frenet, Uex, Ucgmres);
   }
 
   return true;
 }
 
 void MPC::publish_debug_data(
-  const Trajectory & mpc_resampled_ref_trajectory,
+  const MPCTrajectory & mpc_resampled_ref_trajectory,
   const Trajectory & osqp_predicted_trajectory_world,
   const Trajectory & osqp_predicted_trajectory_frenet,
   const Trajectory & cgmres_predicted_trajectory_world,
@@ -212,7 +212,15 @@ void MPC::publish_debug_data(
 
   // Set CGMRES solution
   debug_data.cgmres_solution.assign(Ucgmres.data(), Ucgmres.data() + Ucgmres.size());
-  debug_data.resampled_reference_trajectory = mpc_resampled_ref_trajectory;
+
+  debug_data.resampled_reference_trajectory =
+    MPCUtils::convertToAutowareTrajectory(mpc_resampled_ref_trajectory);
+
+  debug_data.resampled_reference_curvature =
+    MPCUtils::extract_trajectory_curvatures(mpc_resampled_ref_trajectory);
+  debug_data.resampled_reference_velocity =
+    MPCUtils::extract_trajectory_velocities(mpc_resampled_ref_trajectory);
+
   debug_data.osqp_predicted_trajectory_world_coordinate.header =
     osqp_predicted_trajectory_world.header;
   debug_data.osqp_predicted_trajectory_world_coordinate.points =
