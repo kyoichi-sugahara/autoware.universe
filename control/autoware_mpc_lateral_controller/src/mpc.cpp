@@ -998,6 +998,18 @@ Trajectory MPC::calculatePredictedTrajectory(
 
   const auto predicted_trajectory = MPCUtils::convertToAutowareTrajectory(clipped_trajectory);
 
+  // Publish trajectory in relative coordinate for debug purpose.
+  if (m_debug_publish_predicted_trajectory) {
+    const auto frenet = m_vehicle_model_ptr->calculatePredictedTrajectoryInFrenetCoordinate(
+      mpc_matrix.Aex, mpc_matrix.Bex, mpc_matrix.Cex, mpc_matrix.Wex, x0, Uex, reference_trajectory,
+      dt);
+    auto frenet_clipped = MPCUtils::convertToAutowareTrajectory(
+      MPCUtils::clipTrajectoryByLength(frenet, predicted_length));
+    frenet_clipped.header.stamp = m_clock->now();
+    frenet_clipped.header.frame_id = "map";
+    m_debug_frenet_predicted_trajectory_pub->publish(frenet_clipped);
+  }
+
   return predicted_trajectory;
 }
 
