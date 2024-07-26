@@ -34,7 +34,6 @@ void StartPlannerModuleManager::init(rclcpp::Node * node)
   {
     const std::string ns = "start_planner.";
 
-    p.th_moving_object_velocity = node->declare_parameter<double>(ns + "th_moving_object_velocity");
     p.th_arrived_distance = node->declare_parameter<double>(ns + "th_arrived_distance");
     p.th_stopped_velocity = node->declare_parameter<double>(ns + "th_stopped_velocity");
     p.th_stopped_time = node->declare_parameter<double>(ns + "th_stopped_time");
