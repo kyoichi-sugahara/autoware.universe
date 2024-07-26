@@ -52,7 +52,10 @@ using FakeNodeFixture = autoware::tools::testing::FakeTestNode;
 const rclcpp::Duration one_second(1, 0);
 
 // #define ENABLE_CONSTANT_CURVATURE_RIGHT_TURN_TEST
-#define ENABLE_CLOTHOID_RIGHT_TURN_TEST
+// #define ENABLE_CLOTHOID_RIGHT_TURN_TEST
+#define ENABLE_LONGITUDINAL_SLOW_DOWN_TEST
+#define ENABLE_LONGITUDINAL_ACCELERATE_TEST
+#define ENABLE_LONGITUDINAL_KEEP_VELOCITY_TEST
 
 rclcpp::NodeOptions makeNodeOptions(const bool enable_keep_stopped_until_steer_convergence = false)
 {
@@ -637,16 +640,38 @@ TEST_F(FakeNodeFixture, longitudinal_slow_down)
 
   test_utils::waitForMessage(tester.node, this, tester.received_control_command);
 
+  std::cerr << "DEBUG: Control command received: "
+            << (tester.received_control_command ? "Yes" : "No") << std::endl;
   ASSERT_TRUE(tester.received_control_command);
+
+  std::cerr << "DEBUG: Commanded longitudinal velocity: " << tester.cmd_msg->longitudinal.velocity
+            << std::endl;
+  std::cerr << "DEBUG: Commanded longitudinal acceleration: "
+            << tester.cmd_msg->longitudinal.acceleration << std::endl;
+
   EXPECT_LT(tester.cmd_msg->longitudinal.velocity, static_cast<float>(odom_vx));
   EXPECT_LT(tester.cmd_msg->longitudinal.acceleration, 0.0f);
 
   // Generate another control message
+  std::cerr << "DEBUG: Publishing trajectory again" << std::endl;
   tester.traj_pub->publish(traj);
+
+  std::cerr << "DEBUG: Waiting for second control command..." << std::endl;
   test_utils::waitForMessage(tester.node, this, tester.received_control_command);
+
+  std::cerr << "DEBUG: Second control command received: "
+            << (tester.received_control_command ? "Yes" : "No") << std::endl;
   ASSERT_TRUE(tester.received_control_command);
+
+  std::cerr << "DEBUG: Second commanded longitudinal velocity: "
+            << tester.cmd_msg->longitudinal.velocity << std::endl;
+  std::cerr << "DEBUG: Second commanded longitudinal acceleration: "
+            << tester.cmd_msg->longitudinal.acceleration << std::endl;
+
   EXPECT_LT(tester.cmd_msg->longitudinal.velocity, static_cast<float>(odom_vx));
   EXPECT_LT(tester.cmd_msg->longitudinal.acceleration, 0.0f);
+
+  std::cerr << "DEBUG: Test completed" << std::endl;
 }
 #endif
 
