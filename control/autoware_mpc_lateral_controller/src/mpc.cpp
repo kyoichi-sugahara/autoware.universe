@@ -215,6 +215,8 @@ void MPC::publish_debug_data(
 
   debug_data.resampled_reference_trajectory =
     MPCUtils::convertToAutowareTrajectory(mpc_resampled_ref_trajectory);
+  debug_data.resampled_reference_trajectory.header.stamp = m_clock->now();
+  debug_data.resampled_reference_trajectory.header.frame_id = "map";
 
   debug_data.resampled_reference_curvature =
     MPCUtils::extract_trajectory_curvatures(mpc_resampled_ref_trajectory);
@@ -439,7 +441,9 @@ std::pair<bool, MPCTrajectory> MPC::resampleMPCTrajectoryByTime(
   }
   // Publish resampled reference trajectory for debug purpose.
   if (m_debug_publish_resampled_reference_trajectory) {
-    const auto converted_output = MPCUtils::convertToAutowareTrajectory(output);
+    auto converted_output = MPCUtils::convertToAutowareTrajectory(output);
+    converted_output.header.stamp = m_clock->now();
+    converted_output.header.frame_id = "map";
     m_debug_resampled_reference_trajectory_pub->publish(converted_output);
     std::vector<double> resampled_curvature = MPCUtils::extract_trajectory_curvatures(output);
     std_msgs::msg::Float64MultiArray curvature_msg;

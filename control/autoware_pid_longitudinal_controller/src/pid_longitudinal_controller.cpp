@@ -1113,9 +1113,9 @@ double PidLongitudinalController::applyVelocityFeedback(const ControlData & cont
 
   std::vector<double> pid_contributions(3);
   std::cerr << "erase_integral: " << erase_integral << " at " << __LINE__ << std::endl;
-  const bool erase_integral_true = false;
-  const double pid_acc = m_pid_vel.calculate(
-    error_vel_filtered, control_data.dt, erase_integral_true, pid_contributions);
+  // const bool erase_integral_true = false;
+  const double pid_acc =
+    m_pid_vel.calculate(error_vel_filtered, control_data.dt, erase_integral, pid_contributions);
 
   // Feedforward scaling:
   // This is for the coordinate conversion where feedforward is applied, from Time to Arclength.
