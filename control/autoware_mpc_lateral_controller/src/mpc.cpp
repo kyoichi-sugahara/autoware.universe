@@ -111,8 +111,10 @@ bool MPC::calculateMPC(
     mpc_matrix, x0_delayed, prediction_dt, mpc_resampled_ref_trajectory,
     current_kinematics.twist.twist.linear.x);
   auto end_time_osqp = std::chrono::high_resolution_clock::now();
-  duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time_osqp - start_time_osqp);
-  RCLCPP_DEBUG(m_logger, "executeOptimization time = %.3f [ms]", duration.count() / 1e6);
+  auto osqp_calculation_duration =
+    std::chrono::duration_cast<std::chrono::nanoseconds>(end_time_osqp - start_time_osqp);
+  RCLCPP_DEBUG(
+    m_logger, "executeOptimization time = %.3f [ms]", osqp_calculation_duration.count() / 1e6);
 
   if (!success_opt) {
     return fail_warn_throttle("optimization failed. Stop MPC.");
@@ -122,6 +124,7 @@ bool MPC::calculateMPC(
   Trajectory cgmres_predicted_trajectory_frenet;
   Trajectory osqp_predicted_trajectory_world;
   Trajectory osqp_predicted_trajectory_frenet;
+  std::chrono::nanoseconds cgmres_calculation_duration;
   Eigen::MatrixXd Ucgmres;
   if (qp_solver_type == "cgmres") {
     auto start_time_cgmres = std::chrono::high_resolution_clock::now();
@@ -129,9 +132,11 @@ bool MPC::calculateMPC(
     std::tie(success_opt, Ucgmres) =
       executeOptimization(x0_delayed, prediction_dt, mpc_resampled_ref_trajectory);
     auto end_time_cgmres = std::chrono::high_resolution_clock::now();
-    duration =
+    cgmres_calculation_duration =
       std::chrono::duration_cast<std::chrono::nanoseconds>(end_time_cgmres - start_time_cgmres);
-    RCLCPP_DEBUG(m_logger, "executeOptimization (cgmres) time = %.3f [ms]", duration.count() / 1e6);
+    RCLCPP_DEBUG(
+      m_logger, "executeOptimization (cgmres) time = %.3f [ms]",
+      cgmres_calculation_duration.count() / 1e6);
 
     /* calculate predicted trajectory */
     cgmres_predicted_trajectory_world = calculatePredictedTrajectory(
@@ -208,20 +213,28 @@ void MPC::publish_debug_data(
 
   debug_data.stamp = m_clock->now();
   // Set OSQP solution
-  debug_data.osqp_solution.assign(Uosqp.data(), Uosqp.data() + Uosqp.size());
+  debug_data.osqp_solution.stamp = m_clock->now();
+  debug_data.osqp_solution.data = std::vector<double>(Uosqp.data(), Uosqp.data() + Uosqp.size());
 
   // Set CGMRES solution
-  debug_data.cgmres_solution.assign(Ucgmres.data(), Ucgmres.data() + Ucgmres.size());
+  debug_data.cgmres_solution.stamp = m_clock->now();
+  debug_data.cgmres_solution.data =
+    std::vector<double>(Ucgmres.data(), Ucgmres.data() + Ucgmres.size());
+
+  // Set resampled reference curvature
+  debug_data.resampled_reference_curvature.stamp = m_clock->now();
+  debug_data.resampled_reference_curvature.data =
+    MPCUtils::extract_trajectory_curvatures(mpc_resampled_ref_trajectory);
+
+  // Set resampled reference velocity
+  debug_data.resampled_reference_velocity.stamp = m_clock->now();
+  debug_data.resampled_reference_velocity.data =
+    MPCUtils::extract_trajectory_velocities(mpc_resampled_ref_trajectory);
 
   debug_data.resampled_reference_trajectory =
     MPCUtils::convertToAutowareTrajectory(mpc_resampled_ref_trajectory);
   debug_data.resampled_reference_trajectory.header.stamp = m_clock->now();
   debug_data.resampled_reference_trajectory.header.frame_id = "map";
-
-  debug_data.resampled_reference_curvature =
-    MPCUtils::extract_trajectory_curvatures(mpc_resampled_ref_trajectory);
-  debug_data.resampled_reference_velocity =
-    MPCUtils::extract_trajectory_velocities(mpc_resampled_ref_trajectory);
 
   debug_data.osqp_predicted_trajectory_world_coordinate.header =
     osqp_predicted_trajectory_world.header;

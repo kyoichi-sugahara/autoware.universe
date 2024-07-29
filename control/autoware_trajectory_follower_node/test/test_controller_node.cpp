@@ -52,10 +52,7 @@ using FakeNodeFixture = autoware::tools::testing::FakeTestNode;
 const rclcpp::Duration one_second(1, 0);
 
 // #define ENABLE_CONSTANT_CURVATURE_RIGHT_TURN_TEST
-// #define ENABLE_CLOTHOID_RIGHT_TURN_TEST
-#define ENABLE_LONGITUDINAL_SLOW_DOWN_TEST
-#define ENABLE_LONGITUDINAL_ACCELERATE_TEST
-#define ENABLE_LONGITUDINAL_KEEP_VELOCITY_TEST
+#define ENABLE_CLOTHOID_RIGHT_TURN_TEST
 
 rclcpp::NodeOptions makeNodeOptions(const bool enable_keep_stopped_until_steer_convergence = false)
 {
