@@ -398,7 +398,8 @@ private:
     const Trajectory & osqp_predicted_trajectory_frenet,
     const Trajectory & cgmres_predicted_trajectory_world,
     const Trajectory & cgmres_predicted_trajectory_frenet, const VectorXd & Uosqp,
-    const VectorXd & Ucgmres) const;
+    const VectorXd & Ucgmres, const double osqp_calculation_time,
+    const double cgmres_calculation_time) const;
 
   /**
    * @brief Generate diagnostic data for debugging purposes.

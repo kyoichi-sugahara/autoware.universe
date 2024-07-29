@@ -195,7 +195,8 @@ bool MPC::calculateMPC(
     publish_debug_data(
       mpc_resampled_ref_trajectory, osqp_predicted_trajectory_world,
       osqp_predicted_trajectory_frenet, cgmres_predicted_trajectory_world,
-      cgmres_predicted_trajectory_frenet, Uex, Ucgmres);
+      cgmres_predicted_trajectory_frenet, Uex, Ucgmres, osqp_calculation_duration.count() / 1e6,
+      cgmres_calculation_duration.count() / 1e6);
   }
 
   return true;
@@ -207,7 +208,8 @@ void MPC::publish_debug_data(
   const Trajectory & osqp_predicted_trajectory_frenet,
   const Trajectory & cgmres_predicted_trajectory_world,
   const Trajectory & cgmres_predicted_trajectory_frenet, const VectorXd & Uosqp,
-  const VectorXd & Ucgmres) const
+  const VectorXd & Ucgmres, const double osqp_calculation_time,
+  const double cgmres_calculation_time) const
 {
   CgmresDebug debug_data;
 
@@ -252,6 +254,9 @@ void MPC::publish_debug_data(
     cgmres_predicted_trajectory_frenet.header;
   debug_data.cgmres_predicted_trajectory_relative_coordinate.points =
     cgmres_predicted_trajectory_frenet.points;
+
+  debug_data.osqp_calculation_time = osqp_calculation_time;
+  debug_data.cgmres_calculation_time = cgmres_calculation_time;
 
   m_debug_cgmres_debug_pub->publish(debug_data);
 }
