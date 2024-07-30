@@ -28,12 +28,23 @@
 constexpr double epsilon = 1e-6;
 
 using autoware::behavior_path_planner::utils::path_safety_checker::CollisionCheckDebug;
+using autoware::universe_utils::createPoint;
+using autoware::universe_utils::createQuaternionFromRPY;
 using autoware::universe_utils::Point2d;
 using autoware::universe_utils::Polygon2d;
 using autoware_perception_msgs::msg::Shape;
 using geometry_msgs::msg::Point;
 using geometry_msgs::msg::Pose;
 using geometry_msgs::msg::Twist;
+
+geometry_msgs::msg::Pose createPose(
+  double x, double y, double z, double roll, double pitch, double yaw)
+{
+  geometry_msgs::msg::Pose p;
+  p.position = createPoint(x, y, z);
+  p.orientation = createQuaternionFromRPY(roll, pitch, yaw);
+  return p;
+}
 
 TEST(BehaviorPathPlanningSafetyUtilsTest, createExtendedEgoPolygon)
 {
@@ -200,4 +211,17 @@ TEST(BehaviorPathPlanningSafetyUtilsTest, calcRssDistance)
 
     EXPECT_NEAR(calcRssDistance(front_vel, rear_vel, params), 63.75, epsilon);
   }
+}
+
+TEST(BehaviorPathPlanningSafetyUtilsTest, calcInterpolatedPoseWithVelocity)
+{
+  using autoware::behavior_path_planner::utils::path_safety_checker::
+    calcInterpolatedPoseWithVelocity;
+  using autoware::behavior_path_planner::utils::path_safety_checker::PoseWithVelocityStamped;
+  std::vector<PoseWithVelocityStamped> path;
+
+  path.emplace_back(0.0, createPose(0.0, 0.0, 0.0, 0.0, 0.0, 0.0), 1.0);
+  path.emplace_back(1.0, createPose(1.0, 0.0, 0.0, 0.0, 0.0, 0.0), 2.0);
+  path.emplace_back(2.0, createPose(2.0, 0.0, 0.0, 0.0, 0.0, 0.0), 3.0);
+  path.emplace_back(3.0, createPose(3.0, 0.0, 0.0, 0.0, 0.0, 0.0), 2.0);
 }
