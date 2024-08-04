@@ -39,11 +39,28 @@ target_compile_options(${MPC_LAT_CON_LIB} PRIVATE
   -Wno-unused-parameter
 )
 
+rosidl_generate_interfaces(
+  ${PROJECT_NAME}
+  "msg/MpcDebug.msg"
+  DEPENDENCIES builtin_interfaces geometry_msgs tier4_debug_msgs autoware_planning_msgs
+)
+
+# to use a message defined in the same package
+if(${rosidl_cmake_VERSION} VERSION_LESS 2.5.0)
+  rosidl_target_interfaces(${MPC_LAT_CON_LIB}
+    ${PROJECT_NAME} "rosidl_typesupport_cpp")
+else()
+  rosidl_get_typesupport_target(
+    cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
+  target_link_libraries(${MPC_LAT_CON_LIB} "${cpp_typesupport_target}")
+endif()
+
 if(BUILD_TESTING)
   set(TEST_LAT_SOURCES
     test/test_mpc.cpp
     test/test_mpc_utils.cpp
     test/test_lowpass_filter.cpp
+
     # test/test_cgmres.cpp
   )
   set(TEST_LATERAL_CONTROLLER_EXE test_lateral_controller)

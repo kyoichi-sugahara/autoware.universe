@@ -20,6 +20,7 @@
 #include "autoware/mpc_lateral_controller/qp_solver/qp_solver_interface.hpp"
 #include "autoware/mpc_lateral_controller/steering_predictor.hpp"
 #include "autoware/mpc_lateral_controller/vehicle_model/vehicle_model_interface.hpp"
+#include "autoware_mpc_lateral_controller/msg/mpc_debug.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 #include "autoware_control_msgs/msg/lateral.hpp"
@@ -28,7 +29,6 @@
 #include "geometry_msgs/msg/pose.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "std_msgs/msg/float64_multi_array.hpp"
-#include "tier4_control_msgs/msg/cgmres_debug.hpp"
 #include "tier4_debug_msgs/msg/float32_multi_array_stamped.hpp"
 
 #include <deque>
@@ -41,12 +41,12 @@ namespace autoware::motion::control::mpc_lateral_controller
 {
 
 using autoware_control_msgs::msg::Lateral;
+using autoware_mpc_lateral_controller::msg::MpcDebug;
 using autoware_planning_msgs::msg::Trajectory;
 using autoware_vehicle_msgs::msg::SteeringReport;
 using geometry_msgs::msg::Pose;
 using nav_msgs::msg::Odometry;
 using std_msgs::msg::Float64MultiArray;
-using tier4_control_msgs::msg::CgmresDebug;
 using tier4_debug_msgs::msg::Float32MultiArrayStamped;
 
 using Eigen::MatrixXd;
@@ -233,7 +233,7 @@ private:
   rclcpp::Publisher<Float64MultiArray>::SharedPtr m_debug_resampled_reference_velocity_pub;
   rclcpp::Publisher<Trajectory>::SharedPtr m_debug_cgmres_frenet_predicted_trajectory_pub;
   rclcpp::Publisher<Trajectory>::SharedPtr m_debug_cgmres_predicted_trajectory_pub;
-  rclcpp::Publisher<CgmresDebug>::SharedPtr m_debug_cgmres_debug_pub;
+  rclcpp::Publisher<MpcDebug>::SharedPtr m_debug_cgmres_debug_pub;
 
   /**
    * @brief Get variables for MPC calculation.

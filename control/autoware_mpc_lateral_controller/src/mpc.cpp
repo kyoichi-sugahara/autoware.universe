@@ -51,7 +51,7 @@ MPC::MPC(rclcpp::Node & node)
   m_debug_resampled_reference_velocity_pub = node.create_publisher<Float64MultiArray>(
     "~/debug/resampled_reference_velocity", rclcpp::QoS(1));
   m_debug_cgmres_debug_pub =
-    node.create_publisher<CgmresDebug>("~/debug/cgmres/debug", rclcpp::QoS(1));
+    node.create_publisher<MpcDebug>("~/debug/cgmres/debug", rclcpp::QoS(1));
 }
 
 bool MPC::calculateMPC(
@@ -211,7 +211,7 @@ void MPC::publish_debug_data(
   const VectorXd & Ucgmres, const double osqp_calculation_time,
   const double cgmres_calculation_time) const
 {
-  CgmresDebug debug_data;
+  MpcDebug debug_data;
 
   debug_data.stamp = m_clock->now();
   // Set OSQP solution
