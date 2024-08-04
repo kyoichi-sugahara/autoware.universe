@@ -10,10 +10,12 @@ find_package(cgmres REQUIRED)
 
 set(NLP_INTERFACE_LIB_SRC
   src/nlp_interface.cpp
+  src/cgmres_interface.cpp
 )
 
 set(QP_INTERFACE_LIB_HEADERS
   include/nlp_interface/nlp_interface.hpp
+  include/nlp_interface/cgmres_interface.hpp
 )
 
 ament_auto_add_library(${PROJECT_NAME} SHARED
