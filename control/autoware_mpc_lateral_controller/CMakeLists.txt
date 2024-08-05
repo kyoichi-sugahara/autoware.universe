@@ -5,6 +5,7 @@ find_package(autoware_cmake REQUIRED)
 autoware_package()
 
 find_package(cgmres REQUIRED)
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
 ament_auto_add_library(steering_offset_lib SHARED
   src/steering_offset/steering_offset.cpp
@@ -38,6 +39,8 @@ target_include_directories(${MPC_LAT_CON_LIB} PRIVATE
 target_compile_options(${MPC_LAT_CON_LIB} PRIVATE
   -Wno-unused-parameter
 )
+
+set(PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
 
 rosidl_generate_interfaces(
   ${PROJECT_NAME}

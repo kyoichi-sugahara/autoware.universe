@@ -4,10 +4,21 @@ project(autoware_trajectory_follower_node)
 find_package(autoware_cmake REQUIRED)
 autoware_package()
 
+find_package(autoware_mpc_lateral_controller REQUIRED)
+
 set(CONTROLLER_NODE controller_node)
 ament_auto_add_library(${CONTROLLER_NODE} SHARED
   include/autoware/trajectory_follower_node/controller_node.hpp
   src/controller_node.cpp
+)
+
+target_include_directories(${CONTROLLER_NODE}
+  PRIVATE
+  ${autoware_mpc_lateral_controller_INCLUDE_DIRS}
+)
+
+target_link_libraries(${CONTROLLER_NODE}
+  ${autoware_mpc_lateral_controller_LIBRARIES}
 )
 
 rclcpp_components_register_node(${CONTROLLER_NODE}
