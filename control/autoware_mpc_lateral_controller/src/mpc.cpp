@@ -35,6 +35,8 @@ using autoware::universe_utils::rad2deg;
 
 MPC::MPC(rclcpp::Node & node)
 {
+  m_debug_predicted_trajectory_with_delay_pub =
+    node.create_publisher<Trajectory>("~/debug/predicted_trajectory_with_delay", rclcpp::QoS(1));
   m_debug_frenet_predicted_trajectory_pub = node.create_publisher<Trajectory>(
     "~/debug/predicted_trajectory_in_frenet_coordinate", rclcpp::QoS(1));
   node.create_publisher<Trajectory>("~/debug/resampled_reference_trajectory", rclcpp::QoS(1));
@@ -123,6 +125,7 @@ bool MPC::calculateMPC(
   Trajectory cgmres_predicted_trajectory_world;
   Trajectory cgmres_predicted_trajectory_frenet;
   Trajectory osqp_predicted_trajectory_world;
+  Trajectory osqp_predicted_trajectory_world_with_delay;
   Trajectory osqp_predicted_trajectory_frenet;
   std::chrono::nanoseconds cgmres_calculation_duration;
   Eigen::MatrixXd Ucgmres;
@@ -185,6 +188,12 @@ bool MPC::calculateMPC(
     osqp_predicted_trajectory_frenet.header.stamp = m_clock->now();
     osqp_predicted_trajectory_frenet.header.frame_id = "map";
     m_debug_frenet_predicted_trajectory_pub->publish(osqp_predicted_trajectory_frenet);
+    osqp_predicted_trajectory_world_with_delay = calculatePredictedTrajectory(
+      mpc_matrix, x0_delayed, Uex, mpc_resampled_ref_trajectory, prediction_dt, "world");
+    osqp_predicted_trajectory_world_with_delay.header.stamp = m_clock->now();
+    osqp_predicted_trajectory_world_with_delay.header.frame_id = "map";
+    m_debug_predicted_trajectory_with_delay_pub->publish(
+      osqp_predicted_trajectory_world_with_delay);
   }
 
   // prepare diagnostic message

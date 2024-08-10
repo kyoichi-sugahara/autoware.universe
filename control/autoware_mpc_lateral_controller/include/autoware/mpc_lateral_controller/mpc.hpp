@@ -227,6 +227,7 @@ private:
 
   double m_min_prediction_length = 5.0;  // Minimum prediction distance.
 
+  rclcpp::Publisher<Trajectory>::SharedPtr m_debug_predicted_trajectory_with_delay_pub;
   rclcpp::Publisher<Trajectory>::SharedPtr m_debug_frenet_predicted_trajectory_pub;
   rclcpp::Publisher<Trajectory>::SharedPtr m_debug_resampled_reference_trajectory_pub;
   rclcpp::Publisher<Float64MultiArray>::SharedPtr m_debug_resampled_reference_curvature_pub;
