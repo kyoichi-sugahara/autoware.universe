@@ -367,6 +367,8 @@ private:
    * @param Uex optimized input.
    * @param mpc_resampled_ref_traj reference trajectory resampled in the mpc time-step
    * @param dt delta time used in the mpc problem.
+   * @param coordinate String specifying the coordinate system ("world" or "frenet", default is
+   * "world")
    * @return predicted path
    */
   Trajectory calculatePredictedTrajectory(

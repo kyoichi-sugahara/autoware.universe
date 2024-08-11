@@ -124,9 +124,9 @@ bool MPC::calculateMPC(
 
   Trajectory cgmres_predicted_trajectory_world;
   Trajectory cgmres_predicted_trajectory_frenet;
-  Trajectory osqp_predicted_trajectory_world;
-  Trajectory osqp_predicted_trajectory_world_with_delay;
-  Trajectory osqp_predicted_trajectory_frenet;
+  Trajectory predicted_trajectory_world;
+  Trajectory predicted_trajectory_world_with_delay;
+  Trajectory predicted_trajectory_frenet;
   std::chrono::nanoseconds cgmres_calculation_duration;
   Eigen::MatrixXd Ucgmres;
   if (qp_solver_type == "cgmres") {
@@ -179,21 +179,23 @@ bool MPC::calculateMPC(
   predicted_trajectory = calculatePredictedTrajectory(
     mpc_matrix, x0, Uex, mpc_resampled_ref_trajectory, prediction_dt, "world");
 
-  osqp_predicted_trajectory_world = predicted_trajectory;
+  predicted_trajectory_world = predicted_trajectory;
 
-  // Publish trajectory in relative coordinate for debug purpose.
+  // Publish predicted trajectories in different coordinates for debugging purposes
   if (m_debug_publish_predicted_trajectory) {
-    osqp_predicted_trajectory_frenet = calculatePredictedTrajectory(
+    // Calculate and publish predicted trajectory in Frenet coordinate
+    predicted_trajectory_frenet = calculatePredictedTrajectory(
       mpc_matrix, x0, Uex, mpc_resampled_ref_trajectory, prediction_dt, "frenet");
-    osqp_predicted_trajectory_frenet.header.stamp = m_clock->now();
-    osqp_predicted_trajectory_frenet.header.frame_id = "map";
-    m_debug_frenet_predicted_trajectory_pub->publish(osqp_predicted_trajectory_frenet);
-    osqp_predicted_trajectory_world_with_delay = calculatePredictedTrajectory(
+    predicted_trajectory_frenet.header.stamp = m_clock->now();
+    predicted_trajectory_frenet.header.frame_id = "map";
+    m_debug_frenet_predicted_trajectory_pub->publish(predicted_trajectory_frenet);
+
+    // Calculate and publish predicted trajectory in world coordinate with delay
+    predicted_trajectory_world_with_delay = calculatePredictedTrajectory(
       mpc_matrix, x0_delayed, Uex, mpc_resampled_ref_trajectory, prediction_dt, "world");
-    osqp_predicted_trajectory_world_with_delay.header.stamp = m_clock->now();
-    osqp_predicted_trajectory_world_with_delay.header.frame_id = "map";
-    m_debug_predicted_trajectory_with_delay_pub->publish(
-      osqp_predicted_trajectory_world_with_delay);
+    predicted_trajectory_world_with_delay.header.stamp = m_clock->now();
+    predicted_trajectory_world_with_delay.header.frame_id = "map";
+    m_debug_predicted_trajectory_with_delay_pub->publish(predicted_trajectory_world_with_delay);
   }
 
   // prepare diagnostic message
@@ -202,10 +204,9 @@ bool MPC::calculateMPC(
   // publish debug data
   if (qp_solver_type == "cgmres") {
     publish_debug_data(
-      mpc_resampled_ref_trajectory, osqp_predicted_trajectory_world,
-      osqp_predicted_trajectory_frenet, cgmres_predicted_trajectory_world,
-      cgmres_predicted_trajectory_frenet, Uex, Ucgmres, osqp_calculation_duration.count() / 1e6,
-      cgmres_calculation_duration.count() / 1e6);
+      mpc_resampled_ref_trajectory, predicted_trajectory_world, predicted_trajectory_frenet,
+      cgmres_predicted_trajectory_world, cgmres_predicted_trajectory_frenet, Uex, Ucgmres,
+      osqp_calculation_duration.count() / 1e6, cgmres_calculation_duration.count() / 1e6);
   }
 
   return true;
@@ -1028,18 +1029,6 @@ Trajectory MPC::calculatePredictedTrajectory(
     MPCUtils::clipTrajectoryByLength(predicted_mpc_trajectory, predicted_length);
 
   const auto predicted_trajectory = MPCUtils::convertToAutowareTrajectory(clipped_trajectory);
-
-  // Publish trajectory in relative coordinate for debug purpose.
-  if (m_debug_publish_predicted_trajectory) {
-    const auto frenet = m_vehicle_model_ptr->calculatePredictedTrajectoryInFrenetCoordinate(
-      mpc_matrix.Aex, mpc_matrix.Bex, mpc_matrix.Cex, mpc_matrix.Wex, x0, Uex, reference_trajectory,
-      dt);
-    auto frenet_clipped = MPCUtils::convertToAutowareTrajectory(
-      MPCUtils::clipTrajectoryByLength(frenet, predicted_length));
-    frenet_clipped.header.stamp = m_clock->now();
-    frenet_clipped.header.frame_id = "map";
-    m_debug_frenet_predicted_trajectory_pub->publish(frenet_clipped);
-  }
 
   return predicted_trajectory;
 }
