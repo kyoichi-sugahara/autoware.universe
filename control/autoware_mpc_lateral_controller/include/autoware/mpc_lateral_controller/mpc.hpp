@@ -220,9 +220,8 @@ private:
   double m_raw_steer_cmd_pprev = 0.0;  // Raw output computed two iterations ago.
   double m_lateral_error_prev = 0.0;   // Previous lateral error for derivative calculation.
   double m_yaw_error_prev = 0.0;       // Previous heading error for derivative calculation.
-  std::chrono::time_point<std::chrono::system_clock>
-    m_previous_optimal_solution_time;  // Time stamp of the last MPC solution.
-
+  rclcpp::Time m_previous_optimal_solution_time{
+    0, 0, RCL_ROS_TIME};           // Time stamp of the last MPC solution.
   bool m_is_forward_shift = true;  // Flag indicating if the shift is in the forward direction.
 
   double m_min_prediction_length = 5.0;  // Minimum prediction distance.

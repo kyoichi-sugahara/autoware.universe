@@ -21,7 +21,6 @@
 #include "rclcpp/rclcpp.hpp"
 
 #include <algorithm>
-#include <chrono>
 #include <iomanip>
 #include <iostream>
 #include <limits>
@@ -99,24 +98,23 @@ bool MPC::calculateMPC(
     return fail_warn_throttle("trajectory resampling failed. Stop MPC.");
   }
 
-  auto start_time_osqp = std::chrono::high_resolution_clock::now();
+  rclcpp::Time start_time_osqp = m_clock->now();
 
   // generate mpc matrix : predict equation Xec = Aex * x0 + Bex * Uex + Wex
   const auto mpc_matrix = generateMPCMatrix(mpc_resampled_ref_trajectory, prediction_dt);
-  auto end_time_generate_matrix = std::chrono::high_resolution_clock::now();
-  auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(
-    end_time_generate_matrix - start_time_osqp);
-  RCLCPP_DEBUG(m_logger, "generateMPCMatrix time = %.3f [ms]", duration.count() / 1e6);
+  rclcpp::Time end_time_generate_matrix = m_clock->now();
+  rclcpp::Duration duration = end_time_generate_matrix - start_time_osqp;
+  RCLCPP_DEBUG(m_logger, "generateMPCMatrix time = %.3f [ms]", duration.nanoseconds() / 1e6);
 
   // solve Optimization problem
   const auto [success_opt, Uex] = executeOptimization(
     mpc_matrix, x0_delayed, prediction_dt, mpc_resampled_ref_trajectory,
     current_kinematics.twist.twist.linear.x);
-  auto end_time_osqp = std::chrono::high_resolution_clock::now();
-  auto osqp_calculation_duration =
-    std::chrono::duration_cast<std::chrono::nanoseconds>(end_time_osqp - start_time_osqp);
+  rclcpp::Time end_time_osqp = m_clock->now();
+  rclcpp::Duration osqp_calculation_duration = end_time_osqp - start_time_osqp;
   RCLCPP_DEBUG(
-    m_logger, "executeOptimization time = %.3f [ms]", osqp_calculation_duration.count() / 1e6);
+    m_logger, "executeOptimization time = %.3f [ms]",
+    osqp_calculation_duration.nanoseconds() / 1e6);
 
   if (!success_opt) {
     return fail_warn_throttle("optimization failed. Stop MPC.");
@@ -127,19 +125,18 @@ bool MPC::calculateMPC(
   Trajectory predicted_trajectory_world;
   Trajectory predicted_trajectory_world_with_delay;
   Trajectory predicted_trajectory_frenet;
-  std::chrono::nanoseconds cgmres_calculation_duration;
+  rclcpp::Duration cgmres_calculation_duration(0, 0);
   Eigen::MatrixXd Ucgmres;
   if (qp_solver_type == "cgmres") {
-    auto start_time_cgmres = std::chrono::high_resolution_clock::now();
+    rclcpp::Time start_time_cgmres = m_clock->now();
     bool success_opt;
     std::tie(success_opt, Ucgmres) =
       executeOptimization(x0_delayed, prediction_dt, mpc_resampled_ref_trajectory);
-    auto end_time_cgmres = std::chrono::high_resolution_clock::now();
-    cgmres_calculation_duration =
-      std::chrono::duration_cast<std::chrono::nanoseconds>(end_time_cgmres - start_time_cgmres);
+    rclcpp::Time end_time_cgmres = m_clock->now();
+    cgmres_calculation_duration = end_time_cgmres - start_time_cgmres;
     RCLCPP_DEBUG(
       m_logger, "executeOptimization (cgmres) time = %.3f [ms]",
-      cgmres_calculation_duration.count() / 1e6);
+      cgmres_calculation_duration.nanoseconds() / 1e6);
 
     /* calculate predicted trajectory */
     cgmres_predicted_trajectory_world = calculatePredictedTrajectory(
@@ -206,7 +203,8 @@ bool MPC::calculateMPC(
     publish_debug_data(
       mpc_resampled_ref_trajectory, predicted_trajectory_world, predicted_trajectory_frenet,
       cgmres_predicted_trajectory_world, cgmres_predicted_trajectory_frenet, Uex, Ucgmres,
-      osqp_calculation_duration.count() / 1e6, cgmres_calculation_duration.count() / 1e6);
+      osqp_calculation_duration.nanoseconds() / 1e6,
+      cgmres_calculation_duration.nanoseconds() / 1e6);
   }
 
   return true;
@@ -757,20 +755,18 @@ std::pair<bool, VectorXd> MPC::executeOptimization(
   ubA(0) = m_raw_steer_cmd_prev + steer_rate_limits(0) * m_ctrl_period;
   lbA(0) = m_raw_steer_cmd_prev - steer_rate_limits(0) * m_ctrl_period;
 
-  auto t_start = std::chrono::system_clock::now();
+  rclcpp::Time t_start = m_clock->now();
   bool solve_result = m_qpsolver_ptr->solve(H, f.transpose(), A, lb, ub, lbA, ubA, Uex);
-  auto t_end = std::chrono::system_clock::now();
+  rclcpp::Time t_end = m_clock->now();
   if (!solve_result) {
     warn_throttle("qp solver error");
     return {false, {}};
   }
 
   {
-    auto t = std::chrono::duration_cast<std::chrono::milliseconds>(t_end - t_start).count();
-    RCLCPP_DEBUG(m_logger, "qp solver calculation time = %ld [ms]", t);
+    rclcpp::Duration t = t_end - t_start;
+    RCLCPP_DEBUG(m_logger, "qp solver calculation time = %.3f [ms]", t.nanoseconds() / 1e6);
   }
-  // std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
   if (Uex.array().isNaN().any()) {
     warn_throttle("model Uex includes NaN, stop MPC.");
     return {false, {}};
@@ -791,13 +787,10 @@ std::pair<bool, VectorXd> MPC::executeOptimization(
   const VectorXd & x0, const double prediction_dt, const MPCTrajectory & resampled_ref_trajectory)
 {
   VectorXd Uex;
-  const double elapsed_time_ms =
-    std::chrono::duration_cast<std::chrono::nanoseconds>(
-      std::chrono::system_clock::now() - m_previous_optimal_solution_time)
-      .count() *
-    1.0e-6;
+  const rclcpp::Duration elapsed_time = m_clock->now() - m_previous_optimal_solution_time;
+  const double elapsed_time_ms = elapsed_time.nanoseconds() * 1.0e-6;
 
-  // auto t_start = std::chrono::system_clock::now();
+  // rclcpp::Time t_start = m_clock->now();
   bool warm_start = false;
 
   if (0 < elapsed_time_ms && elapsed_time_ms < 150.0) {
@@ -808,16 +801,16 @@ std::pair<bool, VectorXd> MPC::executeOptimization(
   }
   m_qpsolver_ptr->updateEquation(resampled_ref_trajectory, m_param.steer_tau);
   const bool solve_result = m_qpsolver_ptr->solveCGMRES(x0, Uex, warm_start);
-  m_previous_optimal_solution_time = std::chrono::system_clock::now();
-  // auto t_end = std::chrono::system_clock::now();
+  m_previous_optimal_solution_time = m_clock->now();
+  // rclcpp::Time t_end = m_clock->now();
 
   if (!solve_result) {
     warn_throttle("cgmres solver error");
     return {false, {}};
   }
 
-  // auto t = std::chrono::duration_cast<std::chrono::milliseconds>(t_end - t_start).count();
-  // RCLCPP_DEBUG(m_logger, "cgmres solver calculation time = %ld [ms]", t);
+  // rclcpp::Duration t = t_end - t_start;
+  // RCLCPP_DEBUG(m_logger, "cgmres solver calculation time = %.3f [ms]", t.nanoseconds() * 1.0e-6);
 
   if (Uex.array().isNaN().any()) {
     warn_throttle("model Uex includes NaN, stop MPC.");
