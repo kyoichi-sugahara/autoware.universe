@@ -375,6 +375,10 @@ private:
     const MPCTrajectory & reference_trajectory, const double dt,
     const std::string & coordinate = "world") const;
 
+  Trajectory calculatePredictedTrajectory(
+    const Eigen::MatrixXd & x0, const Eigen::MatrixXd & Uex,
+    const MPCTrajectory & reference_trajectory, const double dt) const;
+
   /**
    * @brief Check if the MPC matrix has any invalid values.
    * @param m The MPC matrix to check.

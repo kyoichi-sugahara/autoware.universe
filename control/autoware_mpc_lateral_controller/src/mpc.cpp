@@ -141,15 +141,17 @@ bool MPC::calculateMPC(
     /* calculate predicted trajectory */
     cgmres_predicted_trajectory_world = calculatePredictedTrajectory(
       mpc_matrix, x0, Ucgmres, mpc_resampled_ref_trajectory, prediction_dt, "world");
+    // cgmres_predicted_trajectory_frenet = calculatePredictedTrajectory(
+    //   mpc_matrix, x0, Ucgmres, mpc_resampled_ref_trajectory, prediction_dt, "frenet");
     cgmres_predicted_trajectory_frenet = calculatePredictedTrajectory(
-      mpc_matrix, x0, Ucgmres, mpc_resampled_ref_trajectory, prediction_dt, "frenet");
+      x0_delayed, Ucgmres, mpc_resampled_ref_trajectory, prediction_dt);
     cgmres_predicted_trajectory_world.header.stamp = m_clock->now();
     cgmres_predicted_trajectory_world.header.frame_id = "map";
     cgmres_predicted_trajectory_frenet.header.stamp = m_clock->now();
     cgmres_predicted_trajectory_frenet.header.frame_id = "map";
 
-    m_debug_cgmres_predicted_trajectory_pub->publish(cgmres_predicted_trajectory_world);
     m_debug_cgmres_frenet_predicted_trajectory_pub->publish(cgmres_predicted_trajectory_frenet);
+    m_debug_cgmres_predicted_trajectory_pub->publish(cgmres_predicted_trajectory_world);
   }
 
   // apply filters for the input limitation and low pass filter
@@ -1021,6 +1023,64 @@ Trajectory MPC::calculatePredictedTrajectory(
   const auto clipped_trajectory =
     MPCUtils::clipTrajectoryByLength(predicted_mpc_trajectory, predicted_length);
 
+  const auto predicted_trajectory = MPCUtils::convertToAutowareTrajectory(clipped_trajectory);
+
+  return predicted_trajectory;
+}
+
+Trajectory MPC::calculatePredictedTrajectory(
+  const Eigen::MatrixXd & x0, const Eigen::MatrixXd & Uex,
+  const MPCTrajectory & reference_trajectory, const double dt) const
+{
+  MPCTrajectory predicted_mpc_trajectory;
+  const size_t N = reference_trajectory.size();
+  const size_t DIM_X = 3;  // [lat_err, yaw_err, steer]
+
+  // Initialize state
+  Eigen::VectorXd x = x0;
+
+  for (size_t i = 0; i < N; ++i) {
+    // Extract reference values
+    const double v_ref = reference_trajectory.vx.at(i);
+    const double curvature_ref = reference_trajectory.k.at(i);
+
+    // Extract optimal control input
+    const double u = (i < static_cast<size_t>(Uex.rows())) ? Uex(static_cast<Eigen::Index>(i), 0)
+                                                           : Uex(Uex.rows() - 1, 0);
+
+    // Calculate state derivatives
+    Eigen::VectorXd dx(DIM_X);
+    dx(0) = v_ref * std::sin(x(1));
+    dx(1) = -curvature_ref * v_ref * std::cos(x(1)) + v_ref * std::tan(x(2)) / 2.74;
+    dx(2) = -(-u + x(2)) / m_param.steer_tau;
+
+    // Update state using Euler method
+    x += dt * dx;
+
+    // Calculate predicted state in global coordinates
+    const double lat_err = x(0);
+    const double yaw_err = x(1);
+
+    const double ref_x = reference_trajectory.x.at(i);
+    const double ref_y = reference_trajectory.y.at(i);
+    const double ref_yaw = reference_trajectory.yaw.at(i);
+
+    const double pred_x = ref_x - std::sin(ref_yaw) * lat_err;
+    const double pred_y = ref_y + std::cos(ref_yaw) * lat_err;
+    const double pred_yaw = ref_yaw + yaw_err;
+
+    // Store predicted state
+    predicted_mpc_trajectory.push_back(
+      pred_x, pred_y, reference_trajectory.z.at(i), pred_yaw, v_ref, curvature_ref,
+      reference_trajectory.smooth_k.at(i), reference_trajectory.relative_time.at(i));
+  }
+
+  // Clip trajectory to match the predicted length
+  const auto predicted_length = MPCUtils::calcMPCTrajectoryArcLength(reference_trajectory);
+  const auto clipped_trajectory =
+    MPCUtils::clipTrajectoryByLength(predicted_mpc_trajectory, predicted_length);
+
+  // Convert to Autoware Trajectory format
   const auto predicted_trajectory = MPCUtils::convertToAutowareTrajectory(clipped_trajectory);
 
   return predicted_trajectory;
