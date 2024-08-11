@@ -1047,12 +1047,13 @@ Trajectory MPC::calculatePredictedTrajectory(
     // Extract optimal control input
     const double u = (i < static_cast<size_t>(Uex.rows())) ? Uex(static_cast<Eigen::Index>(i), 0)
                                                            : Uex(Uex.rows() - 1, 0);
-
+    // const double steer_tau = m_param.steer_tau;
+    const double steer_tau = 0.1;
     // Calculate state derivatives
     Eigen::VectorXd dx(DIM_X);
     dx(0) = v_ref * std::sin(x(1));
     dx(1) = -curvature_ref * v_ref * std::cos(x(1)) + v_ref * std::tan(x(2)) / 2.74;
-    dx(2) = -(-u + x(2)) / m_param.steer_tau;
+    dx(2) = -(-u + x(2)) / steer_tau;
 
     // Update state using Euler method
     x += dt * dx;
