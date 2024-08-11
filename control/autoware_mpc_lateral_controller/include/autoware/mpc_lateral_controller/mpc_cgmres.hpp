@@ -70,11 +70,8 @@ public:
   ///
   static constexpr int nub = 1;
 
-  double v_in_reference_trajectory = 1.0;
-  double curvature_in_reference_trajectory = -0.5;
-  double smoothed_curvature_in_reference_trajectory = -0.5;
   double wheel_base = 2.74;  // arctan(wheel base * curvature_in_reference_trajectory)
-  double steer_tau = 0.3;
+  double steer_tau;
 
   std::vector<double> curvature_ref_array;
   std::vector<double> v_ref_array;
@@ -83,7 +80,6 @@ public:
   std::array<double, nx> q = {1.0, 0.1, 0.0};
   std::array<double, nx> q_terminal = {1.0, 0.1, 0.0};
   std::array<double, nx> x_ref = {0, 0, 0};
-  std::array<double, nu> u_ref = {-0.948853649067464};
   std::array<double, nu> r = {1.0};
 
   static constexpr std::array<int, 1> ubound_indices = {0};
@@ -100,23 +96,26 @@ public:
     os << "  nh:  " << nh << std::endl;
     os << "  nuc: " << nuc << std::endl;
     os << "  nub: " << nub << std::endl;
-    os << std::endl;
-    os << "  v_in_reference_trajectory: " << v_in_reference_trajectory << std::endl;
-    os << "  curvature_in_reference_trajectory: " << curvature_in_reference_trajectory << std::endl;
-    os << "  smoothed_curvature_in_reference_trajectory: "
-       << smoothed_curvature_in_reference_trajectory << std::endl;
     os << "  wheel_base: " << wheel_base << std::endl;
     os << "  steer_tau: " << steer_tau << std::endl;
-    os << std::endl;
     Eigen::IOFormat fmt(4, 0, ", ", "", "[", "]");
     Eigen::IOFormat intfmt(1, 0, ", ", "", "[", "]");
+    os << "  curvature_ref_array: "
+       << Map<const VectorX>(curvature_ref_array.data(), curvature_ref_array.size())
+            .transpose()
+            .format(fmt)
+       << std::endl;
+    os << "  v_ref_array: "
+       << Map<const VectorX>(v_ref_array.data(), v_ref_array.size()).transpose().format(fmt)
+       << std::endl;
+    os << "  u_ref_array: "
+       << Map<const MatrixX>(u_ref_array.data()->data(), u_ref_array.size(), nu).format(fmt)
+       << std::endl;
     os << "  q: " << Map<const VectorX>(q.data(), q.size()).transpose().format(fmt) << std::endl;
     os << "  q_terminal: "
        << Map<const VectorX>(q_terminal.data(), q_terminal.size()).transpose().format(fmt)
        << std::endl;
     os << "  x_ref: " << Map<const VectorX>(x_ref.data(), x_ref.size()).transpose().format(fmt)
-       << std::endl;
-    os << "  u_ref: " << Map<const VectorX>(u_ref.data(), u_ref.size()).transpose().format(fmt)
        << std::endl;
     os << "  r: " << Map<const VectorX>(r.data(), r.size()).transpose().format(fmt) << std::endl;
     os << std::endl;
@@ -169,9 +168,6 @@ public:
       for (size_t i = 0; i < curvature_ref_array.size(); i++) {
         u_ref_array[i][0] = std::atan(curvature_ref_array[i] * wheel_base);
       }
-      curvature_in_reference_trajectory = curvature_ref_array[0];
-      v_in_reference_trajectory = v_ref_array[0];
-      u_ref[0] = u_ref_array[0][0];
 
     } else {
       // std::cerr << "external_reference is nullptr" << std::endl;
@@ -190,9 +186,9 @@ public:
   ///
   void eval_f(const double t, const double * x, const double * u, double * dx) const
   {
-    dx[0] = v_in_reference_trajectory * sin(x[1]);
-    dx[1] = -curvature_in_reference_trajectory * v_in_reference_trajectory * cos(x[1]) +
-            v_in_reference_trajectory * tan(x[2]) / wheel_base;
+    dx[0] = v_ref_array[0] * sin(x[1]);
+    dx[1] = -curvature_ref_array[0] * v_ref_array[0] * cos(x[1]) +
+            v_ref_array[0] * tan(x[2]) / wheel_base;
     dx[2] = -(-u[0] + x[2]) / steer_tau;
   }
 
@@ -247,10 +243,9 @@ public:
   void eval_hx(
     const double t, const double * x, const double * u, const double * lmd, double * hx) const
   {
-    const double x0 = lmd[1] * v_in_reference_trajectory;
+    const double x0 = lmd[1] * v_ref_array[0];
     hx[0] = (1.0 / 2.0) * q[0] * (2 * x[0] - 2 * x_ref[0]);
-    hx[1] = curvature_in_reference_trajectory * x0 * sin(x[1]) +
-            lmd[0] * v_in_reference_trajectory * cos(x[1]) +
+    hx[1] = curvature_ref_array[0] * x0 * sin(x[1]) + lmd[0] * v_ref_array[0] * cos(x[1]) +
             (1.0 / 2.0) * q[1] * (2 * x[1] - 2 * x_ref[1]);
     hx[2] = -lmd[2] / steer_tau + (1.0 / 2.0) * q[2] * (2 * x[2] - 2 * x_ref[2]) +
             x0 * (pow(tan(x[2]), 2) + 1) / wheel_base;
@@ -297,7 +292,7 @@ public:
   void eval_hu(
     const double t, const double * x, const double * u, const double * lmd, double * hu) const
   {
-    hu[0] = lmd[2] / steer_tau + (1.0 / 2.0) * r[0] * (2 * u[0] - 2 * u_ref[0]);
+    hu[0] = lmd[2] / steer_tau + (1.0 / 2.0) * r[0] * (2 * u[0] - 2 * u_ref_array[0][0]);
   }
 
   ///

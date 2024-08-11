@@ -28,12 +28,13 @@ QPSolverCGMRES::QPSolverCGMRES(
 : logger_{logger},
   cgmres_logger_(log_dir),
   settings_{solver_settings},
-  external_reference_(std::make_shared<cgmres::OCP_lateral_control::ExternalReference>()),
-  initializer_(ocp_, settings_)
+  external_reference_(std::make_shared<cgmres::OCP_lateral_control::ExternalReference>())
 {
   ocp_.external_reference = external_reference_;
   ocp_.wheel_base = wheel_base;
   ocp_.steer_tau = steer_tau;
+  initializer_ =
+    cgmres::ZeroHorizonOCPSolver<cgmres::OCP_lateral_control, kmax_init>(ocp_, settings_);
   mpc_ = cgmres::SingleShootingCGMRESSolver<cgmres::OCP_lateral_control, N, kmax>(
     ocp_, horizon, settings_);
   settings_.disp(std::cerr);
@@ -45,17 +46,13 @@ QPSolverCGMRES::QPSolverCGMRES(
 void QPSolverCGMRES::updateEquation(
   const MPCTrajectory & resampled_ref_trajectory, const double steer_tau)
 {
-  // calculate the average curvature of the reference trajectory
-  double curvature_sum = 0.0;
-  for (size_t i = 0; i < resampled_ref_trajectory.k.size(); ++i) {
-    curvature_sum += resampled_ref_trajectory.k.at(i);
-  }
-  const double average_curvature = curvature_sum / resampled_ref_trajectory.k.size();
-  // set the external reference ptr
-  ocp_.curvature_in_reference_trajectory = average_curvature;
-  ocp_.u_ref[0] = std::atan(average_curvature * ocp_.wheel_base);
   ocp_.wheel_base = 2.74;
   ocp_.steer_tau = steer_tau;
+  // set the external reference ptr
+  for (size_t i = 0; i < resampled_ref_trajectory.k.size(); ++i) {
+    external_reference_->curvature_ref_array.push_back(resampled_ref_trajectory.k.at(i));
+    external_reference_->v_ref_array.push_back(resampled_ref_trajectory.vx.at(i));
+  }
   external_reference_->curvature_ref_array = resampled_ref_trajectory.k;
   external_reference_->v_ref_array = resampled_ref_trajectory.vx;
 }
