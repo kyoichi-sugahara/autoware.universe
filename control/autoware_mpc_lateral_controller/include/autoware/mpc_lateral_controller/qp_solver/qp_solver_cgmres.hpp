@@ -70,14 +70,15 @@ private:
     1;  // Maximum number of the GMRES iterations for initializer. Must be positive.
 
   rclcpp::Logger logger_;
+  rclcpp::Clock::SharedPtr cgmres_clock =
+    std::make_shared<rclcpp::Clock>(RCL_ROS_TIME);  // ROS clock.
   cgmres::Logger cgmres_logger_;
   cgmres::SolverSettings settings_;
   std::shared_ptr<cgmres::OCP_lateral_control::ExternalReference> external_reference_;
   cgmres::SingleShootingCGMRESSolver<cgmres::OCP_lateral_control, N, kmax> mpc_;
   cgmres::ZeroHorizonOCPSolver<cgmres::OCP_lateral_control, kmax_init> initializer_;
-  bool is_initialized_ = false;
-  std::chrono::time_point<std::chrono::system_clock>
-    initialized_time_;  // First MPC solution timestamp.
+  rclcpp::Time initialized_time_{
+    rclcpp::Time(0, 0, RCL_ROS_TIME)};  // First MPC solution timestamp.
 };
 }  // namespace autoware::motion::control::mpc_lateral_controller
 #endif  // AUTOWARE__MPC_LATERAL_CONTROLLER__QP_SOLVER__QP_SOLVER_CGMRES_HPP_

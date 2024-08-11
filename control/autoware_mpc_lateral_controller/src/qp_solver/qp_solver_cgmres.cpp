@@ -67,14 +67,12 @@ bool QPSolverCGMRES::solveCGMRES(
   // ocp_.disp(std::cerr);
   // mpc_.disp(std::cerr);
 
-  if (!is_initialized_) {
-    initialized_time_ = std::chrono::system_clock::now();
-    is_initialized_ = true;
+  if (initialized_time_ == rclcpp::Time(0, 0, RCL_ROS_TIME)) {
+    initialized_time_ = cgmres_clock->now();
   }
-  const double time_from_last_initialized = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                                              std::chrono::system_clock::now() - initialized_time_)
-                                              .count() *
-                                            1.0e-6;
+
+  const double time_from_last_initialized =
+    (cgmres_clock->now() - initialized_time_).nanoseconds() * 1.0e-6;
 
   if (warm_start) {
     mpc_.update(time_from_last_initialized, x);
