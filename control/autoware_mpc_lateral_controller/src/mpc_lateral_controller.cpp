@@ -248,7 +248,8 @@ std::shared_ptr<QPSolverInterface> MpcLateralController::createQPSolverInterface
       m_verbose_level                 // verbose_level
     };
     cgmres::Horizon horizon{m_horizon, m_horizon_alpha};
-    qpsolver_ptr = std::make_shared<QPSolverCGMRES>(logger_, log_dir, solver_settings, horizon);
+    qpsolver_ptr = std::make_shared<QPSolverCGMRES>(
+      logger_, log_dir, solver_settings, horizon, 2.74, m_mpc->m_param.steer_tau);
     return qpsolver_ptr;
   }
 

@@ -23,7 +23,8 @@ namespace autoware::motion::control::mpc_lateral_controller
 {
 QPSolverCGMRES::QPSolverCGMRES(
   const rclcpp::Logger & logger, const std::string & log_dir,
-  const cgmres::SolverSettings & solver_settings, const cgmres::Horizon & horizon)
+  const cgmres::SolverSettings & solver_settings, const cgmres::Horizon & horizon,
+  const double wheel_base, const double steer_tau)
 : logger_{logger},
   cgmres_logger_(log_dir),
   settings_{solver_settings},
@@ -31,6 +32,8 @@ QPSolverCGMRES::QPSolverCGMRES(
   initializer_(ocp_, settings_)
 {
   ocp_.external_reference = external_reference_;
+  ocp_.wheel_base = wheel_base;
+  ocp_.steer_tau = steer_tau;
   mpc_ = cgmres::SingleShootingCGMRESSolver<cgmres::OCP_lateral_control, N, kmax>(
     ocp_, horizon, settings_);
   settings_.disp(std::cerr);

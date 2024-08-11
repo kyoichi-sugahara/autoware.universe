@@ -40,7 +40,8 @@ public:
    */
   explicit QPSolverCGMRES(
     const rclcpp::Logger & logger, const std::string & log_dir,
-    const cgmres::SolverSettings & solver_settings, const cgmres::Horizon & horizon);
+    const cgmres::SolverSettings & solver_settings, const cgmres::Horizon & horizon,
+    const double wheel_base, const double steer_tau);
 
   /**
    * @brief destructor
