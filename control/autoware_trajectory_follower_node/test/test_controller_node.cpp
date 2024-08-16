@@ -51,9 +51,6 @@ using FakeNodeFixture = autoware::tools::testing::FakeTestNode;
 
 const rclcpp::Duration one_second(1, 0);
 
-// #define ENABLE_CONSTANT_CURVATURE_RIGHT_TURN_TEST
-#define ENABLE_CLOTHOID_RIGHT_TURN_TEST
-
 rclcpp::NodeOptions makeNodeOptions(const bool enable_keep_stopped_until_steer_convergence = false)
 {
   // Pass default parameter file to the node
@@ -283,8 +280,7 @@ public:
     std::make_shared<tf2_ros::StaticTransformBroadcaster>(fnf->get_fake_node());
 };
 
-#ifdef TEST_NO_INPUT_TEST
-TEST_F(FakeNodeFixture, no_input)
+TEST_F(FakeNodeFixture, DISABLED_no_input)
 {
   const auto node_options = makeNodeOptions();
   ControllerTester tester(this, node_options);
@@ -294,10 +290,8 @@ TEST_F(FakeNodeFixture, no_input)
     tester.node, this, tester.received_control_command, std::chrono::seconds{1LL}, false);
   ASSERT_FALSE(tester.received_control_command);
 }
-#endif
 
-#ifdef ENABLE_EMPTY_TRAJECTORY_TEST
-TEST_F(FakeNodeFixture, empty_trajectory)
+TEST_F(FakeNodeFixture, DISABLED_empty_trajectory)
 {
   const auto node_options = makeNodeOptions();
   ControllerTester tester(this, node_options);
@@ -315,11 +309,9 @@ TEST_F(FakeNodeFixture, empty_trajectory)
     tester.node, this, tester.received_control_command, std::chrono::seconds{1LL}, false);
   ASSERT_FALSE(tester.received_control_command);
 }
-#endif
 
 // lateral
-#ifdef ENABLE_STRAIGHT_TRAJECTORY_TEST
-TEST_F(FakeNodeFixture, straight_trajectory)
+TEST_F(FakeNodeFixture, DISABLED_straight_trajectory)
 {
   const auto node_options = makeNodeOptions();
   ControllerTester tester(this, node_options);
@@ -347,10 +339,8 @@ TEST_F(FakeNodeFixture, straight_trajectory)
   EXPECT_GT(tester.cmd_msg->longitudinal.velocity, 0.0f);
   EXPECT_GT(rclcpp::Time(tester.cmd_msg->stamp), rclcpp::Time(traj_msg.header.stamp));
 }
-#endif
 
-#ifdef ENABLE_RIGHT_TURN_TEST
-TEST_F(FakeNodeFixture, right_turn)
+TEST_F(FakeNodeFixture, DISABLED_right_turn)
 {
   const auto node_options = makeNodeOptions();
   ControllerTester tester(this, node_options);
@@ -377,10 +367,8 @@ TEST_F(FakeNodeFixture, right_turn)
   EXPECT_LT(tester.cmd_msg->lateral.steering_tire_rotation_rate, 0.0f);
   EXPECT_GT(rclcpp::Time(tester.cmd_msg->stamp), rclcpp::Time(traj_msg.header.stamp));
 }
-#endif
 
-#ifdef ENABLE_CONSTANT_CURVATURE_RIGHT_TURN_TEST
-TEST_F(FakeNodeFixture, constant_curvature_right_turn)
+TEST_F(FakeNodeFixture, DISABLED_constant_curvature_right_turn)
 {
   const auto node_options = makeNodeOptions();
   ControllerTester tester(this, node_options);
@@ -412,6 +400,7 @@ TEST_F(FakeNodeFixture, constant_curvature_right_turn)
       ref_trajectory, *tester.resampled_reference_trajectory, *tester.predicted_trajectory,
       *tester.predicted_trajectory_in_frenet_coordinate,
       *tester.cgmres_predicted_trajectory_in_frenet_coordinate, *tester.cgmres_predicted_trajectory,
+      tester.resampled_reference_curvature->data, tester.resampled_reference_velocity->data,
       tester.cmd_msg->stamp);
     ASSERT_TRUE(tester.received_control_command);
     EXPECT_LT(tester.cmd_msg->lateral.steering_tire_angle, 0.0f);
@@ -422,9 +411,7 @@ TEST_F(FakeNodeFixture, constant_curvature_right_turn)
   // ASSERT_TRUE(tester.received_resampled_reference_trajectory);
   // EXPECT_GT(rclcpp::Time(tester.cmd_msg->stamp), rclcpp::Time(traj_msg.header.stamp));
 }
-#endif
 
-#ifdef ENABLE_CLOTHOID_RIGHT_TURN_TEST
 TEST_F(FakeNodeFixture, clothoid_right_turn)
 {
   const auto node_options = makeNodeOptions();
@@ -507,10 +494,8 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
   // ASSERT_TRUE(tester.received_resampled_reference_trajectory);
   // EXPECT_GT(rclcpp::Time(tester.cmd_msg->stamp), rclcpp::Time(traj_msg.header.stamp));
 }
-#endif
 
-#ifdef ENABLE_LEFT_TURN_TEST
-TEST_F(FakeNodeFixture, left_turn)
+TEST_F(FakeNodeFixture, DISABLED_left_turn)
 {
   const auto node_options = makeNodeOptions();
   ControllerTester tester(this, node_options);
@@ -533,17 +518,12 @@ TEST_F(FakeNodeFixture, left_turn)
 
   test_utils::waitForMessage(tester.node, this, tester.received_control_command);
   ASSERT_TRUE(tester.received_control_command);
-  std::cerr << "lat steer tire angle: " << tester.cmd_msg->lateral.steering_tire_angle << std::endl;
-  std::cerr << "lat steer tire rotation rate: "
-            << tester.cmd_msg->lateral.steering_tire_rotation_rate << std::endl;
   EXPECT_GT(tester.cmd_msg->lateral.steering_tire_angle, 0.0f);
   EXPECT_GT(tester.cmd_msg->lateral.steering_tire_rotation_rate, 0.0f);
   EXPECT_GT(rclcpp::Time(tester.cmd_msg->stamp), rclcpp::Time(traj_msg.header.stamp));
 }
-#endif
 
-#ifdef ENABLE_STOPPED_TEST
-TEST_F(FakeNodeFixture, stopped)
+TEST_F(FakeNodeFixture, DISABLED_stopped)
 {
   const auto node_options = makeNodeOptions();
   ControllerTester tester(this, node_options);
@@ -572,11 +552,9 @@ TEST_F(FakeNodeFixture, stopped)
   EXPECT_EQ(tester.cmd_msg->lateral.steering_tire_rotation_rate, 0.0f);
   EXPECT_GT(rclcpp::Time(tester.cmd_msg->stamp), rclcpp::Time(traj_msg.header.stamp));
 }
-#endif
 
 // longitudinal
-#ifdef ENABLE_LONGITUDINAL_KEEP_VELOCITY_TEST
-TEST_F(FakeNodeFixture, longitudinal_keep_velocity)
+TEST_F(FakeNodeFixture, DISABLED_longitudinal_keep_velocity)
 {
   const auto node_options = makeNodeOptions();
   ControllerTester tester(this, node_options);
@@ -609,10 +587,8 @@ TEST_F(FakeNodeFixture, longitudinal_keep_velocity)
   EXPECT_DOUBLE_EQ(tester.cmd_msg->longitudinal.velocity, 1.0);
   EXPECT_DOUBLE_EQ(tester.cmd_msg->longitudinal.acceleration, 0.0);
 }
-#endif
 
-#ifdef ENABLE_LONGITUDINAL_SLOW_DOWN_TEST
-TEST_F(FakeNodeFixture, longitudinal_slow_down)
+TEST_F(FakeNodeFixture, DISABLED_longitudinal_slow_down)
 {
   const auto node_options = makeNodeOptions();
   ControllerTester tester(this, node_options);
@@ -637,43 +613,19 @@ TEST_F(FakeNodeFixture, longitudinal_slow_down)
 
   test_utils::waitForMessage(tester.node, this, tester.received_control_command);
 
-  std::cerr << "DEBUG: Control command received: "
-            << (tester.received_control_command ? "Yes" : "No") << std::endl;
   ASSERT_TRUE(tester.received_control_command);
-
-  std::cerr << "DEBUG: Commanded longitudinal velocity: " << tester.cmd_msg->longitudinal.velocity
-            << std::endl;
-  std::cerr << "DEBUG: Commanded longitudinal acceleration: "
-            << tester.cmd_msg->longitudinal.acceleration << std::endl;
-
   EXPECT_LT(tester.cmd_msg->longitudinal.velocity, static_cast<float>(odom_vx));
   EXPECT_LT(tester.cmd_msg->longitudinal.acceleration, 0.0f);
 
   // Generate another control message
-  std::cerr << "DEBUG: Publishing trajectory again" << std::endl;
   tester.traj_pub->publish(traj);
-
-  std::cerr << "DEBUG: Waiting for second control command..." << std::endl;
   test_utils::waitForMessage(tester.node, this, tester.received_control_command);
-
-  std::cerr << "DEBUG: Second control command received: "
-            << (tester.received_control_command ? "Yes" : "No") << std::endl;
   ASSERT_TRUE(tester.received_control_command);
-
-  std::cerr << "DEBUG: Second commanded longitudinal velocity: "
-            << tester.cmd_msg->longitudinal.velocity << std::endl;
-  std::cerr << "DEBUG: Second commanded longitudinal acceleration: "
-            << tester.cmd_msg->longitudinal.acceleration << std::endl;
-
   EXPECT_LT(tester.cmd_msg->longitudinal.velocity, static_cast<float>(odom_vx));
   EXPECT_LT(tester.cmd_msg->longitudinal.acceleration, 0.0f);
-
-  std::cerr << "DEBUG: Test completed" << std::endl;
 }
-#endif
 
-#ifdef ENABLE_LONGITUDINAL_ACCELERATE_TEST
-TEST_F(FakeNodeFixture, longitudinal_accelerate)
+TEST_F(FakeNodeFixture, DISABLED_longitudinal_accelerate)
 {
   const auto node_options = makeNodeOptions();
   ControllerTester tester(this, node_options);
@@ -709,10 +661,8 @@ TEST_F(FakeNodeFixture, longitudinal_accelerate)
   EXPECT_GT(tester.cmd_msg->longitudinal.velocity, static_cast<float>(odom_vx));
   EXPECT_GT(tester.cmd_msg->longitudinal.acceleration, 0.0f);
 }
-#endif
 
-#ifdef ENABLE_LONGITUDINAL_STOPPED_TEST
-TEST_F(FakeNodeFixture, longitudinal_stopped)
+TEST_F(FakeNodeFixture, DISABLED_longitudinal_stopped)
 {
   const auto node_options = makeNodeOptions();
   ControllerTester tester(this, node_options);
@@ -740,10 +690,8 @@ TEST_F(FakeNodeFixture, longitudinal_stopped)
     tester.cmd_msg->longitudinal.acceleration,
     0.0f);  // when stopped negative acceleration to brake
 }
-#endif
 
-#ifdef ENABLE_LONGITUDINAL_REVERSE_TEST
-TEST_F(FakeNodeFixture, longitudinal_reverse)
+TEST_F(FakeNodeFixture, DISABLED_longitudinal_reverse)
 {
   const auto node_options = makeNodeOptions();
   ControllerTester tester(this, node_options);
@@ -770,10 +718,8 @@ TEST_F(FakeNodeFixture, longitudinal_reverse)
   EXPECT_LT(tester.cmd_msg->longitudinal.velocity, 0.0f);
   EXPECT_GT(tester.cmd_msg->longitudinal.acceleration, 0.0f);
 }
-#endif
 
-#ifdef ENABLE_LONGITUDINAL_EMERGENCY_TEST
-TEST_F(FakeNodeFixture, longitudinal_emergency)
+TEST_F(FakeNodeFixture, DISABLED_longitudinal_emergency)
 {
   const auto node_options = makeNodeOptions();
   ControllerTester tester(this, node_options);
@@ -800,10 +746,8 @@ TEST_F(FakeNodeFixture, longitudinal_emergency)
   EXPECT_DOUBLE_EQ(tester.cmd_msg->longitudinal.velocity, 0.0f);
   EXPECT_LT(tester.cmd_msg->longitudinal.acceleration, 0.0f);
 }
-#endif
 
-#ifdef ENABLE_LONGITUDINAL_NOT_CHECK_STEER_CONVERGED_TEST
-TEST_F(FakeNodeFixture, longitudinal_not_check_steer_converged)
+TEST_F(FakeNodeFixture, DISABLED_longitudinal_not_check_steer_converged)
 {
   const auto node_options = makeNodeOptions();
   ControllerTester tester(this, node_options);
@@ -832,10 +776,8 @@ TEST_F(FakeNodeFixture, longitudinal_not_check_steer_converged)
   // Not keep stopped state when the lateral control is not converged.
   EXPECT_DOUBLE_EQ(tester.cmd_msg->longitudinal.velocity, 1.0f);
 }
-#endif
 
-#ifdef ENABLE_LONGITUDINAL_CHECK_STEER_CONVERGED_TEST
-TEST_F(FakeNodeFixture, longitudinal_check_steer_converged)
+TEST_F(FakeNodeFixture, DISABLED_longitudinal_check_steer_converged)
 {
   // set enable_keep_stopped_until_steer_convergence true
   const auto node_options = makeNodeOptions(true);
@@ -883,4 +825,3 @@ TEST_F(FakeNodeFixture, longitudinal_check_steer_converged)
     EXPECT_DOUBLE_EQ(tester.cmd_msg->longitudinal.velocity, 0.0f);
   }
 }
-#endif

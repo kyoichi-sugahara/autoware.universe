@@ -69,7 +69,6 @@ if(BUILD_TESTING)
 #    TARGET_INFIX "pure_pursuit"
 #  )
 
-  # smoke test for MPC controller
 endif()
 
 ament_auto_package(

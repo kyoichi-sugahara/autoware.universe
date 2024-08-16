@@ -15,7 +15,6 @@
 #ifndef TRAJECTORY_FOLLOWER_TEST_UTILS_HPP_
 #define TRAJECTORY_FOLLOWER_TEST_UTILS_HPP_
 
-#include "autoware/motion_utils/trajectory/conversion.hpp"
 #include "fake_test_node/fake_test_node.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp/time.hpp"
@@ -24,11 +23,7 @@
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
-#include <sys/stat.h>
 #include <sys/time.h>
-#include <sys/types.h>
-#include <tf2/utils.h>
-#include <unistd.h>
 
 #include <cmath>
 #include <filesystem>
@@ -51,7 +46,7 @@ inline void waitForMessage(
   const std::chrono::duration<int> max_wait_time = std::chrono::seconds{10LL},
   const bool fail_on_timeout = true)
 {
-  const auto dt{std::chrono::milliseconds{30LL}};
+  const auto dt{std::chrono::milliseconds{100LL}};
   auto time_passed{std::chrono::milliseconds{0LL}};
   while (!received_flag) {
     rclcpp::spin_some(node);
