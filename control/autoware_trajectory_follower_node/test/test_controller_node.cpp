@@ -417,10 +417,6 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
   const auto node_options = makeNodeOptions();
   ControllerTester tester(this, node_options);
   Trajectory ref_trajectory;
-  tester.send_default_transform();
-  tester.publish_autonomous_operation_mode();
-  tester.publish_default_steer();
-  tester.publish_default_acc();
 
   const double velocity = 5.0;
   const double trajectory_arc_length = 50.0;
@@ -429,20 +425,14 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
   const double wheel_base = 2.74;
   const double delta_time = 0.03;
 
-  VehicleOdometry odom_msg;
-  odom_msg.header.stamp = tester.node->now();
-  odom_msg.header.frame_id = "map";
-  odom_msg.pose.pose.position.x = 0.0;
-  odom_msg.pose.pose.position.y = 0.0;
-  odom_msg.pose.pose.position.z = 0.0;
-  odom_msg.twist.twist.linear.x = velocity;
+  tester.send_default_transform();
+  tester.publish_autonomous_operation_mode();
+  tester.publish_default_steer();
+  tester.publish_default_acc();
+  tester.publish_odom_vx(velocity);
 
-  // tester.odom_msg->header.stamp = tester.node->now();
-  // tester.odom_msg->header.frame_id = "map";
-  // tester.odom_msg->pose.pose.position.x = 0.0;
-  // tester.odom_msg->pose.pose.position.y = 0.0;
-  // tester.odom_msg->pose.pose.position.z = 0.0;
-  // tester.odom_msg->twist.twist.linear.x = velocity;
+  test_utils::waitForMessage(tester.node, this, tester.received_odom_msg);
+
   auto publishTrajectory = [&tester, &ref_trajectory, curvature_sign, trajectory_arc_length,
                             velocity, step_length]() {
     std_msgs::msg::Header header;
@@ -456,21 +446,10 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
 
   constexpr size_t iter_num = 50;
   for (size_t i = 0; i < iter_num; i++) {
-    if (i == 0) {
-      tester.publish_odom(odom_msg);
-    } else {
-      tester.publish_odom(*tester.odom_msg);
-    }
+    tester.publish_odom(*tester.odom_msg);
 
     publishTrajectory();
     test_utils::waitForMessage(tester.node, this, tester.received_control_command);
-    // std::cerr << "tester.received_odom_msg: " << tester.received_odom_msg << std::endl;
-    // std::cerr << "odom vx: " << tester.odom_msg->twist.twist.linear.x << std::endl;
-    // std::cerr << "odom x: " << tester.odom_msg->pose.pose.position.x << std::endl;
-    // std::cerr << "odom y: " << tester.odom_msg->pose.pose.position.y << std::endl;
-    // std::cerr << "odom z: " << tester.odom_msg->pose.pose.position.z << std::endl;
-    // std::cerr << "odom yaw: " << tf2::getYaw(tester.odom_msg->pose.pose.orientation) <<
-    // std::endl;
 
     test_utils::writeTrajectoriesToFiles(
       ref_trajectory, *tester.resampled_reference_trajectory, *tester.predicted_trajectory,
@@ -479,20 +458,11 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
       tester.resampled_reference_curvature->data, tester.resampled_reference_velocity->data,
       tester.cmd_msg->stamp);
     ASSERT_TRUE(tester.received_control_command);
-    std::cerr << "lat steer tire angle: " << tester.cmd_msg->lateral.steering_tire_angle
-              << std::endl;
-    std::cerr << "lat steer tire rotation rate: "
-              << tester.cmd_msg->lateral.steering_tire_rotation_rate << std::endl;
-    // EXPECT_LT(tester.cmd_msg->lateral.steering_tire_angle, 0.0f);
-    // EXPECT_LT(tester.cmd_msg->lateral.steering_tire_rotation_rate, 0.0f);
     tester.received_control_command = false;
     tester.received_odom_msg = false;
     test_utils::updateOdom(
       *tester.odom_msg, tester.cmd_msg->lateral.steering_tire_angle, delta_time, wheel_base);
   }
-
-  // ASSERT_TRUE(tester.received_resampled_reference_trajectory);
-  // EXPECT_GT(rclcpp::Time(tester.cmd_msg->stamp), rclcpp::Time(traj_msg.header.stamp));
 }
 
 TEST_F(FakeNodeFixture, DISABLED_left_turn)
