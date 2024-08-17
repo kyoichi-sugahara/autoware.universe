@@ -140,6 +140,19 @@ public:
     odom_pub->publish(odom_msg);
   };
 
+  void publish_odom(const double vx, const double yaw)
+  {
+    VehicleOdometry odom_msg;
+    odom_msg.header.stamp = node->now();
+    odom_msg.header.frame_id = "map";
+    odom_msg.pose.pose.position.x = 0.0;
+    odom_msg.pose.pose.position.y = 0.0;
+    odom_msg.pose.pose.position.z = 0.0;
+    odom_msg.twist.twist.linear.x = vx;
+    odom_msg.pose.pose.orientation = tf2::toMsg(tf2::Quaternion(tf2::Vector3(0, 0, 1), yaw));
+    odom_pub->publish(odom_msg);
+  };
+
   void publish_odom(const VehicleOdometry & odom) { odom_pub->publish(odom); }
 
   void publish_default_steer()
@@ -368,32 +381,40 @@ TEST_F(FakeNodeFixture, DISABLED_right_turn)
   EXPECT_GT(rclcpp::Time(tester.cmd_msg->stamp), rclcpp::Time(traj_msg.header.stamp));
 }
 
-TEST_F(FakeNodeFixture, DISABLED_constant_curvature_right_turn)
+TEST_F(FakeNodeFixture, constant_curvature_right_turn)
 {
   const auto node_options = makeNodeOptions();
   ControllerTester tester(this, node_options);
   Trajectory ref_trajectory;
+
+  const double velocity = 5.0;
+  const double trajectory_arc_length = 50.0;
+  const double start_curvature_sign = -0.06;
+  const double end_curvature_sign = -0.06;
+  const double step_length = 1.0;
+
   tester.send_default_transform();
-  tester.publish_odom_vx(1.0);
   tester.publish_autonomous_operation_mode();
   tester.publish_default_steer();
   tester.publish_default_acc();
+  tester.publish_odom_vx(1.0);
 
-  auto publishTrajectory = [&tester, &ref_trajectory](double curvature_sign) {
+  test_utils::waitForMessage(tester.node, this, tester.received_odom_msg);
+
+  auto publishTrajectory = [&tester, &ref_trajectory, start_curvature_sign, end_curvature_sign,
+                            trajectory_arc_length, velocity, step_length]() {
     std_msgs::msg::Header header;
     header.stamp = tester.node->now();
     header.frame_id = "map";
-    ref_trajectory = test_utils::generateConstantCurvatureTrajectory(
-      header, curvature_sign, 5.0 /* arc length */, 1.0 /* velocity*/);
-
+    ref_trajectory = test_utils::generateClothoidTrajectory(
+      header, start_curvature_sign, end_curvature_sign, trajectory_arc_length, velocity,
+      step_length);
     tester.traj_pub->publish(ref_trajectory);
   };
 
-  double curvature_sign = -0.06;
-
   constexpr size_t iter_num = 10;
   for (size_t i = 0; i < iter_num; i++) {
-    publishTrajectory(curvature_sign);
+    publishTrajectory();
     test_utils::waitForMessage(tester.node, this, tester.received_control_command);
 
     test_utils::writeTrajectoriesToFiles(
@@ -407,12 +428,9 @@ TEST_F(FakeNodeFixture, DISABLED_constant_curvature_right_turn)
     EXPECT_LT(tester.cmd_msg->lateral.steering_tire_rotation_rate, 0.0f);
     tester.received_control_command = false;
   }
-
-  // ASSERT_TRUE(tester.received_resampled_reference_trajectory);
-  // EXPECT_GT(rclcpp::Time(tester.cmd_msg->stamp), rclcpp::Time(traj_msg.header.stamp));
 }
 
-TEST_F(FakeNodeFixture, clothoid_right_turn)
+TEST_F(FakeNodeFixture, DISABLED_clothoid_right_turn)
 {
   const auto node_options = makeNodeOptions();
   ControllerTester tester(this, node_options);
@@ -420,7 +438,8 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
 
   const double velocity = 5.0;
   const double trajectory_arc_length = 50.0;
-  const double curvature_sign = -0.1;
+  const double start_curvature_sign = 0.0;
+  const double end_curvature_sign = -0.1;
   const double step_length = 1.0;
   const double wheel_base = 2.74;
   const double delta_time = 0.03;
@@ -433,13 +452,68 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
 
   test_utils::waitForMessage(tester.node, this, tester.received_odom_msg);
 
-  auto publishTrajectory = [&tester, &ref_trajectory, curvature_sign, trajectory_arc_length,
-                            velocity, step_length]() {
+  auto publishTrajectory = [&tester, &ref_trajectory, start_curvature_sign, end_curvature_sign,
+                            trajectory_arc_length, velocity, step_length]() {
     std_msgs::msg::Header header;
     header.stamp = tester.node->now();
     header.frame_id = "map";
     ref_trajectory = test_utils::generateClothoidTrajectory(
-      header, curvature_sign, trajectory_arc_length, velocity, step_length);
+      header, start_curvature_sign, end_curvature_sign, trajectory_arc_length, velocity,
+      step_length);
+    tester.traj_pub->publish(ref_trajectory);
+  };
+
+  constexpr size_t iter_num = 50;
+  for (size_t i = 0; i < iter_num; i++) {
+    tester.publish_odom(*tester.odom_msg);
+
+    publishTrajectory();
+    test_utils::waitForMessage(tester.node, this, tester.received_control_command);
+
+    test_utils::writeTrajectoriesToFiles(
+      ref_trajectory, *tester.resampled_reference_trajectory, *tester.predicted_trajectory,
+      *tester.predicted_trajectory_in_frenet_coordinate,
+      *tester.cgmres_predicted_trajectory_in_frenet_coordinate, *tester.cgmres_predicted_trajectory,
+      tester.resampled_reference_curvature->data, tester.resampled_reference_velocity->data,
+      tester.cmd_msg->stamp);
+    ASSERT_TRUE(tester.received_control_command);
+    tester.received_control_command = false;
+    tester.received_odom_msg = false;
+    test_utils::updateOdom(
+      *tester.odom_msg, tester.cmd_msg->lateral.steering_tire_angle, delta_time, wheel_base);
+  }
+}
+
+TEST_F(FakeNodeFixture, DISABLED_right_turn_with_initial_yaw_bias)
+{
+  const auto node_options = makeNodeOptions();
+  ControllerTester tester(this, node_options);
+  Trajectory ref_trajectory;
+
+  const double velocity = 5.0;
+  const double trajectory_arc_length = 50.0;
+  const double start_curvature_sign = -0.1;
+  const double end_curvature_sign = -0.1;
+  const double step_length = 1.0;
+  const double wheel_base = 2.74;
+  const double delta_time = 0.03;
+
+  tester.send_default_transform();
+  tester.publish_autonomous_operation_mode();
+  tester.publish_default_steer();
+  tester.publish_default_acc();
+  tester.publish_odom_vx(velocity);
+
+  test_utils::waitForMessage(tester.node, this, tester.received_odom_msg);
+
+  auto publishTrajectory = [&tester, &ref_trajectory, start_curvature_sign, end_curvature_sign,
+                            trajectory_arc_length, velocity, step_length]() {
+    std_msgs::msg::Header header;
+    header.stamp = tester.node->now();
+    header.frame_id = "map";
+    ref_trajectory = test_utils::generateClothoidTrajectory(
+      header, start_curvature_sign, end_curvature_sign, trajectory_arc_length, velocity,
+      step_length);
 
     tester.traj_pub->publish(ref_trajectory);
   };
