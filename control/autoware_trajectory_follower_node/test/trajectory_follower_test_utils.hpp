@@ -46,7 +46,7 @@ inline void waitForMessage(
   const std::chrono::duration<int> max_wait_time = std::chrono::seconds{10LL},
   const bool fail_on_timeout = true)
 {
-  const auto dt{std::chrono::milliseconds{100LL}};
+  const auto dt{std::chrono::milliseconds{30LL}};
   auto time_passed{std::chrono::milliseconds{0LL}};
   while (!received_flag) {
     rclcpp::spin_some(node);
