@@ -477,7 +477,8 @@ TEST_F(FakeNodeFixture, DISABLED_clothoid_right_turn)
     ASSERT_TRUE(tester.received_control_command);
     tester.received_control_command = false;
     test_utils::updateOdom(
-      *tester.odom_msg, tester.cmd_msg->lateral.steering_tire_angle, delta_time, wheel_base);
+      *tester.resampled_reference_trajectory, *tester.odom_msg,
+      tester.cmd_msg->lateral.steering_tire_angle, delta_time, wheel_base);
   }
 }
 
@@ -528,10 +529,12 @@ TEST_F(FakeNodeFixture, right_turn_with_initial_yaw_bias)
       *tester.cgmres_predicted_trajectory_in_frenet_coordinate, *tester.cgmres_predicted_trajectory,
       tester.resampled_reference_curvature->data, tester.resampled_reference_velocity->data,
       tester.cmd_msg->stamp);
-    ASSERT_TRUE(tester.received_control_command);
+    ASSERT_TRUE(tester.received_control_command && tester.received_resampled_reference_trajectory);
     tester.received_control_command = false;
+    tester.received_resampled_reference_trajectory = false;
     test_utils::updateOdom(
-      *tester.odom_msg, tester.cmd_msg->lateral.steering_tire_angle, delta_time, wheel_base);
+      *tester.resampled_reference_trajectory, *tester.odom_msg,
+      tester.cmd_msg->lateral.steering_tire_angle, delta_time, wheel_base);
   }
 }
 
