@@ -58,7 +58,7 @@ void QPSolverCGMRES::updateEquation(
 }
 
 bool QPSolverCGMRES::solveCGMRES(
-  const Eigen::VectorXd & x0, Eigen::VectorXd & u, const bool warm_start)
+  const Eigen::VectorXd & x0, Eigen::VectorXd & u, double & opt_error, const bool warm_start)
 {
   // Define the initial time and initial state.
   cgmres::Vector<3> x;
@@ -97,6 +97,7 @@ bool QPSolverCGMRES::solveCGMRES(
   cgmres_logger_.save(
     time_from_last_initialized, x, mpc_.uopt()[0], mpc_.uopt(), mpc_.initial_solution(),
     mpc_.updated_solution(), mpc_.optError(), mpc_.gmres_iter());
+  opt_error = mpc_.optError();
 
   return true;
 }

@@ -129,11 +129,12 @@ bool MPC::calculateMPC(
   Trajectory predicted_trajectory_frenet;
   std::chrono::nanoseconds cgmres_calculation_duration;
   Eigen::MatrixXd Ucgmres;
+  double opt_error;
   if (qp_solver_type == "cgmres") {
     auto start_time_cgmres = std::chrono::high_resolution_clock::now();
     bool success_opt;
     std::tie(success_opt, Ucgmres) =
-      executeOptimization(x0_delayed, prediction_dt, mpc_resampled_ref_trajectory);
+      executeOptimization(x0_delayed, prediction_dt, mpc_resampled_ref_trajectory, opt_error);
     auto end_time_cgmres = std::chrono::high_resolution_clock::now();
     cgmres_calculation_duration =
       std::chrono::duration_cast<std::chrono::nanoseconds>(end_time_cgmres - start_time_cgmres);
@@ -208,7 +209,8 @@ bool MPC::calculateMPC(
     publish_debug_data(
       mpc_resampled_ref_trajectory, predicted_trajectory_world, predicted_trajectory_frenet,
       cgmres_predicted_trajectory_world, cgmres_predicted_trajectory_frenet, Uex, Ucgmres,
-      osqp_calculation_duration.count() / 1e6, cgmres_calculation_duration.count() / 1e6);
+      osqp_calculation_duration.count() / 1e6, cgmres_calculation_duration.count() / 1e6,
+      opt_error);
   }
 
   return true;
@@ -221,7 +223,7 @@ void MPC::publish_debug_data(
   const Trajectory & cgmres_predicted_trajectory_world,
   const Trajectory & cgmres_predicted_trajectory_frenet, const VectorXd & Uosqp,
   const VectorXd & Ucgmres, const double osqp_calculation_time,
-  const double cgmres_calculation_time) const
+  const double cgmres_calculation_time, const double cgmres_opt_error) const
 {
   MpcDebug debug_data;
 
@@ -269,6 +271,8 @@ void MPC::publish_debug_data(
 
   debug_data.osqp_calculation_time = osqp_calculation_time;
   debug_data.cgmres_calculation_time = cgmres_calculation_time;
+
+  debug_data.opt_error = cgmres_opt_error;
 
   m_debug_cgmres_debug_pub->publish(debug_data);
 }
@@ -790,7 +794,8 @@ std::pair<bool, VectorXd> MPC::executeOptimization(
  *
  */
 std::pair<bool, VectorXd> MPC::executeOptimization(
-  const VectorXd & x0, const double prediction_dt, const MPCTrajectory & resampled_ref_trajectory)
+  const VectorXd & x0, const double prediction_dt, const MPCTrajectory & resampled_ref_trajectory,
+  double & opt_error)
 {
   VectorXd Uex;
   const double elapsed_time_ms =
@@ -809,7 +814,7 @@ std::pair<bool, VectorXd> MPC::executeOptimization(
     // RCLCPP_DEBUG(m_logger, "execute optimization without warm start (CGMRES)");
   }
   m_qpsolver_ptr->updateEquation(resampled_ref_trajectory, m_param.steer_tau);
-  const bool solve_result = m_qpsolver_ptr->solveCGMRES(x0, Uex, warm_start);
+  const bool solve_result = m_qpsolver_ptr->solveCGMRES(x0, Uex, opt_error, warm_start);
   m_previous_optimal_solution_time = std::chrono::system_clock::now();
   // auto t_end = std::chrono::system_clock::now();
 

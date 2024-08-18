@@ -297,7 +297,8 @@ private:
    * @return A pair of a boolean flag indicating success and the optimized input vector.
    */
   std::pair<bool, VectorXd> executeOptimization(
-    const VectorXd & x0, const double prediction_dt, const MPCTrajectory & trajectory);
+    const VectorXd & x0, const double prediction_dt, const MPCTrajectory & trajectory,
+    double & opt_error);
 
   /**
    * @brief Resample the trajectory with the MPC resampling time.
@@ -406,7 +407,7 @@ private:
     const Trajectory & cgmres_predicted_trajectory_world,
     const Trajectory & cgmres_predicted_trajectory_frenet, const VectorXd & Uosqp,
     const VectorXd & Ucgmres, const double osqp_calculation_time,
-    const double cgmres_calculation_time) const;
+    const double cgmres_calculation_time, const double cgmres_opt_error) const;
 
   /**
    * @brief Generate diagnostic data for debugging purposes.

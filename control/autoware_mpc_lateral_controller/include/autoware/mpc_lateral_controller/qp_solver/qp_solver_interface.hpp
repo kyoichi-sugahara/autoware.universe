@@ -54,7 +54,8 @@ public:
   }
 
   virtual bool solveCGMRES(
-    const Eigen::VectorXd & /* x0 */, Eigen::VectorXd & /*u*/, const bool /* warm_start */)
+    const Eigen::VectorXd & /* x0 */, Eigen::VectorXd & /*u*/, double & /*opt_error*/,
+    const bool /* warm_start */)
   {
     return false;
   }

@@ -428,7 +428,7 @@ TEST_F(FakeNodeFixture, DISABLED_constant_curvature_right_turn)
   }
 }
 
-TEST_F(FakeNodeFixture, DISABLED_clothoid_right_turn)
+TEST_F(FakeNodeFixture, clothoid_right_turn)
 {
   const auto node_options = makeNodeOptions();
   ControllerTester tester(this, node_options);
@@ -486,7 +486,7 @@ TEST_F(FakeNodeFixture, DISABLED_clothoid_right_turn)
   }
 }
 
-TEST_F(FakeNodeFixture, right_turn_with_initial_yaw_bias)
+TEST_F(FakeNodeFixture, DISABLED_right_turn_with_initial_yaw_bias)
 {
   const auto node_options = makeNodeOptions();
   ControllerTester tester(this, node_options);
