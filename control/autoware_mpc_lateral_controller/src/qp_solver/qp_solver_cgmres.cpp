@@ -46,15 +46,20 @@ QPSolverCGMRES::QPSolverCGMRES(
 void QPSolverCGMRES::updateEquation(
   const MPCTrajectory & resampled_ref_trajectory, const double steer_tau)
 {
-  ocp_.wheel_base = 2.74;
+  static constexpr double WHEEL_BASE = 2.74;
+
+  ocp_.wheel_base = WHEEL_BASE;
   ocp_.steer_tau = steer_tau;
-  // set the external reference ptr
-  for (size_t i = 0; i < resampled_ref_trajectory.k.size(); ++i) {
-    external_reference_->curvature_ref_array.push_back(resampled_ref_trajectory.k.at(i));
-    external_reference_->v_ref_array.push_back(resampled_ref_trajectory.vx.at(i));
+
+  const size_t trajectory_size = resampled_ref_trajectory.size();
+
+  external_reference_->curvature_ref_array.resize(trajectory_size);
+  external_reference_->v_ref_array.resize(trajectory_size);
+
+  for (size_t i = 0; i < trajectory_size; ++i) {
+    external_reference_->curvature_ref_array[i] = resampled_ref_trajectory.smooth_k[i];
+    external_reference_->v_ref_array[i] = resampled_ref_trajectory.vx[i];
   }
-  external_reference_->curvature_ref_array = resampled_ref_trajectory.k;
-  external_reference_->v_ref_array = resampled_ref_trajectory.vx;
 }
 
 bool QPSolverCGMRES::solveCGMRES(
