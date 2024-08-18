@@ -538,7 +538,7 @@ TEST_F(FakeNodeFixture, right_turn_with_initial_yaw_bias)
     test_utils::updateOdom(
       *tester.resampled_reference_trajectory, *tester.odom_msg,
       tester.cmd_msg->lateral.steering_tire_angle, delta_time, wheel_base,
-      steering_status.steering_tier_angle);
+      steering_status.steering_tire_angle);
   }
 }
 
