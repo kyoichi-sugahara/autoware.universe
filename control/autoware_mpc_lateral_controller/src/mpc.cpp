@@ -242,6 +242,11 @@ void MPC::publish_debug_data(
   debug_data.resampled_reference_curvature.data =
     MPCUtils::extract_trajectory_curvatures(mpc_resampled_ref_trajectory);
 
+  // Set resampled reference smoothed curvature
+  debug_data.resampled_reference_smoothed_curvature.stamp = m_clock->now();
+  debug_data.resampled_reference_smoothed_curvature.data =
+    MPCUtils::extract_trajectory_smoothed_curvatures(mpc_resampled_ref_trajectory);
+
   // Set resampled reference velocity
   debug_data.resampled_reference_velocity.stamp = m_clock->now();
   debug_data.resampled_reference_velocity.data =

@@ -302,7 +302,7 @@ std::vector<double> extract_trajectory_curvatures(const MPCTrajectory & trajecto
   return extract_trajectory_attribute(trajectory, &MPCTrajectory::k);
 }
 
-std::vector<double> extract_trajectory_smoothed_curvature(const MPCTrajectory & trajectory)
+std::vector<double> extract_trajectory_smoothed_curvatures(const MPCTrajectory & trajectory)
 {
   return extract_trajectory_attribute(trajectory, &MPCTrajectory::smooth_k);
 }

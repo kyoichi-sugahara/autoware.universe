@@ -99,7 +99,7 @@ std::vector<double> extract_trajectory_attribute(
 
 std::vector<double> extract_trajectory_velocities(const MPCTrajectory & trajectory);
 std::vector<double> extract_trajectory_curvatures(const MPCTrajectory & trajectory);
-std::vector<double> extract_trajectory_smoothed_curvature(const MPCTrajectory & trajectory);
+std::vector<double> extract_trajectory_smoothed_curvatures(const MPCTrajectory & trajectory);
 std::vector<double> extract_trajectory_relative_time(const MPCTrajectory & trajectory);
 
 /**
