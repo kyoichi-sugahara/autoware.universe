@@ -144,10 +144,10 @@ bool MPC::calculateMPC(
     /* calculate predicted trajectory */
     cgmres_predicted_trajectory_world = calculatePredictedTrajectory(
       mpc_matrix, x0, Ucgmres, mpc_resampled_ref_trajectory, prediction_dt, "world");
-    // cgmres_predicted_trajectory_frenet = calculatePredictedTrajectory(
-    //   mpc_matrix, x0, Ucgmres, mpc_resampled_ref_trajectory, prediction_dt, "frenet");
     cgmres_predicted_trajectory_frenet = calculatePredictedTrajectory(
-      x0_delayed, Ucgmres, mpc_resampled_ref_trajectory, prediction_dt);
+      mpc_matrix, x0_delayed, Ucgmres, mpc_resampled_ref_trajectory, prediction_dt, "frenet");
+    // cgmres_predicted_trajectory_f  renet = calculatePredictedTrajectory(
+    //   x0_delayed, Ucgmres, mpc_resampled_ref_trajectory, prediction_dt);
     cgmres_predicted_trajectory_world.header.stamp = m_clock->now();
     cgmres_predicted_trajectory_world.header.frame_id = "map";
     cgmres_predicted_trajectory_frenet.header.stamp = m_clock->now();
