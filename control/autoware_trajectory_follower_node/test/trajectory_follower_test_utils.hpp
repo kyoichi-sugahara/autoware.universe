@@ -161,31 +161,39 @@ inline void spinWhile(T & node)
   }
 }
 
-// x_{k+1} &= x_{k} + v\cos\theta_{k} \, \text{d}t
-// y_{k+1} &= y_{k} + v\sin\theta_{k} \, \text{d}t
-// \theta_{k+1} &= \theta_{k} + \frac{v}{L} \tan\delta \, \text{d}t
 inline void updateOdom(
-  [[maybe_unused]] Trajectory & resampled_ref, VehicleOdometry & odom,
-  const float input_steering_angle, const double delta_time, const float wheelbase,
-  [[maybe_unused]] const double & current_steering_angle = 0.0,
-  [[maybe_unused]] const int num_steps = 10)
+  VehicleOdometry & odom, const double input_steering_angle, const double delta_time,
+  const double wheelbase, float & current_steering_angle)
 {
-  // Create initial state vector
-  // Eigen::VectorXd state_w(4);
-  // state_w << odom.pose.pose.position.x, odom.pose.pose.position.y,
-  //   tf2::getYaw(odom.pose.pose.orientation), 0.0;
-  // double original_x = odom.pose.pose.position.x;
-  // double original_y = odom.pose.pose.position.y;
-  double original_yaw = tf2::getYaw(odom.pose.pose.orientation);
-  std::cerr << "original_yaw: " << original_yaw << std::endl;
-  std::cerr << "input_steering_angle: " << input_steering_angle << std::endl;
-  double velocity = odom.twist.twist.linear.x;
+  // create initial state in the world coordinate
+  Eigen::VectorXd state_w = Eigen::VectorXd::Zero(4);
+  state_w << odom.pose.pose.position.x, odom.pose.pose.position.y,
+    tf2::getYaw(odom.pose.pose.orientation), current_steering_angle;
 
-  odom.pose.pose.position.x += velocity * cos(original_yaw) * delta_time;
-  odom.pose.pose.position.y += velocity * sin(original_yaw) * delta_time;
-  double updated_yaw =
-    original_yaw + (velocity / wheelbase) * tan(input_steering_angle) * delta_time;
-  odom.pose.pose.orientation = tf2::toMsg(tf2::Quaternion(tf2::Vector3(0, 0, 1), updated_yaw));
+  // update state in the world coordinate
+  const auto updateState = [wheelbase](
+                             const Eigen::VectorXd & state_w, const double & input_steering_angle,
+                             const double dt, const double velocity, const double steer_tau) {
+    const auto current_yaw = state_w(2);
+    const auto current_steer = state_w(3);
+
+    Eigen::VectorXd dstate = Eigen::VectorXd::Zero(4);
+    dstate(0) = velocity * std::cos(current_yaw);
+    dstate(1) = velocity * std::sin(current_yaw);
+    dstate(2) = velocity * std::tan(current_steer) / wheelbase;
+    dstate(3) = -(current_steer - input_steering_angle) / steer_tau;
+
+    const Eigen::VectorXd next_state = state_w + dstate * dt;
+    return next_state;
+  };
+  const double velocity = odom.twist.twist.linear.x;
+  const double steer_tau = 0.5;
+
+  state_w = updateState(state_w, input_steering_angle, delta_time, velocity, steer_tau);
+  odom.pose.pose.position.x = state_w(0);
+  odom.pose.pose.position.y = state_w(1);
+  odom.pose.pose.orientation = tf2::toMsg(tf2::Quaternion(tf2::Vector3(0, 0, 1), state_w(2)));
+  current_steering_angle = state_w(3);
 }
 
 template <typename T>

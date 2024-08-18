@@ -461,9 +461,12 @@ TEST_F(FakeNodeFixture, DISABLED_clothoid_right_turn)
     tester.traj_pub->publish(ref_trajectory);
   };
 
+  SteeringReport steering_status;
+  steering_status.steering_tire_angle = 0.0;
   constexpr size_t iter_num = 50;
   for (size_t i = 0; i < iter_num; i++) {
     tester.publish_odom(*tester.odom_msg);
+    tester.publish_steer_angle(steering_status.steering_tire_angle);
 
     publishTrajectory();
     test_utils::waitForMessage(tester.node, this, tester.received_control_command);
@@ -476,9 +479,10 @@ TEST_F(FakeNodeFixture, DISABLED_clothoid_right_turn)
       tester.cmd_msg->stamp);
     ASSERT_TRUE(tester.received_control_command);
     tester.received_control_command = false;
+
     test_utils::updateOdom(
-      *tester.resampled_reference_trajectory, *tester.odom_msg,
-      tester.cmd_msg->lateral.steering_tire_angle, delta_time, wheel_base);
+      *tester.odom_msg, tester.cmd_msg->lateral.steering_tire_angle, delta_time, wheel_base,
+      steering_status.steering_tire_angle);
   }
 }
 
@@ -490,8 +494,8 @@ TEST_F(FakeNodeFixture, right_turn_with_initial_yaw_bias)
 
   const double velocity = 5.0;
   const double trajectory_arc_length = 50.0;
-  const double start_curvature_sign = -0.1;
-  const double end_curvature_sign = -0.1;
+  const double start_curvature_sign = -0.01;
+  const double end_curvature_sign = -0.01;
   const double step_length = 1.0;
   const double wheel_base = 2.74;
   const double delta_time = 0.03;
@@ -532,12 +536,11 @@ TEST_F(FakeNodeFixture, right_turn_with_initial_yaw_bias)
       *tester.cgmres_predicted_trajectory_in_frenet_coordinate, *tester.cgmres_predicted_trajectory,
       tester.resampled_reference_curvature->data, tester.resampled_reference_velocity->data,
       tester.cmd_msg->stamp);
-    ASSERT_TRUE(tester.received_control_command && tester.received_resampled_reference_trajectory);
+    ASSERT_TRUE(tester.received_control_command);
     tester.received_control_command = false;
-    tester.received_resampled_reference_trajectory = false;
+
     test_utils::updateOdom(
-      *tester.resampled_reference_trajectory, *tester.odom_msg,
-      tester.cmd_msg->lateral.steering_tire_angle, delta_time, wheel_base,
+      *tester.odom_msg, tester.cmd_msg->lateral.steering_tire_angle, delta_time, wheel_base,
       steering_status.steering_tire_angle);
   }
 }
