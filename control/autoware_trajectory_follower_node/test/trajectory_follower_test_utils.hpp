@@ -166,7 +166,8 @@ inline void spinWhile(T & node)
 // \theta_{k+1} &= \theta_{k} + \frac{v}{L} \tan\delta \, \text{d}t
 inline void updateOdom(
   [[maybe_unused]] Trajectory & resampled_ref, VehicleOdometry & odom, const float steering_angle,
-  const double delta_time, const float wheelbase, [[maybe_unused]] const int num_steps = 10)
+  const double delta_time, const float wheelbase, const double & current_steering_angle,
+  [[maybe_unused]] const int num_steps = 10)
 {
   // double original_x = odom.pose.pose.position.x;
   // double original_y = odom.pose.pose.position.y;

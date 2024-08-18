@@ -516,9 +516,12 @@ TEST_F(FakeNodeFixture, right_turn_with_initial_yaw_bias)
     tester.traj_pub->publish(ref_trajectory);
   };
 
+  SteeringReport steering_status;
+  steering_status.steering_tire_angle = 0.0;
   constexpr size_t iter_num = 50;
   for (size_t i = 0; i < iter_num; i++) {
     tester.publish_odom(*tester.odom_msg);
+    tester.publish_steer_angle(steering_status.steering_tire_angle);
 
     publishTrajectory();
     test_utils::waitForMessage(tester.node, this, tester.received_control_command);
@@ -534,7 +537,8 @@ TEST_F(FakeNodeFixture, right_turn_with_initial_yaw_bias)
     tester.received_resampled_reference_trajectory = false;
     test_utils::updateOdom(
       *tester.resampled_reference_trajectory, *tester.odom_msg,
-      tester.cmd_msg->lateral.steering_tire_angle, delta_time, wheel_base);
+      tester.cmd_msg->lateral.steering_tire_angle, delta_time, wheel_base,
+      steering_status.steering_tier_angle);
   }
 }
 
@@ -557,7 +561,6 @@ TEST_F(FakeNodeFixture, DISABLED_left_turn)
   traj_msg.points.push_back(test_utils::make_traj_point(0.0, 0.0, 1.0f));
   traj_msg.points.push_back(test_utils::make_traj_point(1.0, 1.0, 1.0f));
   traj_msg.points.push_back(test_utils::make_traj_point(2.0, 2.0, 1.0f));
-  tester.traj_pub->publish(traj_msg);
 
   test_utils::waitForMessage(tester.node, this, tester.received_control_command);
   ASSERT_TRUE(tester.received_control_command);
