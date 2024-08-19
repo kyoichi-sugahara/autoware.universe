@@ -495,8 +495,11 @@ TEST_F(FakeNodeFixture, periodically_reference_trajectory_change)
   const double velocity = 5.0;
   const double trajectory_arc_length = 50.0;
   const double start_curvature_sign = 0.0;
-  const double end_curvature_sign = -0.1;
   const double step_length = 1.0;
+
+  const int steps_per_change = 10;
+  const double curvature_increment = -0.02;
+  double current_end_curvature_sign = -0.1;
 
   tester.send_default_transform();
   tester.publish_autonomous_operation_mode();
@@ -506,20 +509,25 @@ TEST_F(FakeNodeFixture, periodically_reference_trajectory_change)
 
   test_utils::waitForMessage(tester.node, this, tester.received_odom_msg);
 
-  auto publishTrajectory = [&tester, &ref_trajectory, start_curvature_sign, end_curvature_sign,
-                            trajectory_arc_length, velocity, step_length]() {
+  auto publishTrajectory = [&tester, &ref_trajectory, start_curvature_sign,
+                            &current_end_curvature_sign, trajectory_arc_length, velocity,
+                            step_length]() {
     std_msgs::msg::Header header;
     header.stamp = tester.node->now();
     header.frame_id = "map";
     ref_trajectory = test_utils::generateClothoidTrajectory(
-      header, start_curvature_sign, end_curvature_sign, trajectory_arc_length, velocity,
+      header, start_curvature_sign, current_end_curvature_sign, trajectory_arc_length, velocity,
       step_length);
     tester.traj_pub->publish(ref_trajectory);
   };
 
-  constexpr size_t iter_num = 50;
+  constexpr size_t iter_num = 100;
   for (size_t i = 0; i < iter_num; i++) {
     tester.publish_odom(*tester.odom_msg);
+
+    if (i % steps_per_change == 0) {
+      current_end_curvature_sign += curvature_increment;
+    }
 
     publishTrajectory();
     test_utils::waitForMessage(tester.node, this, tester.received_control_command);
