@@ -56,7 +56,7 @@ public:
     const MPCTrajectory & resampled_ref_trajectory, const double steer_tau) override;
   bool solveCGMRES(
     const Eigen::VectorXd & x0, Eigen::VectorXd & u, double & opt_error,
-    const bool warm_start) override;
+    Eigen::VectorXd & opt_error_array, const bool warm_start) override;
 
   int64_t getTakenIter() const override { return cgmressolver_.getTakenIter(); }
   double getRunTime() const override { return cgmressolver_.getRunTime(); }

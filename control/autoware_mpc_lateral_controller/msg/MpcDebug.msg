@@ -20,3 +20,6 @@ float64 osqp_calculation_time
 float64 cgmres_calculation_time
 
 float64 opt_error
+tier4_debug_msgs/Float64MultiArrayStamped hu_i
+tier4_debug_msgs/Float64MultiArrayStamped hdummy_i
+tier4_debug_msgs/Float64MultiArrayStamped hmu_i

@@ -298,7 +298,7 @@ private:
    */
   std::pair<bool, VectorXd> executeOptimization(
     const VectorXd & x0, const double prediction_dt, const MPCTrajectory & trajectory,
-    double & opt_error);
+    double & opt_error, Eigen::VectorXd & opt_error_array);
 
   /**
    * @brief Resample the trajectory with the MPC resampling time.
@@ -407,7 +407,8 @@ private:
     const Trajectory & cgmres_predicted_trajectory_world,
     const Trajectory & cgmres_predicted_trajectory_frenet, const VectorXd & Uosqp,
     const VectorXd & Ucgmres, const double osqp_calculation_time,
-    const double cgmres_calculation_time, const double cgmres_opt_error) const;
+    const double cgmres_calculation_time, const double cgmres_opt_error,
+    const VectorXd & opt_error_array) const;
 
   /**
    * @brief Generate diagnostic data for debugging purposes.

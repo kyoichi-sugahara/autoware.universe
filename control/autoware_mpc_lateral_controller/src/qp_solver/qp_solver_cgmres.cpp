@@ -63,7 +63,8 @@ void QPSolverCGMRES::updateEquation(
 }
 
 bool QPSolverCGMRES::solveCGMRES(
-  const Eigen::VectorXd & x0, Eigen::VectorXd & u, double & opt_error, const bool warm_start)
+  const Eigen::VectorXd & x0, Eigen::VectorXd & u, double & opt_error,
+  Eigen::VectorXd & opt_error_array, const bool warm_start)
 {
   // Define the initial time and initial state.
   cgmres::Vector<3> x;
@@ -103,6 +104,41 @@ bool QPSolverCGMRES::solveCGMRES(
     time_from_last_initialized, x, mpc_.uopt()[0], mpc_.uopt(), mpc_.initial_solution(),
     mpc_.updated_solution(), mpc_.optError(), mpc_.gmres_iter());
   opt_error = mpc_.optError();
+
+  opt_error_array = mpc_.optErrorArray();
+  // Detailed comments on the structure and meaning of opt_error_array
+  /*
+  Structure of opt_error_array (for the case N=50, nu=1, nb=1):
+
+  Total number of elements: 50 * (1 + 2 * 1) = 150
+
+  Layout:
+  [hu_0, hdummy_0, hmu_0, hu_1, hdummy_1, hmu_1, ..., hu_49, hdummy_49, hmu_49]
+
+  Meaning of each element:
+  - hu_i     (index 3i):   Gradient of the Hamiltonian with respect to the control input at the i-th
+  time step The closer to zero, the more optimal the control input is
+  - hdummy_i (index 3i+1): Condition related to the dummy variable at the i-th time step
+                           Used to handle constraints smoothly
+  - hmu_i    (index 3i+2): Condition related to the multiplier (Lagrange multiplier) at the i-th
+  time step Indicates the satisfaction of constraints
+
+  Examples:
+  - opt_error_array[0]   : Optimality error for control input at the first time step
+  - opt_error_array[1]   : Optimality error for dummy variable at the first time step
+  - opt_error_array[2]   : Optimality error for multiplier at the first time step
+  - opt_error_array[3]   : Optimality error for control input at the second time step
+  ...
+  - opt_error_array[147] : Optimality error for control input at the last time step
+  - opt_error_array[148] : Optimality error for dummy variable at the last time step
+  - opt_error_array[149] : Optimality error for multiplier at the last time step
+
+  Notes:
+  - The smaller the L2 norm of this array, the closer the obtained solution is to the optimal
+  solution
+  - During debugging or performance analysis, examining the value of each element individually
+    can help identify which part of the optimization process may be problematic
+  */
 
   return true;
 }
