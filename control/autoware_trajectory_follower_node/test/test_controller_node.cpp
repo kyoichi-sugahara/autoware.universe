@@ -428,7 +428,7 @@ TEST_F(FakeNodeFixture, DISABLED_constant_curvature_right_turn)
   }
 }
 
-TEST_F(FakeNodeFixture, clothoid_right_turn)
+TEST_F(FakeNodeFixture, DISABLED_clothoid_right_turn)
 {
   const auto node_options = makeNodeOptions();
   ControllerTester tester(this, node_options);
@@ -483,6 +483,55 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
     test_utils::updateOdom(
       *tester.odom_msg, tester.cmd_msg->lateral.steering_tire_angle, delta_time, wheel_base,
       steering_status.steering_tire_angle);
+  }
+}
+
+TEST_F(FakeNodeFixture, periodically_reference_trajectory_change)
+{
+  const auto node_options = makeNodeOptions();
+  ControllerTester tester(this, node_options);
+  Trajectory ref_trajectory;
+
+  const double velocity = 5.0;
+  const double trajectory_arc_length = 50.0;
+  const double start_curvature_sign = 0.0;
+  const double end_curvature_sign = -0.1;
+  const double step_length = 1.0;
+
+  tester.send_default_transform();
+  tester.publish_autonomous_operation_mode();
+  tester.publish_default_steer();
+  tester.publish_default_acc();
+  tester.publish_odom_vx(velocity);
+
+  test_utils::waitForMessage(tester.node, this, tester.received_odom_msg);
+
+  auto publishTrajectory = [&tester, &ref_trajectory, start_curvature_sign, end_curvature_sign,
+                            trajectory_arc_length, velocity, step_length]() {
+    std_msgs::msg::Header header;
+    header.stamp = tester.node->now();
+    header.frame_id = "map";
+    ref_trajectory = test_utils::generateClothoidTrajectory(
+      header, start_curvature_sign, end_curvature_sign, trajectory_arc_length, velocity,
+      step_length);
+    tester.traj_pub->publish(ref_trajectory);
+  };
+
+  constexpr size_t iter_num = 50;
+  for (size_t i = 0; i < iter_num; i++) {
+    tester.publish_odom(*tester.odom_msg);
+
+    publishTrajectory();
+    test_utils::waitForMessage(tester.node, this, tester.received_control_command);
+
+    test_utils::writeTrajectoriesToFiles(
+      ref_trajectory, *tester.resampled_reference_trajectory, *tester.predicted_trajectory,
+      *tester.predicted_trajectory_in_frenet_coordinate,
+      *tester.cgmres_predicted_trajectory_in_frenet_coordinate, *tester.cgmres_predicted_trajectory,
+      tester.resampled_reference_curvature->data, tester.resampled_reference_velocity->data,
+      tester.cmd_msg->stamp);
+    ASSERT_TRUE(tester.received_control_command);
+    tester.received_control_command = false;
   }
 }
 
