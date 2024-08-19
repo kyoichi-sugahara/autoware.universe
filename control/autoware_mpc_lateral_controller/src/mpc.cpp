@@ -281,12 +281,30 @@ void MPC::publish_debug_data(
 
   debug_data.opt_error = cgmres_opt_error;
 
-  const size_t segment_size = opt_error_array.size() / 3;
+  const size_t N = 50 /* number of time steps */;
+  const size_t nuc = 1 /* number of control inputs */;
+  const size_t nub = 1 /* number of boundary conditions */;
 
-  debug_data.hu_i.data.assign(opt_error_array.begin(), opt_error_array.begin() + segment_size);
-  debug_data.hdummy_i.data.assign(
-    opt_error_array.begin() + segment_size, opt_error_array.begin() + 2 * segment_size);
-  debug_data.hmu_i.data.assign(opt_error_array.begin() + 2 * segment_size, opt_error_array.end());
+  // Reserve space for each vector to avoid reallocation
+  debug_data.hu_i.data.reserve(N * nuc);
+  debug_data.hdummy_i.data.reserve(N * nub);
+  debug_data.hmu_i.data.reserve(N * nub);
+
+  // Iterate through the opt_error_array
+  auto it = opt_error_array.begin();
+  for (size_t i = 0; i < N; ++i) {
+    // Extract hu_i
+    debug_data.hu_i.data.insert(debug_data.hu_i.data.end(), it, it + nuc);
+    it += nuc;
+
+    // Extract hdummy_i
+    debug_data.hdummy_i.data.insert(debug_data.hdummy_i.data.end(), it, it + nub);
+    it += nub;
+
+    // Extract hmu_i
+    debug_data.hmu_i.data.insert(debug_data.hmu_i.data.end(), it, it + nub);
+    it += nub;
+  }
 
   m_debug_cgmres_debug_pub->publish(debug_data);
 }
