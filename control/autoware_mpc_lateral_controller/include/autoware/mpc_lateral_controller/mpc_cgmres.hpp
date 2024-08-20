@@ -83,9 +83,9 @@ public:
   std::array<double, nu> r = {1.0};
 
   static constexpr std::array<int, 1> ubound_indices = {0};
-  std::array<double, 1> umin = {-0.7};
-  std::array<double, 1> umax = {0.7};
-  std::array<double, 1> dummy_weight = {1.0};
+  std::array<double, 1> umin = {-5.0};
+  std::array<double, 1> umax = {5.0};
+  std::array<double, 1> dummy_weight = {0.1};
 
   void disp(std::ostream & os) const
   {
