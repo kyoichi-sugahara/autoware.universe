@@ -408,7 +408,7 @@ private:
     const Trajectory & cgmres_predicted_trajectory_frenet, const VectorXd & Uosqp,
     const VectorXd & Ucgmres, const double osqp_calculation_time,
     const double cgmres_calculation_time, const double cgmres_opt_error,
-    const VectorXd & opt_error_array) const;
+    const VectorXd & opt_error_array, const int num_step) const;
 
   /**
    * @brief Generate diagnostic data for debugging purposes.

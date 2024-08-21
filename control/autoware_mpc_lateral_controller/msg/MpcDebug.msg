@@ -19,7 +19,14 @@ autoware_planning_msgs/Trajectory cgmres_predicted_trajectory_world_coordinate
 float64 osqp_calculation_time
 float64 cgmres_calculation_time
 
-float64 opt_error
-tier4_debug_msgs/Float64MultiArrayStamped hu_i
-tier4_debug_msgs/Float64MultiArrayStamped hdummy_i
-tier4_debug_msgs/Float64MultiArrayStamped hmu_i
+# Calculated after updating U using its time derivative
+float64 opt_error_updated
+tier4_debug_msgs/Float64MultiArrayStamped hu_i_updated
+tier4_debug_msgs/Float64MultiArrayStamped hdummy_i_updated
+tier4_debug_msgs/Float64MultiArrayStamped hmu_i_updated
+
+# Calculated using U before updating
+float64 opt_error_before_update
+tier4_debug_msgs/Float64MultiArrayStamped hu_i_before_update
+tier4_debug_msgs/Float64MultiArrayStamped hdummy_i_before_update
+tier4_debug_msgs/Float64MultiArrayStamped hmu_i_before_update

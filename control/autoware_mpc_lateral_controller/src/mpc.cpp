@@ -211,7 +211,7 @@ bool MPC::calculateMPC(
       mpc_resampled_ref_trajectory, predicted_trajectory_world, predicted_trajectory_frenet,
       cgmres_predicted_trajectory_world, cgmres_predicted_trajectory_frenet, Uex, Ucgmres,
       osqp_calculation_duration.count() / 1e6, cgmres_calculation_duration.count() / 1e6, opt_error,
-      opt_error_array);
+      opt_error_array, m_param.prediction_horizon);
   }
 
   return true;
@@ -225,7 +225,7 @@ void MPC::publish_debug_data(
   const Trajectory & cgmres_predicted_trajectory_frenet, const VectorXd & Uosqp,
   const VectorXd & Ucgmres, const double osqp_calculation_time,
   const double cgmres_calculation_time, const double cgmres_opt_error,
-  const VectorXd & opt_error_array) const
+  const VectorXd & opt_error_array, const int num_step) const
 {
   MpcDebug debug_data;
 
@@ -279,30 +279,30 @@ void MPC::publish_debug_data(
   debug_data.osqp_calculation_time = osqp_calculation_time;
   debug_data.cgmres_calculation_time = cgmres_calculation_time;
 
-  debug_data.opt_error = cgmres_opt_error;
+  debug_data.opt_error_updated = cgmres_opt_error;
 
-  const size_t N = 50 /* number of time steps */;
+  const size_t N = num_step /* number of time steps */;
   const size_t nuc = 1 /* number of control inputs */;
   const size_t nub = 1 /* number of boundary conditions */;
 
   // Reserve space for each vector to avoid reallocation
-  debug_data.hu_i.data.reserve(N * nuc);
-  debug_data.hdummy_i.data.reserve(N * nub);
-  debug_data.hmu_i.data.reserve(N * nub);
+  debug_data.hu_i_updated.data.reserve(N * nuc);
+  debug_data.hdummy_i_updated.data.reserve(N * nub);
+  debug_data.hmu_i_updated.data.reserve(N * nub);
 
   // Iterate through the opt_error_array
   auto it = opt_error_array.begin();
   for (size_t i = 0; i < N; ++i) {
     // Extract hu_i
-    debug_data.hu_i.data.insert(debug_data.hu_i.data.end(), it, it + nuc);
+    debug_data.hu_i_updated.data.insert(debug_data.hu_i_updated.data.end(), it, it + nuc);
     it += nuc;
 
     // Extract hdummy_i
-    debug_data.hdummy_i.data.insert(debug_data.hdummy_i.data.end(), it, it + nub);
+    debug_data.hdummy_i_updated.data.insert(debug_data.hdummy_i_updated.data.end(), it, it + nub);
     it += nub;
 
     // Extract hmu_i
-    debug_data.hmu_i.data.insert(debug_data.hmu_i.data.end(), it, it + nub);
+    debug_data.hmu_i_updated.data.insert(debug_data.hmu_i_updated.data.end(), it, it + nub);
     it += nub;
   }
 
