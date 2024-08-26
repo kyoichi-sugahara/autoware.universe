@@ -25,7 +25,7 @@ The pros and cons of both approaches are:
 IMU angular velocity:
 
 - (+) Usually, it has high accuracy
-- (-)Vehicle vibration might introduce noise.
+- (-) Vehicle vibration might introduce noise.
 
 Steering angle:
 
@@ -186,7 +186,7 @@ The AEB module can also prevent collisions when the ego vehicle is moving backwa
 
 When vehicle odometry information is faulty, it is possible that the MPC fails to predict a correct path for the ego vehicle. If the MPC predicted path is wrong, collision avoidance will not work as intended on the planning modules. However, the AEB’s IMU path does not depend on the MPC and could be able to predict a collision when the other modules cannot. As an example you can see a figure of a hypothetical case in which the MPC path is wrong and only the AEB’s IMU path detects a collision.
 
-![backward driving](./image/wrong-mpc.drawio.svg)
+![wrong mpc](./image/wrong-mpc.drawio.svg)
 
 ## Parameters
 
