@@ -8,8 +8,6 @@
 
 This module has following assumptions.
 
-- It is used when driving at low speeds (about 15 km/h).
-
 - The predicted path of the ego vehicle can be made from either the path created from sensors or the path created from a control module, or both.
 
 - The current speed and angular velocity can be obtained from the sensors of the ego vehicle, and it uses points as obstacles.
@@ -216,6 +214,8 @@ When vehicle odometry information is faulty, it is possible that the MPC fails t
 | aeb_hz                            | [-]    | double | frequency at which AEB operates per second                                                                                                                                                      | 10            |
 
 ## Limitations
+
+- The distance required to stop after collision detection depends on the ego vehicle's speed and deceleration performance. To avoid collisions, it's necessary to increase the detection distance and set a higher deceleration rate. However, this creates a trade-off as it may also increase the number of unnecessary activations. Therefore, it's essential to consider what role this module should play and adjust the parameters accordingly.
 
 - AEB might not be able to react with obstacles that are close to the ground. It depends on the performance of the pre-processing methods applied to the point cloud.
 
