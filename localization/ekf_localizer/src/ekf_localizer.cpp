@@ -52,11 +52,6 @@ EKFLocalizer::EKFLocalizer(const rclcpp::NodeOptions & node_options)
   twist_queue_(params_.twist_smoothing_steps),
   last_angular_velocity_(0.0, 0.0, 0.0)
 {
-  /* convert to continuous to discrete */
-  proc_cov_vx_d_ = std::pow(params_.proc_stddev_vx_c * ekf_dt_, 2.0);
-  proc_cov_wz_d_ = std::pow(params_.proc_stddev_wz_c * ekf_dt_, 2.0);
-  proc_cov_yaw_d_ = std::pow(params_.proc_stddev_yaw_c * ekf_dt_, 2.0);
-
   is_activated_ = false;
 
   /* initialize ros system */
@@ -132,11 +127,6 @@ void EKFLocalizer::update_predict_frequency(const rclcpp::Time & current_time)
 
       /* Register dt and accumulate time delay */
       ekf_module_->accumulate_delay_time(ekf_dt_);
-
-      /* Update discrete proc_cov*/
-      proc_cov_vx_d_ = std::pow(params_.proc_stddev_vx_c * ekf_dt_, 2.0);
-      proc_cov_wz_d_ = std::pow(params_.proc_stddev_wz_c * ekf_dt_, 2.0);
-      proc_cov_yaw_d_ = std::pow(params_.proc_stddev_yaw_c * ekf_dt_, 2.0);
     }
   }
   last_predict_time_ = std::make_shared<const rclcpp::Time>(current_time);
@@ -466,9 +456,9 @@ void EKFLocalizer::update_simple_1d_filters(
   double pitch_var =
     pose.pose.covariance[COV_IDX::PITCH_PITCH] * static_cast<double>(smoothing_step);
 
-  z_filter_.update(z, z_var, pose.header.stamp);
-  roll_filter_.update(rpy.x, roll_var, pose.header.stamp);
-  pitch_filter_.update(rpy.y, pitch_var, pose.header.stamp);
+  z_filter_.update(z, z_var, ekf_dt_);
+  roll_filter_.update(rpy.x, roll_var, ekf_dt_);
+  pitch_filter_.update(rpy.y, pitch_var, ekf_dt_);
 }
 
 void EKFLocalizer::init_simple_1d_filters(
@@ -483,9 +473,9 @@ void EKFLocalizer::init_simple_1d_filters(
   double roll_var = pose.pose.covariance[COV_IDX::ROLL_ROLL];
   double pitch_var = pose.pose.covariance[COV_IDX::PITCH_PITCH];
 
-  z_filter_.init(z, z_var, pose.header.stamp);
-  roll_filter_.init(rpy.x, roll_var, pose.header.stamp);
-  pitch_filter_.init(rpy.y, pitch_var, pose.header.stamp);
+  z_filter_.init(z, z_var);
+  roll_filter_.init(rpy.x, roll_var);
+  pitch_filter_.init(rpy.y, pitch_var);
 }
 
 /**

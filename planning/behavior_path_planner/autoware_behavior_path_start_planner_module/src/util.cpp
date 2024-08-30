@@ -73,17 +73,6 @@ PathWithLaneId getBackwardPath(
   return backward_path;
 }
 
-Pose getBackedPose(
-  const Pose & current_pose, const double & yaw_shoulder_lane, const double & back_distance)
-{
-  Pose backed_pose;
-  backed_pose = current_pose;
-  backed_pose.position.x -= std::cos(yaw_shoulder_lane) * back_distance;
-  backed_pose.position.y -= std::sin(yaw_shoulder_lane) * back_distance;
-
-  return backed_pose;
-}
-
 lanelet::ConstLanelets getPullOutLanes(
   const std::shared_ptr<const PlannerData> & planner_data, const double backward_length)
 {
@@ -104,36 +93,7 @@ lanelet::ConstLanelets getPullOutLanes(
     /*forward_only_in_route*/ true);
 }
 
-double calcMinArcLengthDistanceFromEgoToObjects(
-  const LinearRing2d & local_vehicle_footprint, const Pose & ego_pose,
-  const lanelet::ConstLanelets & lanelets, const PredictedObjects & static_objects)
-{
-  double min_distance = std::numeric_limits<double>::max();
-  const auto vehicle_footprint =
-    transformVector(local_vehicle_footprint, autoware::universe_utils::pose2transform(ego_pose));
-  for (const auto & obj : static_objects.objects) {
-    const auto obj_polygon = autoware::universe_utils::toPolygon2d(obj);
-    for (const auto & obj_outer_point : obj_polygon.outer()) {
-      const auto obj_pose_arc_length = getArcLengthForPoint(lanelets, obj_outer_point);
-      for (const auto & vehicle_corner_point : vehicle_footprint) {
-        const auto vehicle_pose_arc_length = getArcLengthForPoint(lanelets, vehicle_corner_point);
-        const double distance = std::abs(obj_pose_arc_length - vehicle_pose_arc_length);
-        min_distance = std::min(min_distance, distance);
-      }
-    }
-  }
-
-  return min_distance;
-}
-
-double getArcLengthForPoint(const lanelet::ConstLanelets & lanelets, const Point2d & point)
-{
-  geometry_msgs::msg::Pose pose;
-  pose.position.x = point.x();
-  pose.position.y = point.y();
-  return lanelet::utils::getArcCoordinates(lanelets, pose).length;
-}
-
+// cppcheck-suppress unusedFunction
 std::optional<PathWithLaneId> extractCollisionCheckSection(
   const PullOutPath & path, const double collision_check_distance_from_end)
 {
