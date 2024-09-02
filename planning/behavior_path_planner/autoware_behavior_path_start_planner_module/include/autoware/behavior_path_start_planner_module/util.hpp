@@ -61,6 +61,21 @@ lanelet::ConstLanelets getPullOutLanes(
   const std::shared_ptr<const PlannerData> & planner_data, const double backward_length);
 std::optional<PathWithLaneId> extractCollisionCheckSection(
   const PullOutPath & path, const double collision_check_distance_from_end);
+/**
+ * @brief Calculate the minimum arc length distance from the ego vehicle to static objects within
+ the same lanelets.
+ *
+ * Calculates the minimum arc length distance between the ego vehicle and static objects in given
+ * lanelets. It compares each corner of the vehicle's transformed footprint with every corner of
+ * object polygons to find the shortest distance within the lanelet system.
+ */
+double calcMinArcLengthDistanceFromEgoToObjects(
+  const autoware::universe_utils::LinearRing2d & local_vehicle_footprint, const Pose & ego_pose,
+  const lanelet::ConstLanelets & lanelets, const PredictedObjects & static_objects);
+
+double getArcLengthForPoint(
+  const lanelet::ConstLanelets & lanelets, const autoware::universe_utils::Point2d & point);
+
 }  // namespace autoware::behavior_path_planner::start_planner_utils
 
 #endif  // AUTOWARE__BEHAVIOR_PATH_START_PLANNER_MODULE__UTIL_HPP_
