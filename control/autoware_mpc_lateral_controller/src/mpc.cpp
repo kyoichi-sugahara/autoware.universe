@@ -54,6 +54,8 @@ MPC::MPC(rclcpp::Node & node)
     "~/debug/resampled_reference_velocity", rclcpp::QoS(1));
   m_debug_cgmres_debug_pub =
     node.create_publisher<MpcDebug>("~/debug/cgmres/debug", rclcpp::QoS(1));
+  m_debug_resampled_reference_trajectory_pub =
+    node.create_publisher<Trajectory>("~/debug/resampled_reference_trajectory", rclcpp::QoS(1));
 }
 
 bool MPC::calculateMPC(
@@ -186,7 +188,7 @@ bool MPC::calculateMPC(
   predicted_trajectory_world = predicted_trajectory;
 
   // Publish predicted trajectories in different coordinates for debugging purposes
-  if (m_debug_publish_predicted_trajectory) {
+  if (m_publish_debug_trajectories) {
     // Calculate and publish predicted trajectory in Frenet coordinate
     predicted_trajectory_frenet = calculatePredictedTrajectory(
       mpc_matrix, x0, Uex, mpc_resampled_ref_trajectory, prediction_dt, "frenet");
@@ -200,6 +202,20 @@ bool MPC::calculateMPC(
     predicted_trajectory_world_with_delay.header.stamp = m_clock->now();
     predicted_trajectory_world_with_delay.header.frame_id = "map";
     m_debug_predicted_trajectory_with_delay_pub->publish(predicted_trajectory_world_with_delay);
+  }
+
+  Eigen::VectorXd initial_state = m_use_delayed_initial_state ? x0_delayed : x0;
+  predicted_trajectory = calculatePredictedTrajectory(
+    mpc_matrix, initial_state, Uex, mpc_resampled_ref_trajectory, prediction_dt, "world");
+
+  // Publish predicted trajectories in different coordinates for debugging purposes
+  if (m_publish_debug_trajectories) {
+    // Calculate and publish predicted trajectory in Frenet coordinate
+    auto predicted_trajectory_frenet = calculatePredictedTrajectory(
+      mpc_matrix, initial_state, Uex, mpc_resampled_ref_trajectory, prediction_dt, "frenet");
+    predicted_trajectory_frenet.header.stamp = m_clock->now();
+    predicted_trajectory_frenet.header.frame_id = "map";
+    m_debug_frenet_predicted_trajectory_pub->publish(predicted_trajectory_frenet);
   }
 
   // prepare diagnostic message
@@ -402,9 +418,9 @@ void MPC::setReferenceTrajectory(
 
   /*
    * Extend terminal points
-   * Note: The current MPC does not properly take into account the attitude angle at the end of the
-   * path. By extending the end of the path in the attitude direction, the MPC can consider the
-   * attitude angle well, resulting in improved control performance. If the trajectory is
+   * Note: The current MPC does not properly take into account the attitude angle at the end of
+   * the path. By extending the end of the path in the attitude direction, the MPC can consider
+   * the attitude angle well, resulting in improved control performance. If the trajectory is
    * well-defined considering the end point attitude angle, this feature is not necessary.
    */
   if (param.extend_trajectory_for_end_yaw_control) {
@@ -506,7 +522,7 @@ std::pair<bool, MPCTrajectory> MPC::resampleMPCTrajectoryByTime(
     return {false, {}};
   }
   // Publish resampled reference trajectory for debug purpose.
-  if (m_debug_publish_resampled_reference_trajectory) {
+  if (m_publish_debug_trajectories) {
     auto converted_output = MPCUtils::convertToAutowareTrajectory(output);
     converted_output.header.stamp = m_clock->now();
     converted_output.header.frame_id = "map";
@@ -619,8 +635,8 @@ MPCTrajectory MPC::applyVelocityDynamicsFilter(
 
 /*
  * predict equation: Xec = Aex * x0 + Bex * Uex + Wex
- * cost function: J = Xex' * Qex * Xex + (Uex - Uref)' * R1ex * (Uex - Uref_ex) + Uex' * R2ex * Uex
- * Qex = diag([Q,Q,...]), R1ex = diag([R,R,...])
+ * cost function: J = Xex' * Qex * Xex + (Uex - Uref)' * R1ex * (Uex - Uref_ex) + Uex' * R2ex *
+ * Uex Qex = diag([Q,Q,...]), R1ex = diag([R,R,...])
  */
 MPCMatrix MPC::generateMPCMatrix(
   const MPCTrajectory & reference_trajectory, const double prediction_dt)
@@ -733,10 +749,9 @@ MPCMatrix MPC::generateMPCMatrix(
 
 /*
  * solve quadratic optimization.
- * cost function: J = Xex' * Qex * Xex + (Uex - Uref)' * R1ex * (Uex - Uref_ex) + Uex' * R2ex * Uex
- *                , Qex = diag([Q,Q,...]), R1ex = diag([R,R,...])
- * constraint matrix : lb < U < ub, lbA < A*U < ubA
- * current considered constraint
+ * cost function: J = Xex' * Qex * Xex + (Uex - Uref)' * R1ex * (Uex - Uref_ex) + Uex' * R2ex *
+ * Uex , Qex = diag([Q,Q,...]), R1ex = diag([R,R,...]) constraint matrix : lb < U < ub, lbA < A*U
+ * < ubA current considered constraint
  *  - steering limit
  *  - steering rate limit
  *
@@ -769,8 +784,8 @@ std::pair<bool, VectorXd> MPC::executeOptimization(
   // cost function: 1/2 * Uex' * H * Uex + f' * Uex,  H = B' * C' * Q * C * B + R
   const MatrixXd CB = m.Cex * m.Bex;
   const MatrixXd QCB = m.Qex * CB;
-  // MatrixXd H = CB.transpose() * QCB + m.R1ex + m.R2ex; // This calculation is heavy. looking for
-  // a good way.  //NOLINT
+  // MatrixXd H = CB.transpose() * QCB + m.R1ex + m.R2ex; // This calculation is heavy. looking
+  // for a good way.  //NOLINT
   MatrixXd H = MatrixXd::Zero(DIM_U_N, DIM_U_N);
   H.triangularView<Eigen::Upper>() = CB.transpose() * QCB;
   H.triangularView<Eigen::Upper>() += m.R1ex + m.R2ex;
