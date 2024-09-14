@@ -22,37 +22,3 @@ Inputs
 | use_external_target_vel | bool  | use external target velocity defined by parameter when true, else follow the velocity on target trajectory points. | false         |
 | external_target_vel     | float | target velocity used when `use_external_target_vel` is true.                                                       | 0.0           |
 | lateral_deviation       | float | target lateral deviation when following.                                                                           | 0.0           |
-
-## Flow
-
-```plantuml
-@startuml
-start
-
-partition "callbackTimerControl()" {
- :Create input data;
- if (Input data ready?) then (yes)
-   :Preprocess input data;
-   if (Lateral and longitudinal controllers ready?) then (yes)
-     partition "MpcLateralController::run()" {
-       :Process A;
-       :Process B;
-       :Process C;
-     }
-     partition "PidLongitudinalController::run()" {
-       :Calculate longitudinal command;
-     }
-     :Sync lateral/longitudinal controller with each other;
-     if (Timeout occurred?) then (yes)
-       else (no)
-         :Publish control command and debug information;
-       endif
-   else (no)
-   endif
- else (no)
- endif
-}
-
-stop
-@enduml
-```
