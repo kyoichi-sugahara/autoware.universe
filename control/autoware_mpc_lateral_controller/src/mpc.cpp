@@ -844,35 +844,24 @@ std::pair<bool, VectorXd> MPC::executeOptimization(
   const VectorXd & x0, const double prediction_dt, const MPCTrajectory & resampled_ref_trajectory,
   double & opt_error, Eigen::VectorXd & opt_error_array)
 {
-  VectorXd Uex;
-  const double elapsed_time_ms =
+  const double time_since_last_solution_ms =
     std::chrono::duration_cast<std::chrono::nanoseconds>(
       std::chrono::system_clock::now() - m_previous_optimal_solution_time)
       .count() *
     1.0e-6;
 
-  // auto t_start = std::chrono::system_clock::now();
-  bool warm_start = false;
-
-  if (0 < elapsed_time_ms && elapsed_time_ms < 150.0) {
-    // RCLCPP_DEBUG(m_logger, "execute optimization with warm start (CGMRES)");
-    warm_start = true;
-  } else {
-    // RCLCPP_DEBUG(m_logger, "execute optimization without warm start (CGMRES)");
-  }
+  const bool warm_start = (0 < time_since_last_solution_ms && time_since_last_solution_ms < 150.0);
   m_qpsolver_ptr->updateEquation(resampled_ref_trajectory, m_param.steer_tau);
+
+  VectorXd Uex;
   const bool solve_result =
     m_qpsolver_ptr->solveCGMRES(x0, Uex, opt_error, opt_error_array, warm_start);
   m_previous_optimal_solution_time = std::chrono::system_clock::now();
-  // auto t_end = std::chrono::system_clock::now();
 
   if (!solve_result) {
     warn_throttle("cgmres solver error");
     return {false, {}};
   }
-
-  // auto t = std::chrono::duration_cast<std::chrono::milliseconds>(t_end - t_start).count();
-  // RCLCPP_DEBUG(m_logger, "cgmres solver calculation time = %ld [ms]", t);
 
   if (Uex.array().isNaN().any()) {
     warn_throttle("model Uex includes NaN, stop MPC.");
