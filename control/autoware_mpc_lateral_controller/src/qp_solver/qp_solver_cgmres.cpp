@@ -77,32 +77,31 @@ bool QPSolverCGMRES::solveCGMRES(
     initialized_time_ = cgmres_clock->now();
   }
 
-  const double time_from_last_initialized =
-    (cgmres_clock->now() - initialized_time_).nanoseconds() * 1.0e-6;
+  const auto current_time = cgmres_clock->now();
+  const double time_since_initialized = (current_time - initialized_time_).nanoseconds() * 1.0e-6;
 
   if (warm_start) {
-    mpc_.update(time_from_last_initialized, x);
+    mpc_.update(time_since_initialized, x);
   } else {
     // Initialize the solution of the C/GMRES method.
-    cgmres::Vector<1> uc0;
-    uc0 << 0.0;
+    cgmres::Vector<1> uc0 = cgmres::Vector<1>::Zero();
     initializer_.set_uc(uc0);
-    initializer_.solve(time_from_last_initialized, x);
+    initializer_.solve(time_since_initialized, x);
     mpc_.set_uc(initializer_.ucopt());
     mpc_.init_dummy_mu();
-    mpc_.update(time_from_last_initialized, x);
+    mpc_.update(time_since_initialized, x);
   }
 
-  std::vector<double> U_cgmres(mpc_.uopt().size());
-  for (size_t i = 0; i < mpc_.uopt().size(); ++i) {
-    U_cgmres[i] = mpc_.uopt()[i](0);
+  const auto & uopt = mpc_.uopt();
+  u.resize(uopt.size());
+  for (size_t i = 0; i < uopt.size(); ++i) {
+    u(i) = uopt[i](0, 0);
   }
-  u = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 1>>(
-    &U_cgmres[0], static_cast<Eigen::Index>(U_cgmres.size()), 1);
 
   cgmres_logger_.save(
-    time_from_last_initialized, x, mpc_.uopt()[0], mpc_.uopt(), mpc_.initial_solution(),
-    mpc_.updated_solution(), mpc_.optError(), mpc_.gmres_iter());
+    time_since_initialized, x, uopt[0], uopt, mpc_.initial_solution(), mpc_.updated_solution(),
+    mpc_.optError(), mpc_.gmres_iter());
+
   opt_error = mpc_.optError();
 
   opt_error_array = mpc_.optErrorArray();
