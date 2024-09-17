@@ -851,7 +851,7 @@ std::pair<bool, VectorXd> MPC::executeOptimization(
     1.0e-6;
 
   const bool warm_start = (0 < time_since_last_solution_ms && time_since_last_solution_ms < 150.0);
-  m_qpsolver_ptr->updateEquation(resampled_ref_trajectory, m_param.steer_tau);
+  m_qpsolver_ptr->updateEquation(resampled_ref_trajectory);
 
   VectorXd Uex;
   const bool solve_result =

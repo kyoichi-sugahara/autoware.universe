@@ -43,14 +43,13 @@ QPSolverCGMRES::QPSolverCGMRES(
   mpc_.disp(std::cerr);
 }
 
-void QPSolverCGMRES::updateEquation(
-  const MPCTrajectory & resampled_ref_trajectory, const double steer_tau)
+// (TODO): divide update function into two functions
+// 1. updateProblem: update the factors related to the optimization problem and need to be updated
+// only when the problem is defined
+// 2. updateEquation: update the factors related to target state and reference input and need to be
+// updated every time step
+void QPSolverCGMRES::updateEquation(const MPCTrajectory & resampled_ref_trajectory)
 {
-  static constexpr double WHEEL_BASE = 2.74;
-
-  ocp_.wheel_base = WHEEL_BASE;
-  ocp_.steer_tau = steer_tau;
-
   const size_t trajectory_size = resampled_ref_trajectory.size();
 
   external_reference_->curvature_ref_array.resize(trajectory_size);
@@ -87,6 +86,7 @@ bool QPSolverCGMRES::solveCGMRES(
     cgmres::Vector<1> uc0 = cgmres::Vector<1>::Zero();
     initializer_.set_uc(uc0);
     initializer_.solve(time_since_initialized, x);
+    mpc_.synchronize_ocp();
     mpc_.set_uc(initializer_.ucopt());
     mpc_.init_dummy_mu();
     mpc_.update(time_since_initialized, x);

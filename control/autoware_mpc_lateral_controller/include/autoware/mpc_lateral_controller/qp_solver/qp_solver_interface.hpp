@@ -48,10 +48,7 @@ public:
     const Eigen::VectorXd & lb, const Eigen::VectorXd & ub, const Eigen::VectorXd & lb_a,
     const Eigen::VectorXd & ub_a, Eigen::VectorXd & u) = 0;
 
-  virtual void updateEquation(
-    const MPCTrajectory & /*resampled_ref_trajectory*/, const double /*steer_tau*/)
-  {
-  }
+  virtual void updateEquation(const MPCTrajectory & /*resampled_ref_trajectory*/) {}
 
   virtual bool solveCGMRES(
     const Eigen::VectorXd & /* x0 */, Eigen::VectorXd & /*u*/, double & /*opt_error*/,

@@ -52,8 +52,7 @@ public:
     const Eigen::MatrixXd & h_mat, const Eigen::MatrixXd & f_vec, const Eigen::MatrixXd & a,
     const Eigen::VectorXd & lb, const Eigen::VectorXd & ub, const Eigen::VectorXd & lb_a,
     const Eigen::VectorXd & ub_a, Eigen::VectorXd & u) override;
-  void updateEquation(
-    const MPCTrajectory & resampled_ref_trajectory, const double steer_tau) override;
+  void updateEquation(const MPCTrajectory & resampled_ref_trajectory) override;
   bool solveCGMRES(
     const Eigen::VectorXd & x0, Eigen::VectorXd & u, double & opt_error,
     Eigen::VectorXd & opt_error_array, const bool warm_start) override;
