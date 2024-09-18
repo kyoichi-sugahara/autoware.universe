@@ -28,6 +28,7 @@
 #include <cmath>
 #include <iostream>
 #include <memory>
+#include <stdexcept>
 #include <vector>
 
 namespace cgmres
@@ -101,63 +102,46 @@ public:
     Eigen::IOFormat fmt(4, 0, ", ", "", "[", "]");
     Eigen::IOFormat intfmt(1, 0, ", ", "", "[", "]");
     os << "  curvature_ref_array: "
-       << Eigen::Map<const Eigen::Matrix<double, Eigen::Dynamic, 1>>(
-            curvature_ref_array.data(), curvature_ref_array.size())
+       << Eigen::Map<const Eigen::VectorXd>(curvature_ref_array.data(), curvature_ref_array.size())
             .transpose()
             .format(fmt)
        << std::endl;
     os << "  v_ref_array: "
-       << Eigen::Map<const Eigen::Matrix<double, Eigen::Dynamic, 1>>(
-            v_ref_array.data(), v_ref_array.size())
+       << Eigen::Map<const Eigen::VectorXd>(v_ref_array.data(), v_ref_array.size())
             .transpose()
             .format(fmt)
        << std::endl;
     os << "  u_ref_array: "
        << Eigen::Map<const Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>(
-            u_ref_array.data()->data(), u_ref_array.size(), nu)
+            u_ref_array[0].data(), u_ref_array.size(), nu)
             .format(fmt)
        << std::endl;
-    os << "  q: "
-       << Eigen::Map<const Eigen::Matrix<double, Eigen::Dynamic, 1>>(q.data(), q.size())
-            .transpose()
-            .format(fmt)
+    os << "  q: " << Eigen::Map<const Eigen::VectorXd>(q.data(), q.size()).transpose().format(fmt)
        << std::endl;
     os << "  q_terminal: "
-       << Eigen::Map<const Eigen::Matrix<double, Eigen::Dynamic, 1>>(
-            q_terminal.data(), q_terminal.size())
+       << Eigen::Map<const Eigen::VectorXd>(q_terminal.data(), q_terminal.size())
             .transpose()
             .format(fmt)
        << std::endl;
     os << "  x_ref: "
-       << Eigen::Map<const Eigen::Matrix<double, Eigen::Dynamic, 1>>(x_ref.data(), x_ref.size())
-            .transpose()
-            .format(fmt)
+       << Eigen::Map<const Eigen::VectorXd>(x_ref.data(), x_ref.size()).transpose().format(fmt)
        << std::endl;
-    os << "  r: "
-       << Eigen::Map<const Eigen::Matrix<double, Eigen::Dynamic, 1>>(r.data(), r.size())
-            .transpose()
-            .format(fmt)
+    os << "  r: " << Eigen::Map<const Eigen::VectorXd>(r.data(), r.size()).transpose().format(fmt)
        << std::endl;
     os << std::endl;
     os << "  ubound_indices: "
-       << Eigen::Map<const Eigen::Matrix<int, Eigen::Dynamic, 1>>(
-            ubound_indices.data(), ubound_indices.size())
+       << Eigen::Map<const Eigen::VectorXi>(ubound_indices.data(), ubound_indices.size())
             .transpose()
             .format(intfmt)
        << std::endl;
     os << "  umin: "
-       << Eigen::Map<const Eigen::Matrix<double, Eigen::Dynamic, 1>>(umin.data(), umin.size())
-            .transpose()
-            .format(fmt)
+       << Eigen::Map<const Eigen::VectorXd>(umin.data(), umin.size()).transpose().format(fmt)
        << std::endl;
     os << "  umax: "
-       << Eigen::Map<const Eigen::Matrix<double, Eigen::Dynamic, 1>>(umax.data(), umax.size())
-            .transpose()
-            .format(fmt)
+       << Eigen::Map<const Eigen::VectorXd>(umax.data(), umax.size()).transpose().format(fmt)
        << std::endl;
     os << "  dummy_weight: "
-       << Eigen::Map<const Eigen::Matrix<double, Eigen::Dynamic, 1>>(
-            dummy_weight.data(), dummy_weight.size())
+       << Eigen::Map<const Eigen::VectorXd>(dummy_weight.data(), dummy_weight.size())
             .transpose()
             .format(fmt)
        << std::endl;
@@ -194,7 +178,7 @@ public:
     if (external_reference != nullptr) {
       curvature_ref_array = external_reference->curvature_ref_array;
       v_ref_array = external_reference->v_ref_array;
-      u_ref_array.reserve(curvature_ref_array.size());
+      u_ref_array.resize(curvature_ref_array.size());
       for (size_t i = 0; i < curvature_ref_array.size(); i++) {
         u_ref_array[i][0] = std::atan(curvature_ref_array[i] * wheel_base);
       }
@@ -202,24 +186,6 @@ public:
     } else {
       // std::cerr << "external_reference is nullptr" << std::endl;
     }
-  }
-
-  ///
-  /// @brief Computes the state equation dx = f(t, x, u).
-  /// @param[in] t Time.
-  /// @param[in] x State.
-  /// @param[in] u Control input.
-  /// @param[out] dx Evaluated value of the state equation.
-  /// @remark This method is intended to be used inside of the cgmres solvers and does not check
-  /// size of each argument. Use the overloaded method if you call this outside of the cgmres
-  /// solvers.
-  ///
-  void eval_f(const double t, const double * x, const double * u, double * dx) const
-  {
-    dx[0] = v_ref_array[0] * sin(x[1]);
-    dx[1] = -curvature_ref_array[0] * v_ref_array[0] * cos(x[1]) +
-            v_ref_array[0] * tan(x[2]) / wheel_base;
-    dx[2] = -(-u[0] + x[2]) / steer_tau;
   }
 
   ///
@@ -271,58 +237,19 @@ public:
   /// solvers.
   ///
   void eval_hx(
-    const double t, const double * x, const double * u, const double * lmd, double * hx) const
-  {
-    const double x0 = lmd[1] * v_ref_array[0];
-    hx[0] = (1.0 / 2.0) * q[0] * (2 * x[0] - 2 * x_ref[0]);
-    hx[1] = curvature_ref_array[0] * x0 * sin(x[1]) + lmd[0] * v_ref_array[0] * cos(x[1]) +
-            (1.0 / 2.0) * q[1] * (2 * x[1] - 2 * x_ref[1]);
-    hx[2] = -lmd[2] / steer_tau + (1.0 / 2.0) * q[2] * (2 * x[2] - 2 * x_ref[2]) +
-            x0 * (pow(tan(x[2]), 2) + 1) / wheel_base;
-  }
-
-  ///
-  /// @brief Computes the partial derivative of the Hamiltonian with respect to state,
-  /// i.e., hx = dH/dx(t, x, u, lmd).
-  /// @param[in] t Time.
-  /// @param[in] x State.
-  /// @param[in] u Concatenatin of the control input and Lagrange multiplier with respect to the
-  /// equality constraints.
-  /// @param[in] lmd Costate.
-  /// @param[out] hx Evaluated value of the partial derivative of the Hamiltonian.
-  /// @remark This method is intended to be used inside of the cgmres solvers and does not check
-  /// size of each argument. Use the overloaded method if you call this outside of the cgmres
-  /// solvers.
-  ///
-  void eval_hx(
     const double t, const int i, const double * x, const double * u, const double * lmd,
     double * hx) const
   {
-    const double x0 = lmd[1] * v_ref_array[i];
-    hx[0] = (1.0 / 2.0) * q[0] * (2 * x[0] - 2 * x_ref[0]);
-    hx[1] = curvature_ref_array[i] * x0 * sin(x[1]) + lmd[0] * v_ref_array[i] * cos(x[1]) +
-            (1.0 / 2.0) * q[1] * (2 * x[1] - 2 * x_ref[1]);
-    hx[2] = -lmd[2] / steer_tau + (1.0 / 2.0) * q[2] * (2 * x[2] - 2 * x_ref[2]) +
-            x0 * (pow(tan(x[2]), 2) + 1) / wheel_base;
-  }
+    const double v_ref = v_ref_array[i];
+    const double curvature = curvature_ref_array[i];
+    const double tan_x2 = tan(x[2]);
+    const double sec_x2_squared = 1.0 + tan_x2 * tan_x2;
 
-  ///
-  /// @brief Computes the partial derivative of the Hamiltonian with respect to control input and
-  /// the equality constraints, i.e., hu = dH/du(t, x, u, lmd).
-  /// @param[in] t Time.
-  /// @param[in] x State.
-  /// @param[in] u Concatenatin of the control input and Lagrange multiplier with respect to the
-  /// equality constraints.
-  /// @param[in] lmd Costate.
-  /// @param[out] hu Evaluated value of the partial derivative of the Hamiltonian.
-  /// @remark This method is intended to be used inside of the cgmres solvers and does not check
-  /// size of each argument. Use the overloaded method if you call this outside of the cgmres
-  /// solvers.
-  ///
-  void eval_hu(
-    const double t, const double * x, const double * u, const double * lmd, double * hu) const
-  {
-    hu[0] = lmd[2] / steer_tau + (1.0 / 2.0) * r[0] * (2 * u[0] - 2 * u_ref_array[0][0]);
+    hx[0] = q[0] * (x[0] - x_ref[0]);
+    hx[1] = curvature * lmd[1] * v_ref * sin(x[1]) + lmd[0] * v_ref * cos(x[1]) +
+            q[1] * (x[1] - x_ref[1]);
+    hx[2] =
+      -lmd[2] / steer_tau + q[2] * (x[2] - x_ref[2]) + lmd[1] * v_ref * sec_x2_squared / wheel_base;
   }
 
   ///
@@ -343,131 +270,6 @@ public:
     double * hu) const
   {
     hu[0] = lmd[2] / steer_tau + (1.0 / 2.0) * r[0] * (2 * u[0] - 2 * u_ref_array[i][0]);
-  }
-
-  ///
-  /// @brief Computes the state equation dx = f(t, x, u).
-  /// @param[in] t Time.
-  /// @param[in] x State. Size must be nx.
-  /// @param[in] u Control input. Size must be nu.
-  /// @param[out] dx Evaluated value of the state equation. Size must be nx.
-  ///
-  template <typename VectorType1, typename VectorType2, typename VectorType3>
-  void eval_f(
-    const double t, const Eigen::MatrixBase<VectorType1> & x,
-    const Eigen::MatrixBase<VectorType2> & u, const Eigen::MatrixBase<VectorType3> & dx,
-    const int i = 0) const
-  {
-    if (x.size() != nx) {
-      throw std::invalid_argument("[OCP]: x.size() must be " + std::to_string(nx));
-    }
-    if (u.size() != nu) {
-      throw std::invalid_argument("[OCP]: u.size() must be " + std::to_string(nu));
-    }
-    if (dx.size() != nx) {
-      throw std::invalid_argument("[OCP]: dx.size() must be " + std::to_string(nx));
-    }
-    if (i == 0) {
-      eval_f(
-        t, x.derived().data(), u.derived().data(), CGMRES_EIGEN_CONST_CAST(VectorType3, dx).data());
-    } else {
-      eval_f(
-        t, i, x.derived().data(), u.derived().data(),
-        CGMRES_EIGEN_CONST_CAST(VectorType3, dx).data());
-    }
-  }
-
-  ///
-  /// @brief Computes the partial derivative of terminal cost with respect to state,
-  /// i.e., phix = dphi/dx(t, x).
-  /// @param[in] t Time.
-  /// @param[in] x State. Size must be nx.
-  /// @param[out] phix Evaluated value of the partial derivative of terminal cost. Size must be nx.
-  ///
-  template <typename VectorType1, typename VectorType2>
-  void eval_phix(
-    const double t, const Eigen::MatrixBase<VectorType1> & x,
-    const Eigen::MatrixBase<VectorType2> & phix) const
-  {
-    if (x.size() != nx) {
-      throw std::invalid_argument("[OCP]: x.size() must be " + std::to_string(nx));
-    }
-    if (phix.size() != nx) {
-      throw std::invalid_argument("[OCP]: phix.size() must be " + std::to_string(nx));
-    }
-    eval_phix(t, x.derived().data(), CGMRES_EIGEN_CONST_CAST(VectorType2, phix).data());
-  }
-
-  ///
-  /// @brief Computes the partial derivative of the Hamiltonian with respect to the state,
-  /// i.e., hx = dH/dx(t, x, u, lmd).
-  /// @param[in] t Time.
-  /// @param[in] x State. Size must be nx.
-  /// @param[in] uc Concatenatin of the control input and Lagrange multiplier with respect to the
-  /// equality constraints. Size must be nuc.
-  /// @param[in] lmd Costate.  Size must be nx.
-  /// @param[out] hx Evaluated value of the partial derivative of the Hamiltonian. Size must be nx.
-  ///
-  template <typename VectorType1, typename VectorType2, typename VectorType3, typename VectorType4>
-  void eval_hx(
-    const double t, const Eigen::MatrixBase<VectorType1> & x,
-    const Eigen::MatrixBase<VectorType2> & uc, const Eigen::MatrixBase<VectorType3> & lmd,
-    const Eigen::MatrixBase<VectorType4> & hx, const int i = 0) const
-  {
-    if (x.size() != nx) {
-      throw std::invalid_argument("[OCP]: x.size() must be " + std::to_string(nx));
-    }
-    if (uc.size() != nuc) {
-      throw std::invalid_argument("[OCP]: uc.size() must be " + std::to_string(nuc));
-    }
-    if (lmd.size() != nx) {
-      throw std::invalid_argument("[OCP]: lmd.size() must be " + std::to_string(nx));
-    }
-    if (hx.size() != nuc) {
-      throw std::invalid_argument("[OCP]: hx.size() must be " + std::to_string(nx));
-    }
-    if (i == 0) {
-      eval_hx(
-        t, x.derived().data(), uc.derived().data(), lmd.derived().data(),
-        CGMRES_EIGEN_CONST_CAST(VectorType4, hx).data());
-    } else {
-      eval_hx(
-        t, i, x.derived().data(), uc.derived().data(), lmd.derived().data(),
-        CGMRES_EIGEN_CONST_CAST(VectorType4, hx).data());
-    }
-  }
-
-  ///
-  /// @brief Computes the partial derivative of the Hamiltonian with respect to control input and
-  /// the equality constraints, i.e., hu = dH/du(t, x, u, lmd).
-  /// @param[in] t Time.
-  /// @param[in] x State. Size must be nx.
-  /// @param[in] uc Concatenatin of the control input and Lagrange multiplier with respect to the
-  /// equality constraints. Size must be nuc.
-  /// @param[in] lmd Costate. Size must be nx.
-  /// @param[out] hu Evaluated value of the partial derivative of the Hamiltonian. Size must be nuc.
-  ///
-  template <typename VectorType1, typename VectorType2, typename VectorType3, typename VectorType4>
-  void eval_hu(
-    const double t, const Eigen::MatrixBase<VectorType1> & x,
-    const Eigen::MatrixBase<VectorType2> & uc, const Eigen::MatrixBase<VectorType3> & lmd,
-    const Eigen::MatrixBase<VectorType4> & hu) const
-  {
-    if (x.size() != nx) {
-      throw std::invalid_argument("[OCP]: x.size() must be " + std::to_string(nx));
-    }
-    if (uc.size() != nuc) {
-      throw std::invalid_argument("[OCP]: uc.size() must be " + std::to_string(nuc));
-    }
-    if (lmd.size() != nx) {
-      throw std::invalid_argument("[OCP]: lmd.size() must be " + std::to_string(nx));
-    }
-    if (hu.size() != nuc) {
-      throw std::invalid_argument("[OCP]: hu.size() must be " + std::to_string(nuc));
-    }
-    eval_hu(
-      t, x.derived().data(), uc.derived().data(), lmd.derived().data(),
-      CGMRES_EIGEN_CONST_CAST(VectorType4, hu).data());
   }
 };
 
