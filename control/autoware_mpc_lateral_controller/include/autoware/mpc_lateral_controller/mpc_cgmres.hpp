@@ -20,9 +20,9 @@
 #define AUTOWARE__MPC_LATERAL_CONTROLLER__MPC_CGMRES_HPP_
 
 #define _USE_MATH_DEFINES
+#define CGMRES_EIGEN_CONST_CAST(TYPE, OBJ) const_cast<TYPE &>(OBJ.derived())
 
-#include "cgmres/detail/macros.hpp"
-#include "cgmres/types.hpp"
+#include <Eigen/Core>
 
 #include <array>
 #include <cmath>
@@ -70,7 +70,7 @@ public:
   ///
   static constexpr int nub = 1;
 
-  double wheel_base = 2.74;  // arctan(wheel base * curvature_in_reference_trajectory)
+  double wheel_base;  // arctan(wheel base * curvature_in_reference_trajectory)
   double steer_tau;
 
   std::vector<double> curvature_ref_array;
@@ -101,35 +101,65 @@ public:
     Eigen::IOFormat fmt(4, 0, ", ", "", "[", "]");
     Eigen::IOFormat intfmt(1, 0, ", ", "", "[", "]");
     os << "  curvature_ref_array: "
-       << Map<const VectorX>(curvature_ref_array.data(), curvature_ref_array.size())
+       << Eigen::Map<const Eigen::Matrix<double, Eigen::Dynamic, 1>>(
+            curvature_ref_array.data(), curvature_ref_array.size())
             .transpose()
             .format(fmt)
        << std::endl;
     os << "  v_ref_array: "
-       << Map<const VectorX>(v_ref_array.data(), v_ref_array.size()).transpose().format(fmt)
+       << Eigen::Map<const Eigen::Matrix<double, Eigen::Dynamic, 1>>(
+            v_ref_array.data(), v_ref_array.size())
+            .transpose()
+            .format(fmt)
        << std::endl;
     os << "  u_ref_array: "
-       << Map<const MatrixX>(u_ref_array.data()->data(), u_ref_array.size(), nu).format(fmt)
+       << Eigen::Map<const Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>(
+            u_ref_array.data()->data(), u_ref_array.size(), nu)
+            .format(fmt)
        << std::endl;
-    os << "  q: " << Map<const VectorX>(q.data(), q.size()).transpose().format(fmt) << std::endl;
+    os << "  q: "
+       << Eigen::Map<const Eigen::Matrix<double, Eigen::Dynamic, 1>>(q.data(), q.size())
+            .transpose()
+            .format(fmt)
+       << std::endl;
     os << "  q_terminal: "
-       << Map<const VectorX>(q_terminal.data(), q_terminal.size()).transpose().format(fmt)
+       << Eigen::Map<const Eigen::Matrix<double, Eigen::Dynamic, 1>>(
+            q_terminal.data(), q_terminal.size())
+            .transpose()
+            .format(fmt)
        << std::endl;
-    os << "  x_ref: " << Map<const VectorX>(x_ref.data(), x_ref.size()).transpose().format(fmt)
+    os << "  x_ref: "
+       << Eigen::Map<const Eigen::Matrix<double, Eigen::Dynamic, 1>>(x_ref.data(), x_ref.size())
+            .transpose()
+            .format(fmt)
        << std::endl;
-    os << "  r: " << Map<const VectorX>(r.data(), r.size()).transpose().format(fmt) << std::endl;
+    os << "  r: "
+       << Eigen::Map<const Eigen::Matrix<double, Eigen::Dynamic, 1>>(r.data(), r.size())
+            .transpose()
+            .format(fmt)
+       << std::endl;
     os << std::endl;
     os << "  ubound_indices: "
-       << Map<const VectorXi>(ubound_indices.data(), ubound_indices.size())
+       << Eigen::Map<const Eigen::Matrix<int, Eigen::Dynamic, 1>>(
+            ubound_indices.data(), ubound_indices.size())
             .transpose()
             .format(intfmt)
        << std::endl;
-    os << "  umin: " << Map<const VectorX>(umin.data(), umin.size()).transpose().format(fmt)
+    os << "  umin: "
+       << Eigen::Map<const Eigen::Matrix<double, Eigen::Dynamic, 1>>(umin.data(), umin.size())
+            .transpose()
+            .format(fmt)
        << std::endl;
-    os << "  umax: " << Map<const VectorX>(umax.data(), umax.size()).transpose().format(fmt)
+    os << "  umax: "
+       << Eigen::Map<const Eigen::Matrix<double, Eigen::Dynamic, 1>>(umax.data(), umax.size())
+            .transpose()
+            .format(fmt)
        << std::endl;
     os << "  dummy_weight: "
-       << Map<const VectorX>(dummy_weight.data(), dummy_weight.size()).transpose().format(fmt)
+       << Eigen::Map<const Eigen::Matrix<double, Eigen::Dynamic, 1>>(
+            dummy_weight.data(), dummy_weight.size())
+            .transpose()
+            .format(fmt)
        << std::endl;
   }
 
@@ -324,8 +354,9 @@ public:
   ///
   template <typename VectorType1, typename VectorType2, typename VectorType3>
   void eval_f(
-    const double t, const MatrixBase<VectorType1> & x, const MatrixBase<VectorType2> & u,
-    const MatrixBase<VectorType3> & dx, const int i = 0) const
+    const double t, const Eigen::MatrixBase<VectorType1> & x,
+    const Eigen::MatrixBase<VectorType2> & u, const Eigen::MatrixBase<VectorType3> & dx,
+    const int i = 0) const
   {
     if (x.size() != nx) {
       throw std::invalid_argument("[OCP]: x.size() must be " + std::to_string(nx));
@@ -355,7 +386,8 @@ public:
   ///
   template <typename VectorType1, typename VectorType2>
   void eval_phix(
-    const double t, const MatrixBase<VectorType1> & x, const MatrixBase<VectorType2> & phix) const
+    const double t, const Eigen::MatrixBase<VectorType1> & x,
+    const Eigen::MatrixBase<VectorType2> & phix) const
   {
     if (x.size() != nx) {
       throw std::invalid_argument("[OCP]: x.size() must be " + std::to_string(nx));
@@ -378,8 +410,9 @@ public:
   ///
   template <typename VectorType1, typename VectorType2, typename VectorType3, typename VectorType4>
   void eval_hx(
-    const double t, const MatrixBase<VectorType1> & x, const MatrixBase<VectorType2> & uc,
-    const MatrixBase<VectorType3> & lmd, const MatrixBase<VectorType4> & hx, const int i = 0) const
+    const double t, const Eigen::MatrixBase<VectorType1> & x,
+    const Eigen::MatrixBase<VectorType2> & uc, const Eigen::MatrixBase<VectorType3> & lmd,
+    const Eigen::MatrixBase<VectorType4> & hx, const int i = 0) const
   {
     if (x.size() != nx) {
       throw std::invalid_argument("[OCP]: x.size() must be " + std::to_string(nx));
@@ -416,8 +449,9 @@ public:
   ///
   template <typename VectorType1, typename VectorType2, typename VectorType3, typename VectorType4>
   void eval_hu(
-    const double t, const MatrixBase<VectorType1> & x, const MatrixBase<VectorType2> & uc,
-    const MatrixBase<VectorType3> & lmd, const MatrixBase<VectorType4> & hu) const
+    const double t, const Eigen::MatrixBase<VectorType1> & x,
+    const Eigen::MatrixBase<VectorType2> & uc, const Eigen::MatrixBase<VectorType3> & lmd,
+    const Eigen::MatrixBase<VectorType4> & hu) const
   {
     if (x.size() != nx) {
       throw std::invalid_argument("[OCP]: x.size() must be " + std::to_string(nx));

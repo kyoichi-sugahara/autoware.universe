@@ -66,7 +66,7 @@ bool QPSolverCGMRES::solveCGMRES(
   Eigen::VectorXd & opt_error_array, const bool warm_start)
 {
   // Define the initial time and initial state.
-  cgmres::Vector<3> x;
+  Eigen::Matrix<double, 3, 1> x;
   x << x0(0), x0(1), x0(2);
 
   // ocp_.disp(std::cerr);
@@ -83,7 +83,7 @@ bool QPSolverCGMRES::solveCGMRES(
     mpc_.update(time_since_initialized, x);
   } else {
     // Initialize the solution of the C/GMRES method.
-    cgmres::Vector<1> uc0 = cgmres::Vector<1>::Zero();
+    Eigen::Matrix<double, 1, 1> uc0 = Eigen::Matrix<double, 1, 1>::Zero();
     initializer_.set_uc(uc0);
     initializer_.solve(time_since_initialized, x);
     mpc_.synchronize_ocp();
