@@ -345,7 +345,7 @@ private:
    * @param prediction_dt The prediction time step.
    * @param f The f matrix to modify.
    */
-  void addSteerWeightF(const double prediction_dt, MatrixXd & f) const;
+  void addSteerWeightF(const double prediction_dt, VectorXd & f) const;
 
   /**
    * @brief Calculate the desired steering rate for the steering_rate command.
