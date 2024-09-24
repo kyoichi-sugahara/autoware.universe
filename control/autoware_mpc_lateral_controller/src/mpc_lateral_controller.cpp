@@ -118,7 +118,6 @@ MpcLateralController::MpcLateralController(
   m_horizon_alpha = node.declare_parameter<double>("horizon_alpha", 0.0);
 
   /* QP solver setup */
-  m_mpc->setVehicleModel(vehicle_model_ptr);
   auto qpsolver_ptr = createQPSolverInterface(node);
   m_mpc->setQPSolver(qpsolver_ptr);
 
