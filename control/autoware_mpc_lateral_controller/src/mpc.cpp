@@ -20,6 +20,10 @@
 #include "autoware/universe_utils/math/unit_conversion.hpp"
 #include "rclcpp/rclcpp.hpp"
 
+#include <Eigen/Core>
+#include <Eigen/Dense>
+#include <Eigen/Sparse>
+
 #include <algorithm>
 #include <chrono>
 #include <iomanip>
@@ -782,14 +786,11 @@ std::pair<bool, VectorXd> MPC::executeOptimization(
   const int DIM_U_N = m_param.prediction_horizon * m_vehicle_model_ptr->getDimU();
 
   // cost function: 1/2 * Uex' * H * Uex + f' * Uex,  H = B' * C' * Q * C * B + R
-  const MatrixXd CB = m.Cex * m.Bex;
-  const MatrixXd QCB = m.Qex * CB;
-  // MatrixXd H = CB.transpose() * QCB + m.R1ex + m.R2ex; // This calculation is heavy. looking
-  // for a good way.  //NOLINT
-  MatrixXd H = MatrixXd::Zero(DIM_U_N, DIM_U_N);
-  H.triangularView<Eigen::Upper>() = CB.transpose() * QCB;
-  H.triangularView<Eigen::Upper>() += m.R1ex + m.R2ex;
-  H.triangularView<Eigen::Lower>() = H.transpose();
+  Eigen::SparseMatrix<double> CB = m.Cex.sparseView().eval() * m.Bex.sparseView().eval();
+  Eigen::SparseMatrix<double> QCB = m.Qex.sparseView().eval() * CB;
+
+  Eigen::SparseMatrix<double> H(DIM_U_N, DIM_U_N);
+  H = CB.transpose() * QCB + m.R1ex.sparseView().eval() + m.R2ex.sparseView().eval();
   MatrixXd f = (m.Cex * (m.Aex * x0 + m.Wex)).transpose() * QCB - m.Uref_ex.transpose() * m.R1ex;
   addSteerWeightF(prediction_dt, f);
 
