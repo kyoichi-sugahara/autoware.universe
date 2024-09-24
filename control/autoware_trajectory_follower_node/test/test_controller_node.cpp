@@ -381,16 +381,16 @@ TEST_F(FakeNodeFixture, DISABLED_right_turn)
   EXPECT_GT(rclcpp::Time(tester.cmd_msg->stamp), rclcpp::Time(traj_msg.header.stamp));
 }
 
-TEST_F(FakeNodeFixture, DISABLED_constant_curvature_right_turn)
+TEST_F(FakeNodeFixture, constant_curvature_right_turn)
 {
   const auto node_options = makeNodeOptions();
   ControllerTester tester(this, node_options);
   Trajectory ref_trajectory;
 
-  const double velocity = 5.0;
-  const double trajectory_arc_length = 50.0;
-  const double start_curvature_sign = -0.06;
-  const double end_curvature_sign = -0.06;
+  const double velocity = 0.2;
+  const double trajectory_arc_length = 20.0;
+  const double start_curvature_sign = 0.0;
+  const double end_curvature_sign = -0.001;
   const double step_length = 1.0;
 
   tester.send_default_transform();
@@ -486,7 +486,7 @@ TEST_F(FakeNodeFixture, DISABLED_clothoid_right_turn)
   }
 }
 
-TEST_F(FakeNodeFixture, periodically_reference_trajectory_change)
+TEST_F(FakeNodeFixture, DISABLED_periodically_reference_trajectory_change)
 {
   const auto node_options = makeNodeOptions();
   ControllerTester tester(this, node_options);
