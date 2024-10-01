@@ -60,9 +60,6 @@ TurnIndicatorsCommand TurnSignalDecider::getTurnSignal(
 
   // Guard
   if (path.points.empty()) {
-    std::cerr
-      << "Debug: path.points is empty. Returning original turn_signal_info.turn_signal.command: "
-      << turn_signal_info.turn_signal.command << std::endl;
     return turn_signal_info.turn_signal;
   }
 
@@ -75,9 +72,6 @@ TurnIndicatorsCommand TurnSignalDecider::getTurnSignal(
     utils::calcLaneAroundPose(route_handler, current_pose, forward_length, backward_length);
 
   if (current_lanes.empty()) {
-    std::cerr
-      << "Debug: current_lanes is empty. Returning original turn_signal_info.turn_signal.command: "
-      << turn_signal_info.turn_signal.command << std::endl;
     return turn_signal_info.turn_signal;
   }
 
@@ -85,9 +79,6 @@ TurnIndicatorsCommand TurnSignalDecider::getTurnSignal(
     *route_handler, current_lanes, current_pose, backward_length, forward_length, parameters);
 
   if (extended_path.points.empty()) {
-    std::cerr << "Debug: extended_path.points is empty. Returning original "
-                 "turn_signal_info.turn_signal.command: "
-              << turn_signal_info.turn_signal.command << std::endl;
     return turn_signal_info.turn_signal;
   }
 
@@ -106,41 +97,30 @@ TurnIndicatorsCommand TurnSignalDecider::getTurnSignal(
   }
 
   if (!intersection_turn_signal_info) {
-    std::cerr << "Debug: No intersection_turn_signal_info" << std::endl;
     initialize_intersection_info();
     const auto & desired_end_point = turn_signal_info.desired_end_point;
     const double dist_to_end_point = calc_distance(
       extended_path, current_pose, ego_seg_idx, desired_end_point, nearest_dist_threshold,
       nearest_yaw_threshold);
     if (dist_to_end_point < 0.0) {
-      std::cerr << "Debug: dist_to_end_point < 0.0. Returning NO_COMMAND" << std::endl;
       TurnIndicatorsCommand updated_turn_signal;
       updated_turn_signal.stamp = turn_signal_info.turn_signal.stamp;
       updated_turn_signal.command = TurnIndicatorsCommand::NO_COMMAND;
       return updated_turn_signal;
     }
-    std::cerr << "Debug: Returning original turn_signal_info.turn_signal.command: "
-              << turn_signal_info.turn_signal.command << std::endl;
     return turn_signal_info.turn_signal;
   } else if (
     turn_signal_info.turn_signal.command == TurnIndicatorsCommand::NO_COMMAND ||
     turn_signal_info.turn_signal.command == TurnIndicatorsCommand::DISABLE) {
-    std::cerr << "Debug: Original command is NO_COMMAND or DISABLE. "
-              << "Returning intersection_turn_signal_info->turn_signal.command: "
-              << intersection_turn_signal_info->turn_signal.command << std::endl;
     set_intersection_info(
       extended_path, current_pose, ego_seg_idx, *intersection_turn_signal_info,
       nearest_dist_threshold, nearest_yaw_threshold);
     return intersection_turn_signal_info->turn_signal;
   }
 
-  std::cerr << "Debug: Resolving turn signal. Original command: "
-            << turn_signal_info.turn_signal.command << std::endl;
-  auto resolved_turn_signal = resolve_turn_signal(
+  return resolve_turn_signal(
     extended_path, current_pose, ego_seg_idx, *intersection_turn_signal_info, turn_signal_info,
     nearest_dist_threshold, nearest_yaw_threshold);
-  std::cerr << "Debug: Resolved turn_signal.command: " << resolved_turn_signal.command << std::endl;
-  return resolved_turn_signal;
 }
 
 std::pair<bool, bool> TurnSignalDecider::getIntersectionTurnSignalFlag()
@@ -158,9 +138,6 @@ std::optional<TurnSignalInfo> TurnSignalDecider::getIntersectionTurnSignalInfo(
   const size_t current_seg_idx, const RouteHandler & route_handler,
   const double nearest_dist_threshold, const double nearest_yaw_threshold)
 {
-  std::cerr << "Debug: Entering getIntersectionTurnSignalInfo function" << std::endl;
-  std::cerr << "Debug: Current velocity: " << current_vel << std::endl;
-
   const auto requires_turn_signal =
     [&](const auto & lane_attribute, const bool in_right_or_left_lane) {
       constexpr double stop_velocity_threshold = 0.1;
@@ -169,10 +146,8 @@ std::optional<TurnSignalInfo> TurnSignalDecider::getIntersectionTurnSignalInfo(
         (lane_attribute == "straight" && current_vel < stop_velocity_threshold &&
          !in_right_or_left_lane));
     };
-
   const double base_search_distance =
     intersection_search_time_ * current_vel + intersection_search_distance_;
-  std::cerr << "Debug: Base search distance: " << base_search_distance << std::endl;
 
   // unique lane ids
   std::vector<lanelet::Id> unique_lane_ids;
@@ -186,7 +161,6 @@ std::optional<TurnSignalInfo> TurnSignalDecider::getIntersectionTurnSignalInfo(
     }
   }
 
-  std::cerr << "Debug: Number of unique lane IDs: " << unique_lane_ids.size() << std::endl;
   bool current_pose_in_right_or_left_lane = false;
   {
     for (const auto & lane_id : unique_lane_ids) {
@@ -199,8 +173,6 @@ std::optional<TurnSignalInfo> TurnSignalDecider::getIntersectionTurnSignalInfo(
       }
     }
   }
-  std::cerr << "Debug: Current pose in right or left lane: " << current_pose_in_right_or_left_lane
-            << std::endl;
 
   // combine consecutive lanes of the same turn direction
   // stores lanes that have already been combine
@@ -235,25 +207,21 @@ std::optional<TurnSignalInfo> TurnSignalDecider::getIntersectionTurnSignalInfo(
     }
   }
 
-  std::cerr << "Debug: Number of combined lanes: " << combined_and_front_vec.size() << std::endl;
-
   std::queue<TurnSignalInfo> signal_queue;
   for (const auto & combined_and_front : combined_and_front_vec) {
+    // use combined_lane's centerline
     const auto & combined_lane = combined_and_front.first;
     if (combined_lane.centerline3d().size() < 2) {
-      std::cerr << "Debug: Skipping lane with insufficient centerline points" << std::endl;
       continue;
     }
 
+    // use front lane's id, attribute, and search distance as a representative
     const auto & front_lane = combined_and_front.second;
     const auto lane_id = front_lane.id();
     const double search_distance =
       front_lane.attributeOr("turn_signal_distance", base_search_distance);
     const std::string lane_attribute =
       front_lane.attributeOr("turn_direction", std::string("none"));
-
-    std::cerr << "Debug: Processing lane ID: " << lane_id << ", Attribute: " << lane_attribute
-              << ", Search distance: " << search_distance << std::endl;
 
     // lane front and back pose
     Pose lane_front_pose;
@@ -289,26 +257,22 @@ std::optional<TurnSignalInfo> TurnSignalDecider::getIntersectionTurnSignalInfo(
                                          path.points, current_pose.position, current_seg_idx,
                                          lane_front_pose.position, front_nearest_seg_idx) -
                                        base_link2front_;
+
+    // Distance from ego vehicle base link to the terminal point of the lane
     const double dist_to_back_point = autoware::motion_utils::calcSignedArcLength(
       path.points, current_pose.position, current_seg_idx, lane_back_pose.position,
       back_nearest_seg_idx);
 
-    std::cerr << "Debug: Distance to front point: " << dist_to_front_point
-              << ", Distance to back point: " << dist_to_back_point << std::endl;
-
     if (dist_to_back_point < 0.0) {
-      std::cerr << "Debug: Vehicle has already passed this lane" << std::endl;
+      // Vehicle is already passed this lane
       desired_start_point_map_.erase(lane_id);
       continue;
     } else if (search_distance <= dist_to_front_point) {
-      std::cerr << "Debug: Lane is beyond search distance" << std::endl;
       continue;
     }
-
     if (requires_turn_signal(lane_attribute, current_pose_in_right_or_left_lane)) {
       // update map if necessary
       if (desired_start_point_map_.find(lane_id) == desired_start_point_map_.end()) {
-        std::cerr << "Debug: Updating desired start point for lane ID: " << lane_id << std::endl;
         desired_start_point_map_.emplace(lane_id, current_pose);
       }
 
@@ -319,18 +283,12 @@ std::optional<TurnSignalInfo> TurnSignalDecider::getIntersectionTurnSignalInfo(
       turn_signal_info.desired_end_point = lane_back_pose;
       turn_signal_info.turn_signal.command = g_signal_map.at(lane_attribute);
       signal_queue.push(turn_signal_info);
-
-      std::cerr << "Debug: Added turn signal info for lane ID: " << lane_id
-                << ", Command: " << turn_signal_info.turn_signal.command << std::endl;
     }
   }
-
-  std::cerr << "Debug: Number of turn signal infos in queue: " << signal_queue.size() << std::endl;
 
   // Resolve the conflict between several turn signal requirements
   while (!signal_queue.empty()) {
     if (signal_queue.size() == 1) {
-      std::cerr << "Debug: Returning single turn signal info" << std::endl;
       return signal_queue.front();
     }
 
@@ -343,18 +301,14 @@ std::optional<TurnSignalInfo> TurnSignalDecider::getIntersectionTurnSignalInfo(
       path.points, current_pose.position, current_seg_idx, required_end_point.position,
       nearest_seg_idx);
 
-    std::cerr << "Debug: Distance to end point: " << dist_to_end_point << std::endl;
-
     if (dist_to_end_point >= 0.0) {
-      std::cerr << "Debug: Returning current mandatory turn signal" << std::endl;
+      // we haven't finished the current mandatory turn signal
       return turn_signal_info;
     }
 
-    std::cerr << "Debug: Popping turn signal info from queue" << std::endl;
     signal_queue.pop();
   }
 
-  std::cerr << "Debug: No valid turn signal info found, returning empty optional" << std::endl;
   return {};
 }
 
@@ -391,27 +345,16 @@ TurnIndicatorsCommand TurnSignalDecider::resolve_turn_signal(
     get_distance(behavior_required_start_point) - base_link2front_;
   const double dist_to_behavior_required_end = get_distance(behavior_required_end_point);
 
-  std::cerr << "Debug: Distances calculated:" << std::endl
-            << "  intersection_desired_start: " << dist_to_intersection_desired_start << std::endl
-            << "  intersection_desired_end: " << dist_to_intersection_desired_end << std::endl
-            << "  behavior_desired_start: " << dist_to_behavior_desired_start << std::endl
-            << "  behavior_desired_end: " << dist_to_behavior_desired_end << std::endl;
-
   // If we still do not reach the desired front point we ignore it
   if (dist_to_intersection_desired_start > 0.0 && dist_to_behavior_desired_start > 0.0) {
-    std::cerr << "Debug: Both desired start points not reached. Returning DISABLE" << std::endl;
     TurnIndicatorsCommand empty_signal_command;
     empty_signal_command.command = TurnIndicatorsCommand::DISABLE;
     initialize_intersection_info();
     return empty_signal_command;
   } else if (dist_to_intersection_desired_start > 0.0) {
-    std::cerr << "Debug: Intersection desired start not reached. Returning behavior signal: "
-              << behavior_signal_info.turn_signal.command << std::endl;
     initialize_intersection_info();
     return behavior_signal_info.turn_signal;
   } else if (dist_to_behavior_desired_start > 0.0) {
-    std::cerr << "Debug: Behavior desired start not reached. Returning intersection signal: "
-              << intersection_signal_info.turn_signal.command << std::endl;
     set_intersection_info(
       path, current_pose, current_seg_idx, intersection_signal_info, nearest_dist_threshold,
       nearest_yaw_threshold);
@@ -420,19 +363,14 @@ TurnIndicatorsCommand TurnSignalDecider::resolve_turn_signal(
 
   // If we already passed the desired end point, return the other signal
   if (dist_to_intersection_desired_end < 0.0 && dist_to_behavior_desired_end < 0.0) {
-    std::cerr << "Debug: Both desired end points passed. Returning DISABLE" << std::endl;
     TurnIndicatorsCommand empty_signal_command;
     empty_signal_command.command = TurnIndicatorsCommand::DISABLE;
     initialize_intersection_info();
     return empty_signal_command;
   } else if (dist_to_intersection_desired_end < 0.0) {
-    std::cerr << "Debug: Intersection desired end passed. Returning behavior signal: "
-              << behavior_signal_info.turn_signal.command << std::endl;
     initialize_intersection_info();
     return behavior_signal_info.turn_signal;
   } else if (dist_to_behavior_desired_end < 0.0) {
-    std::cerr << "Debug: Behavior desired end passed. Returning intersection signal: "
-              << intersection_signal_info.turn_signal.command << std::endl;
     set_intersection_info(
       path, current_pose, current_seg_idx, intersection_signal_info, nearest_dist_threshold,
       nearest_yaw_threshold);
@@ -440,39 +378,29 @@ TurnIndicatorsCommand TurnSignalDecider::resolve_turn_signal(
   }
 
   if (dist_to_intersection_desired_start <= dist_to_behavior_desired_start) {
-    std::cerr << "Debug: Intersection signal is prior to behavior signal" << std::endl;
     // intersection signal is prior than behavior signal
     const auto enable_prior = use_prior_turn_signal(
       dist_to_intersection_required_start, dist_to_intersection_required_end,
       dist_to_behavior_required_start, dist_to_behavior_required_end);
 
     if (enable_prior) {
-      std::cerr << "Debug: Using prior turn signal. Returning intersection signal: "
-                << intersection_signal_info.turn_signal.command << std::endl;
       set_intersection_info(
         path, current_pose, current_seg_idx, intersection_signal_info, nearest_dist_threshold,
         nearest_yaw_threshold);
       return intersection_signal_info.turn_signal;
     }
-    std::cerr << "Debug: Not using prior turn signal. Returning behavior signal: "
-              << behavior_signal_info.turn_signal.command << std::endl;
     initialize_intersection_info();
     return behavior_signal_info.turn_signal;
   }
 
-  std::cerr << "Debug: Behavior signal is prior to intersection signal" << std::endl;
   // behavior signal is prior than intersection signal
   const auto enable_prior = use_prior_turn_signal(
     dist_to_behavior_required_start, dist_to_behavior_required_end,
     dist_to_intersection_required_start, dist_to_intersection_required_end);
   if (enable_prior) {
-    std::cerr << "Debug: Using prior turn signal. Returning behavior signal: "
-              << behavior_signal_info.turn_signal.command << std::endl;
     initialize_intersection_info();
     return behavior_signal_info.turn_signal;
   }
-  std::cerr << "Debug: Not using prior turn signal. Returning intersection signal: "
-            << intersection_signal_info.turn_signal.command << std::endl;
   set_intersection_info(
     path, current_pose, current_seg_idx, intersection_signal_info, nearest_dist_threshold,
     nearest_yaw_threshold);
@@ -741,10 +669,6 @@ std::pair<TurnSignalInfo, bool> TurnSignalDecider::getBehaviorTurnSignalInfo(
   const bool override_ego_stopped_check, const bool is_pull_out, const bool is_lane_change,
   const bool is_pull_over) const
 {
-  std::cerr << "Debug: Entering getBehaviorTurnSignalInfo function" << std::endl;
-  std::cerr << "Debug: is_driving_forward: " << (is_driving_forward ? "true" : "false")
-            << std::endl;
-
   using autoware::universe_utils::getPose;
 
   const auto & p = parameters;
@@ -752,10 +676,7 @@ std::pair<TurnSignalInfo, bool> TurnSignalDecider::getBehaviorTurnSignalInfo(
   const auto & ego_pose = self_odometry->pose.pose;
   const auto & ego_speed = self_odometry->twist.twist.linear.x;
 
-  std::cerr << "Debug: ego_speed: " << ego_speed << std::endl;
-
   if (!is_driving_forward) {
-    std::cerr << "Debug: Not driving forward, returning hazard signal" << std::endl;
     TurnSignalInfo turn_signal_info{};
     turn_signal_info.hazard_signal.command = HazardLightsCommand::ENABLE;
     const auto back_start_pose = rh->getOriginalStartPose();
@@ -763,6 +684,7 @@ std::pair<TurnSignalInfo, bool> TurnSignalDecider::getBehaviorTurnSignalInfo(
 
     turn_signal_info.desired_start_point = back_start_pose;
     turn_signal_info.required_start_point = back_start_pose;
+    // pull_out start_pose is same to backward driving end_pose
     turn_signal_info.required_end_point = start_pose;
     turn_signal_info.desired_end_point = start_pose;
     return std::make_pair(turn_signal_info, false);
@@ -792,6 +714,7 @@ std::pair<TurnSignalInfo, bool> TurnSignalDecider::getBehaviorTurnSignalInfo(
     std::invoke([&path, &shift_line, &egos_lane_is_shifted]() -> std::pair<double, double> {
       const auto temp_start_shift_length = path.shift_length.at(shift_line.start_idx);
       const auto temp_end_shift_length = path.shift_length.at(shift_line.end_idx);
+      // Shift is done using the target lane and not current ego's lane
       if (!egos_lane_is_shifted) {
         return std::make_pair(temp_end_shift_length, -temp_start_shift_length);
       }
@@ -800,22 +723,18 @@ std::pair<TurnSignalInfo, bool> TurnSignalDecider::getBehaviorTurnSignalInfo(
 
   const auto relative_shift_length = end_shift_length - start_shift_length;
 
-  std::cerr << "Debug: start_shift_length: " << start_shift_length
-            << ", end_shift_length: " << end_shift_length << std::endl;
-  std::cerr << "Debug: relative_shift_length: " << relative_shift_length << std::endl;
-
   const auto p_path_start = getPose(path.path.points.front());
   const auto p_path_end = getPose(path.path.points.back());
 
+  // If shift length is shorter than the threshold, it does not need to turn on blinkers
   if (std::fabs(relative_shift_length) < p.turn_signal_shift_length_threshold) {
-    std::cerr << "Debug: Shift length shorter than threshold, no turn signal needed" << std::endl;
     return std::make_pair(TurnSignalInfo(p_path_start, p_path_end), true);
   }
 
+  // If the vehicle does not shift anymore, we turn off the blinker
   if (
     std::fabs(end_shift_length - current_shift_length) <
     p.turn_signal_remaining_shift_length_threshold) {
-    std::cerr << "Debug: Vehicle not shifting anymore, turning off blinker" << std::endl;
     return std::make_pair(TurnSignalInfo(p_path_start, p_path_end), true);
   }
 
@@ -830,11 +749,7 @@ std::pair<TurnSignalInfo, bool> TurnSignalDecider::getBehaviorTurnSignalInfo(
     calcSignedArcLength(path.path.points, ego_pose.position, shift_line.start_idx) -
     p.vehicle_info.max_longitudinal_offset_m;
 
-  std::cerr << "Debug: signal_prepare_distance: " << signal_prepare_distance
-            << ", ego_front_to_shift_start: " << ego_front_to_shift_start << std::endl;
-
   if (signal_prepare_distance < ego_front_to_shift_start) {
-    std::cerr << "Debug: Not yet time to prepare signal" << std::endl;
     return std::make_pair(TurnSignalInfo(p_path_start, p_path_end), false);
   }
 
@@ -851,17 +766,13 @@ std::pair<TurnSignalInfo, bool> TurnSignalDecider::getBehaviorTurnSignalInfo(
   turn_signal_info.required_end_point = blinker_end_pose;
   turn_signal_info.turn_signal.command = get_command(relative_shift_length);
 
-  std::cerr << "Debug: Turn signal command: " << turn_signal_info.turn_signal.command << std::endl;
-
   if (!p.turn_signal_on_swerving) {
-    std::cerr << "Debug: Turn signal on swerving is disabled" << std::endl;
     return std::make_pair(TurnSignalInfo(p_path_start, p_path_end), false);
   }
 
   lanelet::ConstLanelet lanelet;
   const auto query_pose = (egos_lane_is_shifted) ? shift_line.end : shift_line.start;
   if (!rh->getClosestLaneletWithinRoute(query_pose, &lanelet)) {
-    std::cerr << "Debug: Could not get closest lanelet within route" << std::endl;
     return std::make_pair(TurnSignalInfo(p_path_start, p_path_end), true);
   }
 
@@ -878,28 +789,27 @@ std::pair<TurnSignalInfo, bool> TurnSignalDecider::getBehaviorTurnSignalInfo(
     !existShiftSideLane(
       start_shift_length, end_shift_length, !has_left_lane, !has_right_lane,
       p.turn_signal_shift_length_threshold)) {
-    std::cerr << "Debug: No shift side lane exists" << std::endl;
     return std::make_pair(TurnSignalInfo(p_path_start, p_path_end), true);
   }
 
+  // Check if the ego will cross lane bounds.
+  // Note that pull out requires blinkers, even if the ego does not cross lane bounds
   if (
     (!is_pull_out && !is_pull_over) &&
     !straddleRoadBound(path, shift_line, current_lanelets, p.vehicle_info)) {
-    std::cerr << "Debug: Vehicle does not straddle road bound" << std::endl;
     return std::make_pair(TurnSignalInfo(p_path_start, p_path_end), true);
   }
 
+  // If the ego has stopped and its close to completing its shift, turn off the blinkers
   constexpr double STOPPED_THRESHOLD = 0.1;  // [m/s]
   if (ego_speed < STOPPED_THRESHOLD && !override_ego_stopped_check) {
     if (isNearEndOfShift(
           start_shift_length, end_shift_length, ego_pose.position, current_lanelets,
           p.turn_signal_shift_length_threshold)) {
-      std::cerr << "Debug: Vehicle is stopped and near end of shift" << std::endl;
       return std::make_pair(TurnSignalInfo(p_path_start, p_path_end), true);
     }
   }
 
-  std::cerr << "Debug: Returning turn signal info" << std::endl;
   return std::make_pair(turn_signal_info, false);
 }
 
