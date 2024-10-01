@@ -138,14 +138,15 @@ std::optional<TurnSignalInfo> TurnSignalDecider::getIntersectionTurnSignalInfo(
   const size_t current_seg_idx, const RouteHandler & route_handler,
   const double nearest_dist_threshold, const double nearest_yaw_threshold)
 {
-  const auto requires_turn_signal =
-    [&](const auto & lane_attribute, const bool in_right_or_left_lane) {
-      constexpr double stop_velocity_threshold = 0.1;
-      return (
-        lane_attribute == "right" || lane_attribute == "left" ||
-        (lane_attribute == "straight" && current_vel < stop_velocity_threshold &&
-         !in_right_or_left_lane));
-    };
+  const auto requires_turn_signal = [&](
+                                      const std::string & turn_direction,
+                                      const bool is_in_turn_lane) {
+    constexpr double stop_velocity_threshold = 0.1;
+    return (
+      turn_direction == "right" || turn_direction == "left" ||
+      (turn_direction == "straight" && current_vel < stop_velocity_threshold && !is_in_turn_lane));
+  };
+
   const double base_search_distance =
     intersection_search_time_ * current_vel + intersection_search_distance_;
 
@@ -161,19 +162,19 @@ std::optional<TurnSignalInfo> TurnSignalDecider::getIntersectionTurnSignalInfo(
     }
   }
 
-  bool current_pose_in_right_or_left_lane = false;
-  {
-    for (const auto & lane_id : unique_lane_ids) {
-      const auto lanelet = route_handler.getLaneletsFromId(lane_id);
-      const std::string lane_attribute = lanelet.attributeOr("turn_direction", "none");
-      if (lane_attribute == "left" || lane_attribute == "right") {
-        const auto & traj_pos = current_pose.position;
-        const lanelet::BasicPoint2d point(traj_pos.x, traj_pos.y);
-        current_pose_in_right_or_left_lane = lanelet::geometry::inside(lanelet, point);
+  bool is_in_turn_lane = false;
+  for (const auto & lane_id : unique_lane_ids) {
+    const auto lanelet = route_handler.getLaneletsFromId(lane_id);
+    const std::string turn_direction = lanelet.attributeOr("turn_direction", "none");
+    if (turn_direction == "left" || turn_direction == "right") {
+      const auto & position = current_pose.position;
+      const lanelet::BasicPoint2d point(position.x, position.y);
+      if (lanelet::geometry::inside(lanelet, point)) {
+        is_in_turn_lane = true;
+        break;
       }
     }
   }
-
   // combine consecutive lanes of the same turn direction
   // stores lanes that have already been combine
   std::set<int> processed_lanes;
@@ -189,7 +190,7 @@ std::optional<TurnSignalInfo> TurnSignalDecider::getIntersectionTurnSignalInfo(
     // Get the lane and its attribute
     const std::string lane_attribute =
       current_lane.attributeOr("turn_direction", std::string("none"));
-    if (!requires_turn_signal(lane_attribute, current_pose_in_right_or_left_lane)) continue;
+    if (!requires_turn_signal(lane_attribute, is_in_turn_lane)) continue;
 
     do {
       processed_lanes.insert(current_lane.id());
@@ -270,7 +271,7 @@ std::optional<TurnSignalInfo> TurnSignalDecider::getIntersectionTurnSignalInfo(
     } else if (search_distance <= dist_to_front_point) {
       continue;
     }
-    if (requires_turn_signal(lane_attribute, current_pose_in_right_or_left_lane)) {
+    if (requires_turn_signal(lane_attribute, is_in_turn_lane)) {
       // update map if necessary
       if (desired_start_point_map_.find(lane_id) == desired_start_point_map_.end()) {
         desired_start_point_map_.emplace(lane_id, current_pose);
