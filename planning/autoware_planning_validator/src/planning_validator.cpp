@@ -15,6 +15,7 @@
 #include "autoware/planning_validator/planning_validator.hpp"
 
 #include "autoware/planning_validator/utils.hpp"
+#include "autoware/universe_utils/geometry/boost_polygon_utils.hpp"
 
 #include <autoware/motion_utils/trajectory/trajectory.hpp>
 #include <autoware/universe_utils/geometry/geometry.hpp>
@@ -181,6 +182,9 @@ bool PlanningValidator::isDataReady()
   if (!current_kinematics_) {
     return waiting("current_kinematics_");
   }
+  if (!current_objects_) {
+    return waiting("current_objects_");
+  }
   if (!current_trajectory_) {
     return waiting("current_trajectory_");
   }
@@ -195,6 +199,7 @@ void PlanningValidator::onTrajectory(const Trajectory::ConstSharedPtr msg)
 
   // receive data
   current_kinematics_ = sub_kinematics_.takeData();
+  current_objects_ = sub_obj_.takeData();
 
   if (!isDataReady()) return;
 
@@ -320,6 +325,7 @@ void PlanningValidator::validate(const Trajectory & trajectory)
   s.is_valid_lateral_acc = checkValidLateralAcceleration(resampled);
   s.is_valid_steering = checkValidSteering(resampled);
   s.is_valid_steering_rate = checkValidSteeringRate(resampled);
+  s.is_valid_no_collision = checkValidNoCollision(resampled);
 
   s.invalid_count = isAllValid(s) ? 0 : s.invalid_count + 1;
 }
@@ -543,6 +549,121 @@ bool PlanningValidator::checkValidForwardTrajectoryLength(const Trajectory & tra
   validation_status_.forward_trajectory_length_measured = forward_length;
 
   return forward_length > forward_length_required;
+}
+
+bool PlanningValidator::checkValidNoCollision(const Trajectory & trajectory)
+{
+  return is_collision = checkCollision(*current_objects_, trajectory, vehicle_info_);
+}
+
+bool checkCollision(
+  const autoware_auto_perception_msgs::msg::PredictedObjects & predicted_objects,
+  const autoware_planning_msgs::msg::Trajectory & trajectory,
+  const autoware_vehicle_msgs::msg::VehicleInfo & vehicle_info)
+{
+  // 最も高いconfidenceを持つPredictedPathを探します
+  const autoware_auto_perception_msgs::msg::PredictedPath * highest_confidence_path = nullptr;
+  float max_confidence = -1.0f;
+  const autoware_auto_perception_msgs::msg::Shape * object_shape = nullptr;
+
+  for (const auto & object : predicted_objects.objects) {
+    for (const auto & path : object.kinematics.predicted_paths) {
+      if (path.confidence > max_confidence) {
+        max_confidence = path.confidence;
+        highest_confidence_path = &path;
+        object_shape = &object.shape;
+      }
+    }
+  }
+
+  // PredictedPathが存在しない場合は衝突なしと判定
+  if (!highest_confidence_path || !object_shape) {
+    return false;
+  }
+
+  std::vector<Polygon2d> vehicle_footprints;
+  for (const auto & point : trajectory.points) {
+    Polygon2d footprint = createVehicleFootprintPolygon(point.pose, vehicle_info);
+    vehicle_footprints.push_back(footprint);
+  }
+
+  // 予測物体のポリゴンを生成します
+  // PredictedPathの各ポーズに対してポリゴンを生成
+  std::vector<Polygon2d> object_polygons;
+  double predicted_time = 0.0;
+  double time_step =
+    highest_confidence_path->time_step.sec + highest_confidence_path->time_step.nanosec * 1e-9;
+
+  for (size_t i = 0; i < highest_confidence_path->path.size(); ++i) {
+    const auto & pose = highest_confidence_path->path[i];
+    Polygon2d object_polygon = autoware::universe_utils::toPolygon2d(pose, *object_shape);
+    object_polygons.push_back(object_polygon);
+    predicted_time += time_step;
+  }
+
+  // 時間を考慮して衝突判定を行います
+  // 時間の許容範囲（例として0.1秒）を設定
+  const double time_tolerance = 0.1;
+
+  // TrajectoryとPredictedPathのタイムステップを取得
+  for (size_t i = 0; i < trajectory.points.size(); ++i) {
+    const auto & traj_point = trajectory.points[i];
+    double traj_time = traj_point.time_from_start.sec + traj_point.time_from_start.nanosec * 1e-9;
+
+    // 予測物体のポリゴンとの衝突判定
+    for (size_t j = 0; j < highest_confidence_path->path.size(); ++j) {
+      double pred_time = j * time_step;
+
+      // 時間差が許容範囲内か確認
+      if (std::fabs(traj_time - pred_time) <= time_tolerance) {
+        // ポリゴン同士の衝突判定
+        if (checkPolygonsCollision(vehicle_footprints[i], object_polygons[j])) {
+          // 衝突が検出された場合
+          return true;
+        }
+      }
+    }
+  }
+
+  // 衝突が検出されなかった場合
+  return false;
+}
+Polygon2d createVehicleFootprintPolygon(
+  const geometry_msgs::msg::Pose & pose,
+  const autoware_vehicle_msgs::msg::VehicleInfo & vehicle_info)
+{
+  // 車両の寸法を取得
+  double length = vehicle_info.vehicle_length_m;
+  double width = vehicle_info.vehicle_width_m;
+  double rear_overhang = vehicle_info.rear_overhang_m;
+
+  // 車両の四隅の相対位置を計算
+  std::vector<Point2d> footprint_points;
+  footprint_points.push_back({length - rear_overhang, width / 2.0});
+  footprint_points.push_back({length - rear_overhang, -width / 2.0});
+  footprint_points.push_back({-rear_overhang, -width / 2.0});
+  footprint_points.push_back({-rear_overhang, width / 2.0});
+
+  // 車両のポーズに合わせてポイントを変換
+  Polygon2d footprint_polygon;
+  double yaw = tf2::getYaw(pose.orientation);
+  for (const auto & point : footprint_points) {
+    Point2d transformed_point;
+    transformed_point.x(pose.position.x + point.x() * std::cos(yaw) - point.y() * std::sin(yaw));
+    transformed_point.y(pose.position.y + point.x() * std::sin(yaw) + point.y() * std::cos(yaw));
+    footprint_polygon.outer().push_back(transformed_point);
+  }
+
+  // ポリゴンを閉じる
+  footprint_polygon.outer().push_back(footprint_polygon.outer().front());
+
+  return footprint_polygon;
+}
+
+bool checkPolygonsCollision(const Polygon2d & poly1, const Polygon2d & poly2)
+{
+  // Boost.Geometryを使用してポリゴン同士の衝突判定を行います
+  return boost::geometry::intersects(poly1, poly2);
 }
 
 bool PlanningValidator::isAllValid(const PlanningValidatorStatus & s) const
