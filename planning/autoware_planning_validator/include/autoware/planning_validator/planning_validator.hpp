@@ -94,7 +94,7 @@ public:
   bool checkValidNoCollision(const Trajectory & trajectory);
   bool checkCollision(
     const PredictedObjects & objects, const Trajectory & trajectory,
-    const VehicleInfo & vehicle_info);
+    const geometry_msgs::msg::Point & current_ego_point, const VehicleInfo & vehicle_info);
   Polygon2d createVehicleFootprintPolygon(
     const geometry_msgs::msg::Pose & pose, const VehicleInfo & vehicle_info);
 

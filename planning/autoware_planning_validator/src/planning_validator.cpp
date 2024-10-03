@@ -555,14 +555,19 @@ bool PlanningValidator::checkValidForwardTrajectoryLength(const Trajectory & tra
 
 bool PlanningValidator::checkValidNoCollision(const Trajectory & trajectory)
 {
-  const bool is_collision = checkCollision(*current_objects_, trajectory, vehicle_info_);
+  const bool is_collision_check_necessary = current_kinematics_->twist.twist.linear.x > 0.1;
+  if (!is_collision_check_necessary) {
+    return true;
+  }
+  const bool is_collision = checkCollision(
+    *current_objects_, trajectory, current_kinematics_->pose.pose.position, vehicle_info_);
   std::cerr << "is_collision: " << is_collision << std::endl;
   return is_collision;
 }
 
 bool PlanningValidator::checkCollision(
   const PredictedObjects & predicted_objects, const Trajectory & trajectory,
-  const VehicleInfo & vehicle_info)
+  const geometry_msgs::msg::Point & current_ego_point, const VehicleInfo & vehicle_info)
 {
   const autoware_perception_msgs::msg::PredictedPath * highest_confidence_path = nullptr;
   float max_confidence = -1.0f;
@@ -582,12 +587,6 @@ bool PlanningValidator::checkCollision(
     return false;
   }
 
-  std::vector<Polygon2d> vehicle_footprints;
-  for (const auto & point : trajectory.points) {
-    Polygon2d footprint = createVehicleFootprintPolygon(point.pose, vehicle_info);
-    vehicle_footprints.push_back(footprint);
-  }
-
   // 予測物体のポリゴンを生成します
   // PredictedPathの各ポーズに対してポリゴンを生成
   std::vector<Polygon2d> object_polygons;
@@ -602,13 +601,35 @@ bool PlanningValidator::checkCollision(
     predicted_time += time_step;
   }
 
+  std::vector<autoware_planning_msgs::msg::TrajectoryPoint> resampled_trajectory;
+  // skip points that are too close together to make computation easier
+
+  if (!trajectory.points.empty()) {
+    resampled_trajectory.push_back(trajectory.points.front());
+    constexpr auto min_interval_squared = 0.5 * 0.5;
+    for (auto i = 1UL; i < trajectory.points.size(); ++i) {
+      const auto & p = trajectory.points[i];
+      const auto dist_to_prev_point =
+        universe_utils::calcSquaredDistance2d(resampled_trajectory.back(), p);
+      if (dist_to_prev_point > min_interval_squared) {
+        resampled_trajectory.push_back(p);
+      }
+    }
+  }
+  motion_utils::calculate_time_from_start(resampled_trajectory, current_ego_point);
+
+  std::vector<Polygon2d> vehicle_footprints;
+  for (const auto & point : resampled_trajectory) {
+    Polygon2d footprint = createVehicleFootprintPolygon(point.pose, vehicle_info);
+    vehicle_footprints.push_back(footprint);
+  }
+
   // 時間を考慮して衝突判定を行います
   // 時間の許容範囲（例として0.1秒）を設定
   const double time_tolerance = 0.1;
-
   // TrajectoryとPredictedPathのタイムステップを取得
-  for (size_t i = 0; i < trajectory.points.size(); ++i) {
-    const auto & traj_point = trajectory.points[i];
+  for (size_t i = 0; i < resampled_trajectory.size(); ++i) {
+    const auto & traj_point = resampled_trajectory[i];
     double traj_time = traj_point.time_from_start.sec + traj_point.time_from_start.nanosec * 1e-9;
 
     for (size_t j = 0; j < highest_confidence_path->path.size(); ++j) {
@@ -619,6 +640,8 @@ bool PlanningValidator::checkCollision(
         // ポリゴン同士の衝突判定
         if (boost::geometry::intersects(vehicle_footprints[i], object_polygons[j])) {
           // 衝突が検出された場合
+          std::cerr << "traj_time: " << traj_time << std::endl;
+          std::cerr << "pred_time: " << pred_time << std::endl;
           return true;
         }
       }
