@@ -555,14 +555,15 @@ bool PlanningValidator::checkValidForwardTrajectoryLength(const Trajectory & tra
 
 bool PlanningValidator::checkValidNoCollision(const Trajectory & trajectory)
 {
-  return checkCollision(*current_objects_, trajectory, vehicle_info_);
+  const bool is_collision = checkCollision(*current_objects_, trajectory, vehicle_info_);
+  std::cerr << "is_collision: " << is_collision << std::endl;
+  return is_collision;
 }
 
 bool PlanningValidator::checkCollision(
   const PredictedObjects & predicted_objects, const Trajectory & trajectory,
   const VehicleInfo & vehicle_info)
 {
-  // 最も高いconfidenceを持つPredictedPathを探します
   const autoware_perception_msgs::msg::PredictedPath * highest_confidence_path = nullptr;
   float max_confidence = -1.0f;
   const autoware_perception_msgs::msg::Shape * object_shape = nullptr;
@@ -577,7 +578,6 @@ bool PlanningValidator::checkCollision(
     }
   }
 
-  // PredictedPathが存在しない場合は衝突なしと判定
   if (!highest_confidence_path || !object_shape) {
     return false;
   }
@@ -611,14 +611,13 @@ bool PlanningValidator::checkCollision(
     const auto & traj_point = trajectory.points[i];
     double traj_time = traj_point.time_from_start.sec + traj_point.time_from_start.nanosec * 1e-9;
 
-    // 予測物体のポリゴンとの衝突判定
     for (size_t j = 0; j < highest_confidence_path->path.size(); ++j) {
       double pred_time = j * time_step;
 
       // 時間差が許容範囲内か確認
       if (std::fabs(traj_time - pred_time) <= time_tolerance) {
         // ポリゴン同士の衝突判定
-        if (checkPolygonsCollision(vehicle_footprints[i], object_polygons[j])) {
+        if (boost::geometry::intersects(vehicle_footprints[i], object_polygons[j])) {
           // 衝突が検出された場合
           return true;
         }
@@ -644,7 +643,6 @@ Polygon2d PlanningValidator::createVehicleFootprintPolygon(
   footprint_points.push_back(Point2d(-rear_overhang, -width / 2.0));
   footprint_points.push_back(Point2d(-rear_overhang, width / 2.0));
 
-  // 車両のポーズに合わせてポイントを変換
   Polygon2d footprint_polygon;
   double yaw = tf2::getYaw(pose.orientation);
   for (const auto & point : footprint_points) {
@@ -654,16 +652,9 @@ Polygon2d PlanningValidator::createVehicleFootprintPolygon(
     footprint_polygon.outer().push_back(transformed_point);
   }
 
-  // ポリゴンを閉じる
   footprint_polygon.outer().push_back(footprint_polygon.outer().front());
 
   return footprint_polygon;
-}
-
-bool PlanningValidator::checkPolygonsCollision(const Polygon2d & poly1, const Polygon2d & poly2)
-{
-  // Boost.Geometryを使用してポリゴン同士の衝突判定を行います
-  return boost::geometry::intersects(poly1, poly2);
 }
 
 bool PlanningValidator::isAllValid(const PlanningValidatorStatus & s) const

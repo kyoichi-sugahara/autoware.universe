@@ -97,7 +97,6 @@ public:
     const VehicleInfo & vehicle_info);
   Polygon2d createVehicleFootprintPolygon(
     const geometry_msgs::msg::Pose & pose, const VehicleInfo & vehicle_info);
-  bool checkPolygonsCollision(const Polygon2d & poly1, const Polygon2d & poly2);
 
 private:
   void setupDiag();
