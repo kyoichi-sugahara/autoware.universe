@@ -40,6 +40,7 @@ namespace autoware::planning_validator
 {
 using autoware::universe_utils::Polygon2d;
 using autoware::universe_utils::StopWatch;
+using autoware::vehicle_info_utils::VehicleInfo;
 using autoware_perception_msgs::msg::PredictedObjects;
 using autoware_planning_msgs::msg::Trajectory;
 using autoware_planning_msgs::msg::TrajectoryPoint;
@@ -93,10 +94,9 @@ public:
   bool checkValidNoCollision(const Trajectory & trajectory);
   bool checkCollision(
     const PredictedObjects & objects, const Trajectory & trajectory,
-    const autoware::vehicle_info_utils::VehicleInfo & vehicle_info);
+    const VehicleInfo & vehicle_info);
   Polygon2d createVehicleFootprintPolygon(
-    const geometry_msgs::msg::Pose & pose,
-    const autoware::vehicle_info_utils::VehicleInfo & vehicle_info);
+    const geometry_msgs::msg::Pose & pose, const VehicleInfo & vehicle_info);
   bool checkPolygonsCollision(const Polygon2d & poly1, const Polygon2d & poly2);
 
 private:
@@ -140,7 +140,7 @@ private:
   PlanningValidatorStatus validation_status_;
   ValidationParams validation_params_;  // for thresholds
 
-  autoware::vehicle_info_utils::VehicleInfo vehicle_info_;
+  VehicleInfo vehicle_info_;
 
   bool isAllValid(const PlanningValidatorStatus & status) const;
 

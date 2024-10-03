@@ -20,6 +20,8 @@
 #include <autoware/motion_utils/trajectory/trajectory.hpp>
 #include <autoware/universe_utils/geometry/geometry.hpp>
 
+#include <boost/geometry/algorithms/intersects.hpp>
+
 #include <memory>
 #include <string>
 #include <utility>
@@ -553,18 +555,17 @@ bool PlanningValidator::checkValidForwardTrajectoryLength(const Trajectory & tra
 
 bool PlanningValidator::checkValidNoCollision(const Trajectory & trajectory)
 {
-  return is_collision = checkCollision(*current_objects_, trajectory, vehicle_info_);
+  return checkCollision(*current_objects_, trajectory, vehicle_info_);
 }
 
-bool checkCollision(
-  const autoware_auto_perception_msgs::msg::PredictedObjects & predicted_objects,
-  const autoware_planning_msgs::msg::Trajectory & trajectory,
-  const autoware_vehicle_msgs::msg::VehicleInfo & vehicle_info)
+bool PlanningValidator::checkCollision(
+  const PredictedObjects & predicted_objects, const Trajectory & trajectory,
+  const VehicleInfo & vehicle_info)
 {
   // 最も高いconfidenceを持つPredictedPathを探します
-  const autoware_auto_perception_msgs::msg::PredictedPath * highest_confidence_path = nullptr;
+  const autoware_perception_msgs::msg::PredictedPath * highest_confidence_path = nullptr;
   float max_confidence = -1.0f;
-  const autoware_auto_perception_msgs::msg::Shape * object_shape = nullptr;
+  const autoware_perception_msgs::msg::Shape * object_shape = nullptr;
 
   for (const auto & object : predicted_objects.objects) {
     for (const auto & path : object.kinematics.predicted_paths) {
@@ -628,29 +629,28 @@ bool checkCollision(
   // 衝突が検出されなかった場合
   return false;
 }
-Polygon2d createVehicleFootprintPolygon(
-  const geometry_msgs::msg::Pose & pose,
-  const autoware_vehicle_msgs::msg::VehicleInfo & vehicle_info)
+Polygon2d PlanningValidator::createVehicleFootprintPolygon(
+  const geometry_msgs::msg::Pose & pose, const VehicleInfo & vehicle_info)
 {
-  // 車両の寸法を取得
+  using autoware::universe_utils::Point2d;
   double length = vehicle_info.vehicle_length_m;
   double width = vehicle_info.vehicle_width_m;
   double rear_overhang = vehicle_info.rear_overhang_m;
 
   // 車両の四隅の相対位置を計算
   std::vector<Point2d> footprint_points;
-  footprint_points.push_back({length - rear_overhang, width / 2.0});
-  footprint_points.push_back({length - rear_overhang, -width / 2.0});
-  footprint_points.push_back({-rear_overhang, -width / 2.0});
-  footprint_points.push_back({-rear_overhang, width / 2.0});
+  footprint_points.push_back(Point2d(length - rear_overhang, width / 2.0));
+  footprint_points.push_back(Point2d(length - rear_overhang, -width / 2.0));
+  footprint_points.push_back(Point2d(-rear_overhang, -width / 2.0));
+  footprint_points.push_back(Point2d(-rear_overhang, width / 2.0));
 
   // 車両のポーズに合わせてポイントを変換
   Polygon2d footprint_polygon;
   double yaw = tf2::getYaw(pose.orientation);
   for (const auto & point : footprint_points) {
     Point2d transformed_point;
-    transformed_point.x(pose.position.x + point.x() * std::cos(yaw) - point.y() * std::sin(yaw));
-    transformed_point.y(pose.position.y + point.x() * std::sin(yaw) + point.y() * std::cos(yaw));
+    transformed_point.x() = pose.position.x + point.x() * std::cos(yaw) - point.y() * std::sin(yaw);
+    transformed_point.y() = pose.position.y + point.x() * std::sin(yaw) + point.y() * std::cos(yaw);
     footprint_polygon.outer().push_back(transformed_point);
   }
 
@@ -660,7 +660,7 @@ Polygon2d createVehicleFootprintPolygon(
   return footprint_polygon;
 }
 
-bool checkPolygonsCollision(const Polygon2d & poly1, const Polygon2d & poly2)
+bool PlanningValidator::checkPolygonsCollision(const Polygon2d & poly1, const Polygon2d & poly2)
 {
   // Boost.Geometryを使用してポリゴン同士の衝突判定を行います
   return boost::geometry::intersects(poly1, poly2);
