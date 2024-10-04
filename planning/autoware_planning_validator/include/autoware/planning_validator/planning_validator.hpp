@@ -92,9 +92,23 @@ public:
   bool checkValidLongitudinalDistanceDeviation(const Trajectory & trajectory);
   bool checkValidForwardTrajectoryLength(const Trajectory & trajectory);
   bool checkValidNoCollision(const Trajectory & trajectory);
+  /**
+   * @brief Check for potential collisions between the ego vehicle's planned trajectory and the
+   * predicted paths of nearby objects.
+   * This function considers the highest confidence predicted path for each object within a
+   * specified distance threshold and performs collision detection over time.
+   * @param predicted_objects List of predicted objects with their predicted paths.
+   * @param trajectory Planned trajectory of the ego vehicle.
+   * @param current_ego_position Current position of the ego vehicle.
+   * @param vehicle_info Information about the ego vehicle (e.g., dimensions).
+   * @param collision_check_distance_threshold Maximum distance to consider objects for collision
+   * checking.
+   * @return True if a potential collision is detected; false otherwise.
+   */
   bool checkCollision(
     const PredictedObjects & objects, const Trajectory & trajectory,
-    const geometry_msgs::msg::Point & current_ego_point, const VehicleInfo & vehicle_info);
+    const geometry_msgs::msg::Point & current_ego_point, const VehicleInfo & vehicle_info,
+    const double collision_check_distance_threshold = 30.0);
   Polygon2d createVehicleFootprintPolygon(
     const geometry_msgs::msg::Pose & pose, const VehicleInfo & vehicle_info);
 
