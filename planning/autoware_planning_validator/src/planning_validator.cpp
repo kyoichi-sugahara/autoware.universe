@@ -565,22 +565,26 @@ bool PlanningValidator::checkValidNoCollision(const Trajectory & trajectory)
   return is_collision;
 }
 
+// TODO(Sugahara): move to utils
 bool PlanningValidator::checkCollision(
   const PredictedObjects & predicted_objects, const Trajectory & trajectory,
   const geometry_msgs::msg::Point & current_ego_position, const VehicleInfo & vehicle_info,
   const double collision_check_distance_threshold)
 {
-  // TODO(Suaghara): Detect collision if collision is detected in consecutive frames
+  // TODO(Sugahara): Detect collision if collision is detected in consecutive frames
   std::vector<autoware_planning_msgs::msg::TrajectoryPoint> resampled_trajectory;
   // skip points that are too close together to make computation easier
 
   if (!trajectory.points.empty()) {
     resampled_trajectory.push_back(trajectory.points.front());
-    constexpr double min_interval_squared = 0.5 * 0.5;
+    constexpr double min_interval_squared = 0.5;
     for (size_t i = 1; i < trajectory.points.size(); ++i) {
       const auto & current_point = trajectory.points[i];
+      if (current_point.longitudinal_velocity_mps < 0.1) {
+        continue;
+      }
       const double distance_to_previous_point =
-        universe_utils::calcSquaredDistance2d(resampled_trajectory.back(), current_point);
+        universe_utils::calcDistance2d(resampled_trajectory.back(), current_point);
       if (distance_to_previous_point > min_interval_squared) {
         resampled_trajectory.push_back(current_point);
       }
@@ -602,9 +606,9 @@ bool PlanningValidator::checkCollision(
     const auto & object_position = object.kinematics.initial_pose_with_covariance.pose.position;
     const double object_distance =
       autoware::universe_utils::calcDistance2d(current_ego_position, object_position);
-    std::cerr << "Object distance: " << object_distance << std::endl;
 
     // 衝突判定対象から除外
+    // TODO(Sugahara): 経路近傍の物体のみを対象とする
     if (object_distance > collision_check_distance_threshold) {
       continue;
     }
@@ -648,10 +652,6 @@ bool PlanningValidator::checkCollision(
           // 衝突判定
           if (boost::geometry::intersects(vehicle_footprints[i], predicted_object_polygons[j])) {
             // 衝突検出
-            std::cerr << "Collision detected with object at distance: " << object_distance
-                      << std::endl;
-            std::cerr << "Trajectory time: " << trajectory_time << std::endl;
-            std::cerr << "Predicted time: " << predicted_time << std::endl;
             return true;
           }
         }
