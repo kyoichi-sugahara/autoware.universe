@@ -555,8 +555,8 @@ bool PlanningValidator::checkValidForwardTrajectoryLength(const Trajectory & tra
 
 bool PlanningValidator::checkValidNoCollision(const Trajectory & trajectory)
 {
-  const bool is_collision_check_necessary = current_kinematics_->twist.twist.linear.x > 0.1;
-  if (!is_collision_check_necessary) {
+  const bool is_collision_check_unnecessary = current_kinematics_->twist.twist.linear.x <= 0.1;
+  if (!is_collision_check_unnecessary) {
     return true;
   }
   const bool is_collision = checkCollision(
@@ -659,7 +659,6 @@ bool PlanningValidator::checkCollision(
     }
   }
 
-  // 衝突なし
   return false;
 }
 
