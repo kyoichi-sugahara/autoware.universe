@@ -561,7 +561,6 @@ bool PlanningValidator::checkValidNoCollision(const Trajectory & trajectory)
   }
   const bool is_collision = checkCollision(
     *current_objects_, trajectory, current_kinematics_->pose.pose.position, vehicle_info_);
-  std::cerr << "is_collision: " << is_collision << std::endl;
   return is_collision;
 }
 

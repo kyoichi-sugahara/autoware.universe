@@ -145,7 +145,7 @@ std::optional<TurnSignalInfo> TurnSignalDecider::getIntersectionTurnSignalInfo(
       turn_direction == "right" || turn_direction == "left" ||
       (turn_direction == "straight" && current_vel < stop_velocity_threshold && !is_in_turn_lane));
   };
-
+  // base search distance
   const double base_search_distance =
     intersection_search_time_ * current_vel + intersection_search_distance_;
 
