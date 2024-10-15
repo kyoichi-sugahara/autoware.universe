@@ -17,12 +17,12 @@
 
 #include "autoware/mpc_lateral_controller/mpc_cgmres.hpp"
 #include "autoware/mpc_lateral_controller/qp_solver/qp_solver_interface.hpp"
+#include "autoware/osqp_interface/osqp_interface.hpp"
 #include "cgmres/horizon.hpp"
 #include "cgmres/logger.hpp"
 #include "cgmres/single_shooting_cgmres_solver.hpp"
 #include "cgmres/solver_settings.hpp"
 #include "cgmres/zero_horizon_ocp_solver.hpp"
-#include "osqp_interface/osqp_interface.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 #include <memory>
@@ -62,7 +62,7 @@ public:
   double getObjVal() const override { return cgmressolver_.getObjVal(); }
 
 private:
-  autoware::common::osqp::OSQPInterface cgmressolver_;
+  autoware::osqp_interface::OSQPInterface cgmressolver_;
   cgmres::OCP_lateral_control ocp_;
 
   static constexpr int N = 50;  // Number of discretization grids of the horizon. Must be positive.
