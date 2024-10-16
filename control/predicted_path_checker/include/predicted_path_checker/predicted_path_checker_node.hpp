@@ -79,6 +79,11 @@ enum class State {
   STOP = 2,
 };
 
+struct TimestampedObject
+{
+  unique_identifier_msgs::msg::UUID object_id;
+  rclcpp::Time timestamp;
+};
 class PredictedPathCheckerNode : public rclcpp::Node
 {
 public:
@@ -109,6 +114,8 @@ private:
   autoware_auto_planning_msgs::msg::Trajectory::ConstSharedPtr reference_trajectory_;
   autoware_auto_planning_msgs::msg::Trajectory::ConstSharedPtr predicted_trajectory_;
   control_interface::IsStopped::Message::ConstSharedPtr is_stopped_ptr_{nullptr};
+  std::vector<TimestampedObject> observed_objects_;
+  std::vector<TimestampedObject> ignored_objects_;
 
   // Core
   std::unique_ptr<CollisionChecker> collision_checker_;

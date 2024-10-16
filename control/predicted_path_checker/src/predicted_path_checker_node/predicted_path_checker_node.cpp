@@ -533,6 +533,15 @@ std::pair<double, double> PredictedPathCheckerNode::calculateProjectedVelAndAcc(
   return std::make_pair(projected_velocity, projected_acceleration);
 }
 
+// Add these member variables to the PredictedPathCheckerNode class
+// struct TimestampedObject
+// {
+//   unique_identifier_msgs::msg::UUID uuid;
+//   rclcpp::Time timestamp;
+// };
+// std::vector<TimestampedObject> observed_objects_;
+// std::vector<TimestampedObject> ignored_objects_;
+
 void PredictedPathCheckerNode::filterObstacles(
   const Pose & ego_pose, const TrajectoryPoints & traj, const double dist_threshold,
   const bool use_prediction, PredictedObjects & filtered_objects)
@@ -540,8 +549,80 @@ void PredictedPathCheckerNode::filterObstacles(
   filtered_objects.header.frame_id = object_ptr_.get()->header.frame_id;
   filtered_objects.header.stamp = this->now();
 
+  const rclcpp::Time current_object_time = object_ptr_.get()->header.stamp;
+  const rclcpp::Duration threshold_duration = rclcpp::Duration::from_seconds(0.0005);  // 0.5 msec
+  const rclcpp::Duration ignored_object_duration =
+    rclcpp::Duration::from_seconds(10.0);  // 10 seconds, adjust as needed
+
+  // Remove old objects from observed_objects_
+  observed_objects_.erase(
+    std::remove_if(
+      observed_objects_.begin(), observed_objects_.end(),
+      [&current_object_time, &threshold_duration](const TimestampedObject & obj) {
+        return (current_object_time - obj.timestamp) > threshold_duration;
+      }),
+    observed_objects_.end());
+
+  // Remove old objects from ignored_objects_
+  ignored_objects_.erase(
+    std::remove_if(
+      ignored_objects_.begin(), ignored_objects_.end(),
+      [&current_object_time, &ignored_object_duration](const TimestampedObject & obj) {
+        return (current_object_time - obj.timestamp) > ignored_object_duration;
+      }),
+    ignored_objects_.end());
+
   for (auto & object : object_ptr_.get()->objects) {
-    // Check is it in front of ego vehicle
+    // Check if the object's uuid is already included in previously observed objects
+    auto it = std::find_if(
+      observed_objects_.begin(), observed_objects_.end(), [&object](const auto & observed_object) {
+        return observed_object.object_id == object.object_id;
+      });
+
+    const bool recently_observed = (it != observed_objects_.end());
+
+    if (recently_observed) {
+      // Update the timestamp for the observed object
+      it->timestamp = current_object_time;
+    } else {
+      // Add the new object to observed_objects_
+      observed_objects_.push_back({object.object_id, current_object_time});
+    }
+
+    // Check if the object is newly observed and within the range distance and classification is
+    // unknown
+    bool is_new_object =
+      !recently_observed &&
+      object.classification.front().label ==
+        autoware_auto_perception_msgs::msg::ObjectClassification::UNKNOWN &&
+      tier4_autoware_utils::calcDistance2d(
+        ego_pose.position, object.kinematics.initial_pose_with_covariance.pose.position) <= 10.0;
+
+    // Skip if it's a new object meeting the specific criteria and add it to ignored_objects_
+    if (is_new_object) {
+      auto ignored_it = std::find_if(
+        ignored_objects_.begin(), ignored_objects_.end(), [&object](const auto & ignored_object) {
+          return ignored_object.object_id == object.object_id;
+        });
+
+      if (ignored_it == ignored_objects_.end()) {
+        ignored_objects_.push_back({object.object_id, current_object_time});
+      } else {
+        ignored_it->timestamp = current_object_time;
+      }
+      continue;
+    }
+
+    // Skip if the object is in the ignored_objects_ list
+    if (
+      std::find_if(
+        ignored_objects_.begin(), ignored_objects_.end(), [&object](const auto & ignored_object) {
+          return ignored_object.object_id == object.object_id;
+        }) != ignored_objects_.end()) {
+      continue;
+    }
+
+    // The rest of the filtering logic remains the same
     if (!utils::isFrontObstacle(
           ego_pose, object.kinematics.initial_pose_with_covariance.pose.position)) {
       continue;
