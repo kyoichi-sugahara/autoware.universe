@@ -533,15 +533,6 @@ std::pair<double, double> PredictedPathCheckerNode::calculateProjectedVelAndAcc(
   return std::make_pair(projected_velocity, projected_acceleration);
 }
 
-// Add these member variables to the PredictedPathCheckerNode class
-// struct TimestampedObject
-// {
-//   unique_identifier_msgs::msg::UUID uuid;
-//   rclcpp::Time timestamp;
-// };
-// std::vector<TimestampedObject> observed_objects_;
-// std::vector<TimestampedObject> ignored_objects_;
-
 void PredictedPathCheckerNode::filterObstacles(
   const Pose & ego_pose, const TrajectoryPoints & traj, const double dist_threshold,
   const bool use_prediction, PredictedObjects & filtered_objects)
@@ -574,16 +565,15 @@ void PredictedPathCheckerNode::filterObstacles(
 
   for (auto & object : object_ptr_.get()->objects) {
     // Check if the object's uuid is already included in previously observed objects
-    auto it = std::find_if(
+    auto observed_it = std::find_if(
       observed_objects_.begin(), observed_objects_.end(), [&object](const auto & observed_object) {
         return observed_object.object_id == object.object_id;
       });
-
-    const bool recently_observed = (it != observed_objects_.end());
+    const bool recently_observed = (observed_it != observed_objects_.end());
 
     if (recently_observed) {
       // Update the timestamp for the observed object
-      it->timestamp = current_object_time;
+      observed_it->timestamp = current_object_time;
     } else {
       // Add the new object to observed_objects_
       observed_objects_.push_back({object.object_id, current_object_time});
@@ -591,20 +581,19 @@ void PredictedPathCheckerNode::filterObstacles(
 
     // Check if the object is newly observed and within the range distance and classification is
     // unknown
-    bool is_new_object =
-      !recently_observed &&
+    const bool is_unknown_classification =
       object.classification.front().label ==
-        autoware_auto_perception_msgs::msg::ObjectClassification::UNKNOWN &&
-      tier4_autoware_utils::calcDistance2d(
-        ego_pose.position, object.kinematics.initial_pose_with_covariance.pose.position) <= 10.0;
+      autoware_auto_perception_msgs::msg::ObjectClassification::UNKNOWN;
+    const double object_distance = tier4_autoware_utils::calcDistance2d(
+      ego_pose.position, object.kinematics.initial_pose_with_covariance.pose.position);
+    const bool is_within_range = (object_distance <= 10.0);
+    const bool is_new_object = !recently_observed && is_unknown_classification && is_within_range;
 
-    // Skip if it's a new object meeting the specific criteria and add it to ignored_objects_
     if (is_new_object) {
       auto ignored_it = std::find_if(
         ignored_objects_.begin(), ignored_objects_.end(), [&object](const auto & ignored_object) {
           return ignored_object.object_id == object.object_id;
         });
-
       if (ignored_it == ignored_objects_.end()) {
         ignored_objects_.push_back({object.object_id, current_object_time});
       } else {
@@ -614,11 +603,11 @@ void PredictedPathCheckerNode::filterObstacles(
     }
 
     // Skip if the object is in the ignored_objects_ list
-    if (
-      std::find_if(
-        ignored_objects_.begin(), ignored_objects_.end(), [&object](const auto & ignored_object) {
-          return ignored_object.object_id == object.object_id;
-        }) != ignored_objects_.end()) {
+    const bool is_ignored = std::any_of(
+      ignored_objects_.begin(), ignored_objects_.end(), [&object](const auto & ignored_object) {
+        return ignored_object.object_id == object.object_id;
+      });
+    if (is_ignored) {
       continue;
     }
 
