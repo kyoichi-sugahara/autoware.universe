@@ -383,8 +383,8 @@ TEST_F(FakeNodeFixture, DISABLED_constant_curvature_right_turn)
   ControllerTester tester(this, node_options);
   Trajectory ref_trajectory;
 
-  const double velocity = 0.2;
-  const double trajectory_arc_length = 20.0;
+  const double velocity = 5.0;
+  const double trajectory_arc_length = 50.0;
   const double start_curvature_sign = 0.0;
   const double end_curvature_sign = -0.1;
   const double step_length = 1.0;

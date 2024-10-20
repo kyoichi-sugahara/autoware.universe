@@ -161,8 +161,8 @@ bool MPC::calculateMPC(
     cgmres_predicted_trajectory_frenet.header.stamp = m_clock->now();
     cgmres_predicted_trajectory_frenet.header.frame_id = "map";
 
-    m_debug_cgmres_frenet_predicted_trajectory_pub->publish(cgmres_predicted_trajectory_frenet);
     m_debug_cgmres_predicted_trajectory_pub->publish(cgmres_predicted_trajectory_world);
+    m_debug_cgmres_frenet_predicted_trajectory_pub->publish(cgmres_predicted_trajectory_frenet);
   }
 
   // apply filters for the input limitation and low pass filter
