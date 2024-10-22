@@ -108,7 +108,7 @@ public:
   bool checkCollision(
     const PredictedObjects & objects, const Trajectory & trajectory,
     const geometry_msgs::msg::Point & current_ego_point, const VehicleInfo & vehicle_info,
-    const double collision_check_distance_threshold = 30.0);
+    const double collision_check_distance_threshold = 10.0);
   Polygon2d createVehicleFootprintPolygon(
     const geometry_msgs::msg::Pose & pose, const VehicleInfo & vehicle_info);
 

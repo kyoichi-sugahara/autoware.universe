@@ -572,11 +572,11 @@ bool PlanningValidator::checkCollision(
 {
   // TODO(Sugahara): Detect collision if collision is detected in consecutive frames
   std::vector<autoware_planning_msgs::msg::TrajectoryPoint> resampled_trajectory;
-  // skip points that are too close together to make computation easier
 
+  // skip points that are too close together to make computation easier
   if (!trajectory.points.empty()) {
     resampled_trajectory.push_back(trajectory.points.front());
-    constexpr double min_interval_squared = 0.5;
+    constexpr double min_interval = 0.5;
     for (size_t i = 1; i < trajectory.points.size(); ++i) {
       const auto & current_point = trajectory.points[i];
       if (current_point.longitudinal_velocity_mps < 0.1) {
@@ -584,7 +584,7 @@ bool PlanningValidator::checkCollision(
       }
       const double distance_to_previous_point =
         universe_utils::calcDistance2d(resampled_trajectory.back(), current_point);
-      if (distance_to_previous_point > min_interval_squared) {
+      if (distance_to_previous_point > min_interval) {
         resampled_trajectory.push_back(current_point);
       }
     }
@@ -597,22 +597,22 @@ bool PlanningValidator::checkCollision(
     vehicle_footprints.push_back(footprint);
   }
 
-  const double time_tolerance = 0.1;  // 時間の許容範囲
+  const double time_tolerance = 0.1;  // time tolerance threshold
 
-  // 各オブジェクトに対して衝突判定を行う
   for (const auto & object : predicted_objects.objects) {
-    // 自車位置と物体位置の距離を計算
+    // Calculate distance between object position and nearest point on trajectory
     const auto & object_position = object.kinematics.initial_pose_with_covariance.pose.position;
-    const double object_distance =
-      autoware::universe_utils::calcDistance2d(current_ego_position, object_position);
+    const size_t nearest_index =
+      autoware::motion_utils::findNearestIndex(resampled_trajectory, object_position);
+    const double object_distance_to_nearest_point = autoware::universe_utils::calcDistance2d(
+      resampled_trajectory[nearest_index], object_position);
 
-    // 衝突判定対象から除外
-    // TODO(Sugahara): 経路近傍の物体のみを対象とする
-    if (object_distance > collision_check_distance_threshold) {
+    // Skip collision check if object is too far from trajectory
+    if (object_distance_to_nearest_point > collision_check_distance_threshold) {
       continue;
     }
 
-    // 物体の中で最も高いconfidenceを持つpathを選択
+    // Select path with highest confidence from object's predicted paths
     const autoware_perception_msgs::msg::PredictedPath * selected_predicted_path = nullptr;
     float highest_path_confidence = -1.0f;
 
@@ -627,7 +627,7 @@ bool PlanningValidator::checkCollision(
       continue;
     }
 
-    // 予測物体のポリゴンを生成
+    // Generate polygons for predicted object positions
     std::vector<Polygon2d> predicted_object_polygons;
     const double predicted_time_step =
       selected_predicted_path->time_step.sec + selected_predicted_path->time_step.nanosec * 1e-9;
@@ -637,7 +637,7 @@ bool PlanningValidator::checkCollision(
       predicted_object_polygons.push_back(object_polygon);
     }
 
-    // 衝突判定（時間を考慮）
+    // Check for collision (considering time)
     for (size_t i = 0; i < resampled_trajectory.size(); ++i) {
       const auto & trajectory_point = resampled_trajectory[i];
       const double trajectory_time =
@@ -646,12 +646,14 @@ bool PlanningValidator::checkCollision(
       for (size_t j = 0; j < selected_predicted_path->path.size(); ++j) {
         const double predicted_time = j * predicted_time_step;
 
-        // 時間差のチェック
         if (std::fabs(trajectory_time - predicted_time) <= time_tolerance) {
-          // 衝突判定
-          if (boost::geometry::intersects(vehicle_footprints[i], predicted_object_polygons[j])) {
-            // 衝突検出
-            return true;
+          const double distance = autoware::universe_utils::calcDistance2d(
+            trajectory_point.pose.position, selected_predicted_path->path[j].position);
+          if (distance < 10.0) {
+            if (boost::geometry::intersects(vehicle_footprints[i], predicted_object_polygons[j])) {
+              // Collision detected
+              return true;
+            }
           }
         }
       }
@@ -661,6 +663,7 @@ bool PlanningValidator::checkCollision(
   return false;
 }
 
+// TODO(Sugahara): move to utils
 Polygon2d PlanningValidator::createVehicleFootprintPolygon(
   const geometry_msgs::msg::Pose & pose, const VehicleInfo & vehicle_info)
 {
@@ -669,7 +672,7 @@ Polygon2d PlanningValidator::createVehicleFootprintPolygon(
   double width = vehicle_info.vehicle_width_m;
   double rear_overhang = vehicle_info.rear_overhang_m;
 
-  // 車両の四隅の相対位置を計算
+  // Calculate relative positions of vehicle corners
   std::vector<Point2d> footprint_points;
   footprint_points.push_back(Point2d(length - rear_overhang, width / 2.0));
   footprint_points.push_back(Point2d(length - rear_overhang, -width / 2.0));
@@ -692,6 +695,11 @@ Polygon2d PlanningValidator::createVehicleFootprintPolygon(
 
 bool PlanningValidator::isAllValid(const PlanningValidatorStatus & s) const
 {
+  // TODO(Sugahara): Add s.is_valid_no_collision after verifying that:
+  // 1. The false value of is_valid_no_collision correctly identifies path problems
+  // 2. Adding this check won't incorrectly invalidate otherwise valid paths
+  // want to avoid false negatives where good paths are marked invalid just because
+  // isAllValid becomes false
   return s.is_valid_size && s.is_valid_finite_value && s.is_valid_interval &&
          s.is_valid_relative_angle && s.is_valid_curvature && s.is_valid_lateral_acc &&
          s.is_valid_longitudinal_max_acc && s.is_valid_longitudinal_min_acc &&
@@ -728,6 +736,10 @@ void PlanningValidator::displayStatus()
     s.is_valid_longitudinal_distance_deviation,
     "planning trajectory is too far from ego in longitudinal direction!!");
   warn(s.is_valid_forward_trajectory_length, "planning trajectory forward length is not enough!!");
+  warn(
+    s.is_valid_no_collision,
+    "planning trajectory has collision!! but this validation is not utilized for trajectory "
+    "validation.");
 }
 
 }  // namespace autoware::planning_validator
