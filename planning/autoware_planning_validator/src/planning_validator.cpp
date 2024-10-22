@@ -555,9 +555,9 @@ bool PlanningValidator::checkValidForwardTrajectoryLength(const Trajectory & tra
 
 bool PlanningValidator::checkValidNoCollision(const Trajectory & trajectory)
 {
-  const bool is_collision_check_unnecessary = current_kinematics_->twist.twist.linear.x <= 0.1;
-  if (!is_collision_check_unnecessary) {
-    return true;
+  const bool collision_check_unnecessary = current_kinematics_->twist.twist.linear.x < 0.1;
+  if (collision_check_unnecessary) {
+    return false;
   }
   const bool is_collision = checkCollision(
     *current_objects_, trajectory, current_kinematics_->pose.pose.position, vehicle_info_);
@@ -571,11 +571,13 @@ bool PlanningValidator::checkCollision(
   const double collision_check_distance_threshold)
 {
   // TODO(Sugahara): Detect collision if collision is detected in consecutive frames
-  std::vector<autoware_planning_msgs::msg::TrajectoryPoint> resampled_trajectory;
 
-  // skip points that are too close together to make computation easier
+  std::vector<autoware_planning_msgs::msg::TrajectoryPoint> resampled_trajectory;
+  resampled_trajectory.reserve(trajectory.points.size());
+
   if (!trajectory.points.empty()) {
     resampled_trajectory.push_back(trajectory.points.front());
+
     constexpr double min_interval = 0.5;
     for (size_t i = 1; i < trajectory.points.size(); ++i) {
       const auto & current_point = trajectory.points[i];
@@ -591,14 +593,15 @@ bool PlanningValidator::checkCollision(
   }
   motion_utils::calculate_time_from_start(resampled_trajectory, current_ego_position);
 
+  // generate vehicle footprint along the trajectory
   std::vector<Polygon2d> vehicle_footprints;
+  vehicle_footprints.reserve(resampled_trajectory.size());
+
   for (const auto & point : resampled_trajectory) {
-    Polygon2d footprint = createVehicleFootprintPolygon(point.pose, vehicle_info);
-    vehicle_footprints.push_back(footprint);
+    vehicle_footprints.push_back(createVehicleFootprintPolygon(point.pose, vehicle_info));
   }
 
   const double time_tolerance = 0.1;  // time tolerance threshold
-
   for (const auto & object : predicted_objects.objects) {
     // Calculate distance between object position and nearest point on trajectory
     const auto & object_position = object.kinematics.initial_pose_with_covariance.pose.position;
@@ -613,15 +616,15 @@ bool PlanningValidator::checkCollision(
     }
 
     // Select path with highest confidence from object's predicted paths
-    const autoware_perception_msgs::msg::PredictedPath * selected_predicted_path = nullptr;
-    float highest_path_confidence = -1.0f;
+    const auto selected_predicted_path =
+      [&object]() -> const autoware_perception_msgs::msg::PredictedPath * {
+      const auto max_confidence_it = std::max_element(
+        object.kinematics.predicted_paths.begin(), object.kinematics.predicted_paths.end(),
+        [](const auto & a, const auto & b) { return a.confidence < b.confidence; });
 
-    for (const auto & predicted_path : object.kinematics.predicted_paths) {
-      if (predicted_path.confidence > highest_path_confidence) {
-        highest_path_confidence = predicted_path.confidence;
-        selected_predicted_path = &predicted_path;
-      }
-    }
+      return max_confidence_it != object.kinematics.predicted_paths.end() ? &(*max_confidence_it)
+                                                                          : nullptr;
+    }();
 
     if (!selected_predicted_path) {
       continue;
@@ -629,12 +632,14 @@ bool PlanningValidator::checkCollision(
 
     // Generate polygons for predicted object positions
     std::vector<Polygon2d> predicted_object_polygons;
+    predicted_object_polygons.reserve(selected_predicted_path->path.size());
+
     const double predicted_time_step =
       selected_predicted_path->time_step.sec + selected_predicted_path->time_step.nanosec * 1e-9;
 
     for (const auto & pose : selected_predicted_path->path) {
-      Polygon2d object_polygon = autoware::universe_utils::toPolygon2d(pose, object.shape);
-      predicted_object_polygons.push_back(object_polygon);
+      predicted_object_polygons.push_back(
+        autoware::universe_utils::toPolygon2d(pose, object.shape));
     }
 
     // Check for collision (considering time)
@@ -646,15 +651,26 @@ bool PlanningValidator::checkCollision(
       for (size_t j = 0; j < selected_predicted_path->path.size(); ++j) {
         const double predicted_time = j * predicted_time_step;
 
-        if (std::fabs(trajectory_time - predicted_time) <= time_tolerance) {
-          const double distance = autoware::universe_utils::calcDistance2d(
-            trajectory_point.pose.position, selected_predicted_path->path[j].position);
-          if (distance < 10.0) {
-            if (boost::geometry::intersects(vehicle_footprints[i], predicted_object_polygons[j])) {
-              // Collision detected
-              return true;
-            }
-          }
+        if (std::fabs(trajectory_time - predicted_time) > time_tolerance) {
+          continue;
+        }
+
+        const double distance = autoware::universe_utils::calcDistance2d(
+          trajectory_point.pose.position, selected_predicted_path->path[j].position);
+
+        if (distance >= 10.0) {
+          continue;
+        }
+
+        if (boost::geometry::intersects(vehicle_footprints[i], predicted_object_polygons[j])) {
+          // Collision detected
+          std::cerr << "Collision detected at " << std::endl;
+          std::cerr << "  trajectory_time: " << trajectory_time << std::endl;
+          std::cerr << "  predicted_time: " << predicted_time << std::endl;
+          std::cerr << "object velocity: "
+                    << object.kinematics.initial_twist_with_covariance.twist.linear.x << "m/s"
+                    << std::endl;
+          return true;
         }
       }
     }
@@ -668,19 +684,19 @@ Polygon2d PlanningValidator::createVehicleFootprintPolygon(
   const geometry_msgs::msg::Pose & pose, const VehicleInfo & vehicle_info)
 {
   using autoware::universe_utils::Point2d;
-  double length = vehicle_info.vehicle_length_m;
-  double width = vehicle_info.vehicle_width_m;
-  double rear_overhang = vehicle_info.rear_overhang_m;
+  const double length = vehicle_info.vehicle_length_m;
+  const double width = vehicle_info.vehicle_width_m;
+  const double rear_overhang = vehicle_info.rear_overhang_m;
+  const double yaw = tf2::getYaw(pose.orientation);
 
   // Calculate relative positions of vehicle corners
-  std::vector<Point2d> footprint_points;
-  footprint_points.push_back(Point2d(length - rear_overhang, width / 2.0));
-  footprint_points.push_back(Point2d(length - rear_overhang, -width / 2.0));
-  footprint_points.push_back(Point2d(-rear_overhang, -width / 2.0));
-  footprint_points.push_back(Point2d(-rear_overhang, width / 2.0));
+  std::vector<Point2d> footprint_points{
+    Point2d(length - rear_overhang, width / 2.0), Point2d(length - rear_overhang, -width / 2.0),
+    Point2d(-rear_overhang, -width / 2.0), Point2d(-rear_overhang, width / 2.0)};
 
   Polygon2d footprint_polygon;
-  double yaw = tf2::getYaw(pose.orientation);
+  footprint_polygon.outer().reserve(footprint_points.size() + 1);
+
   for (const auto & point : footprint_points) {
     Point2d transformed_point;
     transformed_point.x() = pose.position.x + point.x() * std::cos(yaw) - point.y() * std::sin(yaw);
