@@ -557,7 +557,7 @@ bool PlanningValidator::checkValidNoCollision(const Trajectory & trajectory)
 {
   const bool collision_check_unnecessary = current_kinematics_->twist.twist.linear.x < 0.1;
   if (collision_check_unnecessary) {
-    return false;
+    return true;
   }
   const bool is_collision = checkCollision(
     *current_objects_, trajectory, current_kinematics_->pose.pose.position, vehicle_info_);
@@ -670,13 +670,13 @@ bool PlanningValidator::checkCollision(
           std::cerr << "object velocity: "
                     << object.kinematics.initial_twist_with_covariance.twist.linear.x << "m/s"
                     << std::endl;
-          return true;
+          return false;
         }
       }
     }
   }
 
-  return false;
+  return true;
 }
 
 // TODO(Sugahara): move to utils
