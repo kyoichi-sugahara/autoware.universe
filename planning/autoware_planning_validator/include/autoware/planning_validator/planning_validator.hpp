@@ -91,7 +91,7 @@ public:
   bool checkValidDistanceDeviation(const Trajectory & trajectory);
   bool checkValidLongitudinalDistanceDeviation(const Trajectory & trajectory);
   bool checkValidForwardTrajectoryLength(const Trajectory & trajectory);
-  bool checkValidNoCollision(const Trajectory & trajectory);
+  bool checkValidTrajectoryCollision(const Trajectory & trajectory);
   /**
    * @brief Check for potential collisions between the ego vehicle's planned trajectory and the
    * predicted paths of nearby objects.

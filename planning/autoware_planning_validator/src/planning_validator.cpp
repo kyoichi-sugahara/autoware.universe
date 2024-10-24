@@ -22,6 +22,7 @@
 
 #include <boost/geometry/algorithms/intersects.hpp>
 
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <utility>
@@ -171,6 +172,9 @@ void PlanningValidator::setupDiag()
     setStatus(
       stat, validation_status_.is_valid_forward_trajectory_length,
       "trajectory length is too short");
+  });
+  d->add(ns + "trajectory_collision", [&](auto & stat) {
+    setStatus(stat, validation_status_.is_valid_no_collision, "collision is detected");
   });
 }
 
@@ -327,7 +331,7 @@ void PlanningValidator::validate(const Trajectory & trajectory)
   s.is_valid_lateral_acc = checkValidLateralAcceleration(resampled);
   s.is_valid_steering = checkValidSteering(resampled);
   s.is_valid_steering_rate = checkValidSteeringRate(resampled);
-  s.is_valid_no_collision = checkValidNoCollision(resampled);
+  s.is_valid_no_collision = checkValidTrajectoryCollision(resampled);
 
   s.invalid_count = isAllValid(s) ? 0 : s.invalid_count + 1;
 }
@@ -553,12 +557,13 @@ bool PlanningValidator::checkValidForwardTrajectoryLength(const Trajectory & tra
   return forward_length > forward_length_required;
 }
 
-bool PlanningValidator::checkValidNoCollision(const Trajectory & trajectory)
+bool PlanningValidator::checkValidTrajectoryCollision(const Trajectory & trajectory)
 {
-  const bool collision_check_unnecessary = current_kinematics_->twist.twist.linear.x < 0.1;
-  if (collision_check_unnecessary) {
-    return true;
+  const auto ego_speed = std::abs(current_kinematics_->twist.twist.linear.x);
+  if (ego_speed < 1.0 / 3.6) {
+    return true;  // Ego is almost stopped.
   }
+
   const bool is_collision = checkCollision(
     *current_objects_, trajectory, current_kinematics_->pose.pose.position, vehicle_info_);
   return is_collision;
@@ -574,21 +579,29 @@ bool PlanningValidator::checkCollision(
 
   std::vector<autoware_planning_msgs::msg::TrajectoryPoint> resampled_trajectory;
   resampled_trajectory.reserve(trajectory.points.size());
+  size_t index = 0;
+  for (size_t i = 0; i < trajectory.points.size(); ++i) {
+    const auto & point = trajectory.points[i];
+    const double dist_to_point = autoware::motion_utils::calcSignedArcLength(
+      trajectory.points, current_ego_position, size_t(i));
 
-  if (!trajectory.points.empty()) {
-    resampled_trajectory.push_back(trajectory.points.front());
+    if (dist_to_point > 0.0) {
+      resampled_trajectory.push_back(point);
+      index = i;
+      break;
+    }
+  }
 
-    constexpr double min_interval = 0.5;
-    for (size_t i = 1; i < trajectory.points.size(); ++i) {
-      const auto & current_point = trajectory.points[i];
-      if (current_point.longitudinal_velocity_mps < 0.1) {
-        continue;
-      }
-      const double distance_to_previous_point =
-        universe_utils::calcDistance2d(resampled_trajectory.back(), current_point);
-      if (distance_to_previous_point > min_interval) {
-        resampled_trajectory.push_back(current_point);
-      }
+  constexpr double min_interval = 0.5;
+  for (size_t i = index + 1; i < trajectory.points.size(); ++i) {
+    const auto & current_point = trajectory.points[i];
+    if (current_point.longitudinal_velocity_mps < 0.1) {
+      continue;
+    }
+    const double distance_to_previous_point =
+      universe_utils::calcDistance2d(resampled_trajectory.back(), current_point);
+    if (distance_to_previous_point > min_interval) {
+      resampled_trajectory.push_back(current_point);
     }
   }
   motion_utils::calculate_time_from_start(resampled_trajectory, current_ego_position);
@@ -596,7 +609,6 @@ bool PlanningValidator::checkCollision(
   // generate vehicle footprint along the trajectory
   std::vector<Polygon2d> vehicle_footprints;
   vehicle_footprints.reserve(resampled_trajectory.size());
-
   for (const auto & point : resampled_trajectory) {
     vehicle_footprints.push_back(createVehicleFootprintPolygon(point.pose, vehicle_info));
   }
