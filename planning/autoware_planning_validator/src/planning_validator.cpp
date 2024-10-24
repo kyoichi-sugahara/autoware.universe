@@ -172,6 +172,9 @@ void PlanningValidator::setupDiag()
       stat, validation_status_.is_valid_forward_trajectory_length,
       "trajectory length is too short");
   });
+  d->add(ns + "trajectory_collision", [&](auto & stat) {
+    setStatus(stat, validation_status_.is_valid_no_collision, "collision is detected");
+  });
 }
 
 bool PlanningValidator::isDataReady()
@@ -327,7 +330,7 @@ void PlanningValidator::validate(const Trajectory & trajectory)
   s.is_valid_lateral_acc = checkValidLateralAcceleration(resampled);
   s.is_valid_steering = checkValidSteering(resampled);
   s.is_valid_steering_rate = checkValidSteeringRate(resampled);
-  s.is_valid_no_collision = checkValidNoCollision(resampled);
+  s.is_valid_no_collision = checkValidTrajectoryCollision(resampled);
 
   s.invalid_count = isAllValid(s) ? 0 : s.invalid_count + 1;
 }
@@ -553,7 +556,7 @@ bool PlanningValidator::checkValidForwardTrajectoryLength(const Trajectory & tra
   return forward_length > forward_length_required;
 }
 
-bool PlanningValidator::checkValidNoCollision(const Trajectory & trajectory)
+bool PlanningValidator::checkValidTrajectoryCollision(const Trajectory & trajectory)
 {
   const bool collision_check_unnecessary = current_kinematics_->twist.twist.linear.x < 0.1;
   if (collision_check_unnecessary) {
