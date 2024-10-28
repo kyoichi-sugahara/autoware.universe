@@ -101,6 +101,7 @@ SimplePlanningSimulator::SimplePlanningSimulator(const rclcpp::NodeOptions & opt
   simulated_frame_id_ = declare_parameter("simulated_frame_id", "base_link");
   origin_frame_id_ = declare_parameter("origin_frame_id", "odom");
   add_measurement_noise_ = declare_parameter("add_measurement_noise", false);
+  add_brownian_noise_ = declare_parameter("add_brownian_noise", false);
   simulate_motion_ = declare_parameter<bool>("initial_engage_state");
   enable_road_slope_simulation_ = declare_parameter("enable_road_slope_simulation", false);
   enable_pub_steer_ = declare_parameter("enable_pub_steer", true);
@@ -223,6 +224,15 @@ SimplePlanningSimulator::SimplePlanningSimulator(const rclcpp::NodeOptions & opt
 
     x_stddev_ = declare_parameter("x_stddev", 0.0001);
     y_stddev_ = declare_parameter("y_stddev", 0.0001);
+  }
+
+  // brownian noise
+  {
+    std::random_device seed;
+    auto & b = brownian_noise_;
+    b.rand_engine_ = std::make_shared<std::mt19937>(seed());
+    double pos_noise_stddev = declare_parameter("brownian_pos_noise_stddev", 1.0);
+    b.pos_dist_ = std::make_shared<std::normal_distribution<>>(0.0, pos_noise_stddev);
   }
 
   // control mode
@@ -370,6 +380,13 @@ rcl_interfaces::msg::SetParametersResult SimplePlanningSimulator::on_parameter(
   try {
     autoware::universe_utils::updateParam(parameters, "x_stddev", x_stddev_);
     autoware::universe_utils::updateParam(parameters, "y_stddev", y_stddev_);
+    double pos_noise_stddev;
+    auto & n = brownian_noise_;
+    autoware::universe_utils::updateParam(
+      parameters, "brownian_pos_noise_stddev", pos_noise_stddev);
+    n.pos_dist_ = std::make_shared<std::normal_distribution<>>(0.0, pos_noise_stddev);
+    // you can update parameter with the following command
+    // ros2 param set /simulation/simple_planning_simulator brownian_pos_noise_stddev <value>
   } catch (const rclcpp::exceptions::InvalidParameterTypeException & e) {
     result.successful = false;
     result.reason = e.what();
@@ -458,6 +475,9 @@ void SimplePlanningSimulator::on_timer()
 
   if (add_measurement_noise_) {
     add_measurement_noise(current_odometry_, current_velocity_, current_steer_);
+  }
+  if (add_brownian_noise_) {
+    add_brownian_noise(current_odometry_);
   }
 
   // add estimate covariance
@@ -667,6 +687,26 @@ void SimplePlanningSimulator::add_measurement_noise(
   vel.longitudinal_velocity += static_cast<double>(velocity_noise);
 
   steer.steering_tire_angle += static_cast<double>((*n.steer_dist_)(*n.rand_engine_));
+}
+
+void SimplePlanningSimulator::add_brownian_noise(Odometry & odom) const
+{
+  auto & n = brownian_noise_;
+
+  const double dt = static_cast<double>(timer_sampling_time_ms_) / 1000.0;  // convert ms to sec
+
+  double noise_x = (*n.pos_dist_)(*n.rand_engine_) * std::sqrt(dt);
+  double noise_y = (*n.pos_dist_)(*n.rand_engine_) * std::sqrt(dt);
+
+  double temp_x = n.accumulated_pos_x_ + noise_x;
+  double temp_y = n.accumulated_pos_y_ + noise_y;
+
+  BrownianNoiseGenerator & noise = const_cast<BrownianNoiseGenerator &>(n);
+  noise.accumulated_pos_x_ = temp_x;
+  noise.accumulated_pos_y_ = temp_y;
+
+  odom.pose.pose.position.x += temp_x;
+  odom.pose.pose.position.y += temp_y;
 }
 
 void SimplePlanningSimulator::set_initial_state_with_transform(
