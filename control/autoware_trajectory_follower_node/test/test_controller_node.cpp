@@ -386,7 +386,7 @@ TEST_F(FakeNodeFixture, constant_curvature_right_turn)
   const double velocity = 0.2;
   const double trajectory_arc_length = 20.0;
   const double start_curvature_sign = 0.0;
-  const double end_curvature_sign = -0.001;
+  const double end_curvature_sign = -0.1;
   const double step_length = 1.0;
 
   tester.send_default_transform();
