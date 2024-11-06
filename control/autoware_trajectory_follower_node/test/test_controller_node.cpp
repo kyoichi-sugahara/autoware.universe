@@ -17,7 +17,6 @@
 #include "fake_test_node/fake_test_node.hpp"
 #include "gtest/gtest.h"
 #include "rclcpp/rclcpp.hpp"
-#include "rclcpp/time.hpp"
 #include "trajectory_follower_test_utils.hpp"
 
 #include "autoware_adapi_v1_msgs/msg/operation_mode_state.hpp"
@@ -25,9 +24,6 @@
 #include "autoware_planning_msgs/msg/trajectory.hpp"
 #include "autoware_vehicle_msgs/msg/steering_report.hpp"
 #include "geometry_msgs/msg/accel_with_covariance_stamped.hpp"
-#include "geometry_msgs/msg/pose.hpp"
-#include "geometry_msgs/msg/pose_stamped.hpp"
-#include "geometry_msgs/msg/transform_stamped.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "std_msgs/msg/float64_multi_array.hpp"
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
