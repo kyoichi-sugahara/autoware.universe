@@ -89,61 +89,66 @@ inline TrajectoryPoint make_traj_point(const double px, const double py, const f
   return p;
 }
 
-inline Trajectory generateClothoidTrajectory(
-  std_msgs::msg::Header header, double start_curvature, double end_curvature, double arc_length,
-  double velocity, double step_length, double backward_distance = 5.0)
+/**
+ * @brief Generates a trajectory representing a clothoid curve.
+ *
+ * This function creates a trajectory that begins at a specified curvature and transitions linearly
+ * to an end curvature over a given arc length. It also generates a straight line extending backward
+ * from the origin.
+ *
+ * @param header The ROS message header for the trajectory.
+ * @param start_curvature The initial curvature at the start of the trajectory (1/m).
+ * @param end_curvature The final curvature at the end of the trajectory (1/m).
+ * @param arc_length The total arc length over which the curvature changes (meters).
+ * @param velocity The constant velocity assigned to each point in the trajectory (m/s).
+ * @param step_length The distance between consecutive points in the trajectory (meters).
+ * @return A Trajectory object representing the generated clothoid curve.
+ */
+inline Trajectory generate_clothoid_trajectory(
+  const std_msgs::msg::Header & header, double start_curvature, double end_curvature,
+  double arc_length, double velocity, double step_length)
 {
+  constexpr double backward_distance = 5.0;
   Trajectory trajectory;
   trajectory.header = header;
 
-  const int points =
-    static_cast<int>(arc_length / step_length);  // Number of points in the trajectory
-  double curvature_rate = (end_curvature - start_curvature) / arc_length;  // Curvature change rate
+  // Calculate the number of points for forward and backward trajectories
+  int num_forward_points = static_cast<int>(arc_length / step_length);
+  int num_backward_points = static_cast<int>(backward_distance / step_length);
 
-  // Variables for forward direction
-  double x_f = 0.0;
-  double y_f = 0.0;
-  double theta_f = 0.0;  // Initial angle
-  double curvature_f = start_curvature;
+  // Calculate curvature change rate
+  double curvature_rate = (end_curvature - start_curvature) / arc_length;
 
-  // Variables for backward direction
-  double x_b = 0.0;
-  double y_b = 0.0;
-  double theta_b = 0.0;  // Initial angle, curvature is zero
+  // Initialize variables
+  double x = 0.0;
+  double y = 0.0;
+  double theta = 0.0;
+  double curvature = start_curvature;
 
-  const int backward_points = static_cast<int>(backward_distance / step_length);
+  // Add the origin point
+  trajectory.points.push_back(make_traj_point(x, y, velocity));
 
-  // Add the origin point first
-  trajectory.points.push_back(make_traj_point(0.0, 0.0, velocity));
-
-  // Generate points along the backward straight line and add them to the front
-  for (int i = 1; i <= backward_points; ++i) {
-    // Calculate the next point using Euler's method
-    double next_x_b = x_b - step_length * cos(theta_b);
-    double next_y_b = y_b - step_length * sin(theta_b);
-    trajectory.points.insert(
-      trajectory.points.begin(), make_traj_point(next_x_b, next_y_b, velocity));
-
-    // Update the parameters
-    x_b = next_x_b;
-    y_b = next_y_b;
-    // Curvature is zero for backward direction, so theta_b remains the same
+  // Generate backward trajectory (straight line)
+  for (int i = 0; i < num_backward_points; ++i) {
+    x -= step_length * std::cos(theta);
+    y -= step_length * std::sin(theta);
+    trajectory.points.insert(trajectory.points.begin(), make_traj_point(x, y, velocity));
   }
 
-  // Generate points along the clothoid or constant curvature arc in forward direction
-  for (int i = 1; i <= points; ++i) {  // Start from 1 to avoid duplicate point at the origin
-    // Calculate the next point using Euler's method
-    double next_x_f = x_f + step_length * cos(theta_f);
-    double next_y_f = y_f + step_length * sin(theta_f);
-    trajectory.points.push_back(make_traj_point(next_x_f, next_y_f, velocity));
+  // Reset position for forward trajectory
+  x = 0.0;
+  y = 0.0;
+  theta = 0.0;
+  curvature = start_curvature;
 
-    // Update the parameters
-    x_f = next_x_f;
-    y_f = next_y_f;
-    curvature_f +=
-      curvature_rate *
-      step_length;  // Increment curvature (remains constant if start_curvature == end_curvature)
-    theta_f += curvature_f * step_length;  // Increment angle by the current curvature
+  // Generate forward trajectory (clothoid)
+  for (int i = 0; i < num_forward_points; ++i) {
+    x += step_length * std::cos(theta);
+    y += step_length * std::sin(theta);
+    trajectory.points.push_back(make_traj_point(x, y, velocity));
+
+    curvature += curvature_rate * step_length;  // Update curvature
+    theta += curvature * step_length;           // Update heading angle
   }
 
   return trajectory;

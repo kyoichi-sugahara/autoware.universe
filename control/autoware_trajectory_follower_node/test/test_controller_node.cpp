@@ -402,7 +402,7 @@ TEST_F(FakeNodeFixture, constant_curvature_right_turn)
     std_msgs::msg::Header header;
     header.stamp = tester.node->now();
     header.frame_id = "map";
-    ref_trajectory = test_utils::generateClothoidTrajectory(
+    ref_trajectory = test_utils::generate_clothoid_trajectory(
       header, start_curvature_sign, end_curvature_sign, trajectory_arc_length, velocity,
       step_length);
     tester.traj_pub->publish(ref_trajectory);
@@ -451,7 +451,7 @@ TEST_F(FakeNodeFixture, DISABLED_clothoid_right_turn)
     std_msgs::msg::Header header;
     header.stamp = tester.node->now();
     header.frame_id = "map";
-    ref_trajectory = test_utils::generateClothoidTrajectory(
+    ref_trajectory = test_utils::generate_clothoid_trajectory(
       header, start_curvature_sign, end_curvature_sign, trajectory_arc_length, velocity,
       step_length);
     tester.traj_pub->publish(ref_trajectory);
@@ -511,7 +511,7 @@ TEST_F(FakeNodeFixture, DISABLED_periodically_reference_trajectory_change)
     std_msgs::msg::Header header;
     header.stamp = tester.node->now();
     header.frame_id = "map";
-    ref_trajectory = test_utils::generateClothoidTrajectory(
+    ref_trajectory = test_utils::generate_clothoid_trajectory(
       header, start_curvature_sign, current_end_curvature_sign, trajectory_arc_length, velocity,
       step_length);
     tester.traj_pub->publish(ref_trajectory);
@@ -566,7 +566,7 @@ TEST_F(FakeNodeFixture, DISABLED_right_turn_with_initial_yaw_bias)
     std_msgs::msg::Header header;
     header.stamp = tester.node->now();
     header.frame_id = "map";
-    ref_trajectory = test_utils::generateClothoidTrajectory(
+    ref_trajectory = test_utils::generate_clothoid_trajectory(
       header, start_curvature_sign, end_curvature_sign, trajectory_arc_length, velocity,
       step_length);
 
