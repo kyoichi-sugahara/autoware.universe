@@ -377,7 +377,7 @@ TEST_F(FakeNodeFixture, DISABLED_right_turn)
   EXPECT_GT(rclcpp::Time(tester.cmd_msg->stamp), rclcpp::Time(traj_msg.header.stamp));
 }
 
-TEST_F(FakeNodeFixture, constant_curvature_right_turn)
+TEST_F(FakeNodeFixture, DISABLED_constant_curvature_right_turn)
 {
   const auto node_options = makeNodeOptions();
   ControllerTester tester(this, node_options);
@@ -424,7 +424,7 @@ TEST_F(FakeNodeFixture, constant_curvature_right_turn)
   }
 }
 
-TEST_F(FakeNodeFixture, DISABLED_clothoid_right_turn)
+TEST_F(FakeNodeFixture, clothoid_right_turn)
 {
   const auto node_options = makeNodeOptions();
   ControllerTester tester(this, node_options);
