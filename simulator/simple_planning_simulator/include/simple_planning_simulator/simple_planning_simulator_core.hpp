@@ -344,7 +344,7 @@ private:
    * @brief add brownian noise
    * @param [in] odometry odometry to add noise
    */
-   void add_brownian_noise(Odometry & odom) const;
+  void add_brownian_noise(Odometry & odom) const;
 
   /**
    * @brief set initial state of simulated vehicle
