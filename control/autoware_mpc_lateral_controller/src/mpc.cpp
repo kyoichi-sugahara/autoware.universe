@@ -823,7 +823,6 @@ std::pair<bool, VectorXd> MPC::executeOptimization(
     auto t = std::chrono::duration_cast<std::chrono::milliseconds>(t_end - t_start).count();
     RCLCPP_DEBUG(m_logger, "qp solver calculation time = %ld [ms]", t);
   }
-  // std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
   if (Uex.array().isNaN().any()) {
     warn_throttle("model Uex includes NaN, stop MPC.");
@@ -832,15 +831,6 @@ std::pair<bool, VectorXd> MPC::executeOptimization(
   return {true, Uex};
 }
 
-/*
- * solve optimization.
- * cost function: TBD
- * constraint matrix : TBD
- * current considered constraint
- *  - steering limit
- *  - steering rate limit
- *
- */
 std::pair<bool, VectorXd> MPC::executeOptimization(
   const VectorXd & x0, const double prediction_dt, const MPCTrajectory & resampled_ref_trajectory,
   double & opt_error, Eigen::VectorXd & opt_error_array)
@@ -1078,6 +1068,7 @@ Trajectory MPC::calculatePredictedTrajectory(
   return predicted_trajectory;
 }
 
+// calculate predicted trajectory in world coordinate without considering the reference trajectory
 Trajectory MPC::calculatePredictedTrajectory(
   const Eigen::MatrixXd & x0, const Eigen::MatrixXd & Uex,
   const MPCTrajectory & reference_trajectory, const double dt) const
