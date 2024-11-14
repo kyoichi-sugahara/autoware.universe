@@ -44,7 +44,7 @@ if(BUILD_TESTING)
     test/trajectory_follower_test_utils.hpp
     test/test_controller_node.cpp
   )
-  ament_target_dependencies(${TRAJECTORY_FOLLOWER_NODES_TEST} fake_test_node tf2 tf2_geometry_msgs)
+  ament_target_dependencies(${TRAJECTORY_FOLLOWER_NODES_TEST} autoware_fake_test_node tf2 tf2_geometry_msgs)
   target_link_libraries(
     ${TRAJECTORY_FOLLOWER_NODES_TEST} ${CONTROLLER_NODE})
 

@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include "ament_index_cpp/get_package_share_directory.hpp"
+#include "autoware/fake_test_node/fake_test_node.hpp"
 #include "autoware/trajectory_follower_node/controller_node.hpp"
-#include "fake_test_node/fake_test_node.hpp"
 #include "gtest/gtest.h"
 #include "rclcpp/rclcpp.hpp"
 #include "trajectory_follower_test_utils.hpp"
@@ -43,7 +43,7 @@ using autoware_adapi_v1_msgs::msg::OperationModeState;
 using geometry_msgs::msg::AccelWithCovarianceStamped;
 using std_msgs::msg::Float64MultiArray;
 
-using FakeNodeFixture = autoware::tools::testing::FakeTestNode;
+using FakeNodeFixture = autoware::fake_test_node::FakeTestNode;
 
 const rclcpp::Duration one_second(1, 0);
 

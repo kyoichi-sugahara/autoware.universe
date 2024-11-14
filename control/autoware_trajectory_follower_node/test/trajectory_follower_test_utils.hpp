@@ -15,7 +15,7 @@
 #ifndef TRAJECTORY_FOLLOWER_TEST_UTILS_HPP_
 #define TRAJECTORY_FOLLOWER_TEST_UTILS_HPP_
 
-#include "fake_test_node/fake_test_node.hpp"
+#include "autoware/fake_test_node/fake_test_node.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp/time.hpp"
 #include "tf2_ros/static_transform_broadcaster.h"
