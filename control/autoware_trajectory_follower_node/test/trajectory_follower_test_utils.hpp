@@ -35,7 +35,7 @@
 
 namespace test_utils
 {
-using FakeNodeFixture = autoware::tools::testing::FakeTestNode;
+using FakeNodeFixture = autoware::fake_test_node::FakeTestNode;
 using TrajectoryPointArray = std::vector<autoware_planning_msgs::msg::TrajectoryPoint>;
 using VehicleOdometry = nav_msgs::msg::Odometry;
 using autoware_planning_msgs::msg::Trajectory;
