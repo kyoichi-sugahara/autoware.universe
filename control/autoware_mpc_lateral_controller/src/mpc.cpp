@@ -247,6 +247,19 @@ bool MPC::calculateMPC(
     ctrl_cmd_horizon.controls.push_back(lateral);
   }
 
+  // create LateralHorizon command
+  ctrl_cmd_horizon.time_step_ms = prediction_dt * 1000.0;
+  ctrl_cmd_horizon.controls.clear();
+  ctrl_cmd_horizon.controls.push_back(ctrl_cmd);
+  for (auto it = std::next(Uex.begin()); it != Uex.end(); ++it) {
+    Lateral lateral{};
+    lateral.steering_tire_angle = static_cast<float>(std::clamp(*it, -m_steer_lim, m_steer_lim));
+    lateral.steering_tire_rotation_rate =
+      (lateral.steering_tire_angle - ctrl_cmd_horizon.controls.back().steering_tire_angle) /
+      m_ctrl_period;
+    ctrl_cmd_horizon.controls.push_back(lateral);
+  }
+
   return true;
 }
 
