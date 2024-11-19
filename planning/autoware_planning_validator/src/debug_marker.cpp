@@ -14,6 +14,8 @@
 
 #include "autoware/planning_validator/debug_marker.hpp"
 
+#include "autoware/universe_utils/geometry/geometry.hpp"
+
 #include <autoware/motion_utils/marker/marker_helper.hpp>
 #include <autoware/universe_utils/ros/marker_helper.hpp>
 
@@ -72,6 +74,55 @@ void PlanningValidatorDebugMarkerPublisher::pushPoseMarker(
 
   marker_array_.markers.push_back(marker);
 }
+
+void PlanningValidatorDebugMarkerPublisher::pushFootprintMarker(
+  const geometry_msgs::msg::Pose & pose,
+  const autoware::vehicle_info_utils::VehicleInfo & vehicle_info, const std::string & ns)
+{
+  using autoware::universe_utils::createMarkerColor;
+  Marker marker = autoware::universe_utils::createDefaultMarker(
+    "map", node_->get_clock()->now(), ns, getMarkerId(ns), Marker::LINE_STRIP,
+    autoware::universe_utils::createMarkerScale(0.1, 0.1, 0.1),
+    createMarkerColor(1.0, 0.0, 0.0, 0.999));
+  const double half_width = vehicle_info.vehicle_width_m / 2.0;
+  const double base_to_front = vehicle_info.vehicle_length_m - vehicle_info.rear_overhang_m;
+  const double base_to_rear = vehicle_info.rear_overhang_m;
+
+  marker.points.push_back(
+    autoware::universe_utils::calcOffsetPose(pose, base_to_front, -half_width, 0.0).position);
+  marker.points.push_back(
+    autoware::universe_utils::calcOffsetPose(pose, base_to_front, half_width, 0.0).position);
+  marker.points.push_back(
+    autoware::universe_utils::calcOffsetPose(pose, -base_to_rear, half_width, 0.0).position);
+  marker.points.push_back(
+    autoware::universe_utils::calcOffsetPose(pose, -base_to_rear, -half_width, 0.0).position);
+  marker.points.push_back(marker.points.front());
+  marker.lifetime = rclcpp::Duration::from_seconds(0.2);
+  marker_array_.markers.push_back(marker);
+}
+
+// Void pushObjectPolygonMarker(const PredictedObject & object, std::string && ns, const int32_t &
+// id)
+// {
+//   using autoware::universe_utils::createMarkerColor;
+//   Marker marker = autoware::universe_utils::createDefaultMarker(
+//     "map", node_->get_clock()->now(), ns, getMarkerId(ns), Marker::LINE_STRIP,
+//     autoware::universe_utils::createMarkerScale(0.2, 0.2, 0.2),
+//     createMarkerColor(1.0, 0.0, 0.0, 0.999));
+
+//   const double z = object.kinematics.initial_pose_with_covariance.pose.position.z;
+//   const double height = object.shape.dimensions.z;
+//   const auto polygon = autoware::universe_utils::toPolygon2d(
+//     object.kinematics.initial_pose_with_covariance.pose, object.shape);
+//   for (const auto & p : polygon.outer()) {
+//     marker.points.push_back(createPoint(p.x(), p.y(), z - height / 2));
+//     marker.points.push_back(createPoint(p.x(), p.y(), z + height / 2));
+//   }
+//   marker.id = id;
+//   msg.markers.push_back(marker);
+
+//   return msg;
+// }
 
 void PlanningValidatorDebugMarkerPublisher::pushWarningMsg(
   const geometry_msgs::msg::Pose & pose, const std::string & msg)
