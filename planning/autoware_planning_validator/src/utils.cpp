@@ -293,7 +293,7 @@ std::pair<double, size_t> calcMaxSteeringRates(
   return {max_steering_rate, max_index};
 }
 
-std::optional<std::vector<autoware_planning_msgs::msg::TrajectoryPoint>> check_collision(
+std::optional<std::pair<std::vector<TrajectoryPoint>, std::vector<Box>>> check_collision(
   const PredictedObjects & predicted_objects, const Trajectory & trajectory,
   const geometry_msgs::msg::Point & current_ego_position, const VehicleInfo & vehicle_info,
   const double trajectory_to_object_distance_threshold,
@@ -351,11 +351,15 @@ std::optional<std::vector<autoware_planning_msgs::msg::TrajectoryPoint>> check_c
   const auto & collision_index_set =
     detect_collisions(ego_rtree, predicted_object_rtree, time_tolerance_threshold);
   std::vector<autoware_planning_msgs::msg::TrajectoryPoint> collision_points;
-  for (const auto & [ego_index, obj_index] : collision_index_set) {
+  std::vector<Box> collision_boxes;
+  for (const auto & [ego_index, obj_box] : collision_index_set) {
     collision_points.push_back(filtered_trajectory[ego_index]);
+    collision_boxes.push_back(obj_box);
   }
 
-  return collision_points.empty() ? std::nullopt : std::make_optional(collision_points);
+  return (collision_points.empty() && collision_boxes.empty())
+           ? std::nullopt
+           : std::make_optional(std::make_pair(collision_points, collision_boxes));
 }
 
 Rtree make_ego_footprint_rtree(
@@ -441,10 +445,10 @@ void make_predicted_object_rtree(
   }
 }
 
-std::vector<std::pair<size_t, size_t>> detect_collisions(
+std::vector<std::pair<size_t, Box>> detect_collisions(
   const Rtree & ego_rtree, const Rtree & predicted_object_rtree, double time_tolerance)
 {
-  std::vector<std::pair<size_t, size_t>> collision_sets;
+  std::vector<std::pair<size_t, Box>> collision_sets;
 
   for (const auto & ego_value : ego_rtree) {
     const auto & ego_box = ego_value.first;
@@ -460,7 +464,7 @@ std::vector<std::pair<size_t, size_t>> detect_collisions(
 
     for (const auto & obj_value : potential_collisions) {
       if (boost::geometry::intersects(ego_box, obj_value.first)) {
-        collision_sets.emplace_back(ego_value.second.second, obj_value.second.second);
+        collision_sets.emplace_back(ego_value.second.second, obj_value.first);
       }
     }
   }

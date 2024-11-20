@@ -565,19 +565,21 @@ bool PlanningValidator::checkValidTrajectoryCollision(const Trajectory & traject
     return true;  // Ego is almost stopped.
   }
 
-  const auto & collided_points = check_collision(
+  const auto & collision_result = check_collision(
     *current_objects_, trajectory, current_kinematics_->pose.pose.position, vehicle_info_,
     validation_params_.trajectory_to_object_distance_threshold,
     validation_params_.ego_to_object_distance_threshold,
     validation_params_.time_tolerance_threshold);
 
-  if (collided_points) {
-    for (const auto & p : *collided_points) {
-      debug_pose_publisher_->pushPoseMarker(p.pose, "collision", 0);
-      debug_pose_publisher_->pushFootprintMarker(p.pose, vehicle_info_, "collision");
+  if (collision_result) {
+    const auto & [collided_points, collision_boxes] = *collision_result;
+    for (size_t i = 0; i < collided_points.size(); ++i) {
+      debug_pose_publisher_->pushPoseMarker(collided_points[i].pose, "collision", 0);
+      debug_pose_publisher_->pushFootprintMarker(
+        collided_points[i].pose, vehicle_info_, "collision");
     }
   }
-  return !collided_points;
+  return !collision_result;
 }
 
 bool PlanningValidator::isAllValid(const PlanningValidatorStatus & s) const

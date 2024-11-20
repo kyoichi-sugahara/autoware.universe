@@ -73,7 +73,7 @@ std::pair<double, size_t> calcMaxSteeringAngles(
 std::pair<double, size_t> calcMaxSteeringRates(
   const Trajectory & trajectory, const double wheelbase);
 
-std::optional<std::vector<autoware_planning_msgs::msg::TrajectoryPoint>> check_collision(
+std::optional<std::pair<std::vector<TrajectoryPoint>, std::vector<Box>>> check_collision(
   const PredictedObjects & predicted_objects, const Trajectory & trajectory,
   const geometry_msgs::msg::Point & current_ego_position, const VehicleInfo & vehicle_info,
   const double trajectory_to_object_distance_threshold,
@@ -95,7 +95,7 @@ void make_predicted_object_rtree(
   const PredictedPath & highest_confidence_path, const Shape & object_shape,
   const double predicted_time_step, std::vector<BoxTimeIndexPair> & predicted_object_rtree_nodes);
 
-std::vector<std::pair<size_t, size_t>> detect_collisions(
+std::vector<std::pair<size_t, Box>> detect_collisions(
   const Rtree & ego_rtree, const Rtree & predicted_object_rtree, double time_tolerance);
 
 bool checkFinite(const TrajectoryPoint & point);
