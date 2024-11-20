@@ -6,6 +6,7 @@ autoware_package()
 
 find_package(cgmres REQUIRED)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
+find_package(fmt REQUIRED)
 
 ament_auto_add_library(steering_offset_lib SHARED
   src/steering_offset/steering_offset.cpp
