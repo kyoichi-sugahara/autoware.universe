@@ -101,28 +101,39 @@ void PlanningValidatorDebugMarkerPublisher::pushFootprintMarker(
   marker_array_.markers.push_back(marker);
 }
 
-// Void pushObjectPolygonMarker(const PredictedObject & object, std::string && ns, const int32_t &
-// id)
-// {
-//   using autoware::universe_utils::createMarkerColor;
-//   Marker marker = autoware::universe_utils::createDefaultMarker(
-//     "map", node_->get_clock()->now(), ns, getMarkerId(ns), Marker::LINE_STRIP,
-//     autoware::universe_utils::createMarkerScale(0.2, 0.2, 0.2),
-//     createMarkerColor(1.0, 0.0, 0.0, 0.999));
+void PlanningValidatorDebugMarkerPublisher::pushBoxMarker(
+  const boost::geometry::model::box<autoware::universe_utils::Point2d> & polygon_box,
+  const std::string & ns)
+{
+  using autoware::universe_utils::createMarkerColor;
 
-//   const double z = object.kinematics.initial_pose_with_covariance.pose.position.z;
-//   const double height = object.shape.dimensions.z;
-//   const auto polygon = autoware::universe_utils::toPolygon2d(
-//     object.kinematics.initial_pose_with_covariance.pose, object.shape);
-//   for (const auto & p : polygon.outer()) {
-//     marker.points.push_back(createPoint(p.x(), p.y(), z - height / 2));
-//     marker.points.push_back(createPoint(p.x(), p.y(), z + height / 2));
-//   }
-//   marker.id = id;
-//   msg.markers.push_back(marker);
+  Marker marker = autoware::universe_utils::createDefaultMarker(
+    "map", node_->get_clock()->now(), ns, getMarkerId(ns), Marker::LINE_STRIP,
+    autoware::universe_utils::createMarkerScale(0.1, 0.1, 0.1),
+    createMarkerColor(0.0, 1.0, 0.0, 0.999));
 
-//   return msg;
-// }
+  // Box has min_corner() and max_corner() methods to get the corners
+  const auto & min_corner = polygon_box.min_corner();
+  const auto & max_corner = polygon_box.max_corner();
+
+  // Reserve space for 5 points (4 corners + closing point)
+  marker.points.reserve(5);
+
+  // Create the 4 corners of the box
+  marker.points.push_back(
+    autoware::universe_utils::createPoint(min_corner.x(), min_corner.y(), 0.0));
+  marker.points.push_back(
+    autoware::universe_utils::createPoint(max_corner.x(), min_corner.y(), 0.0));
+  marker.points.push_back(
+    autoware::universe_utils::createPoint(max_corner.x(), max_corner.y(), 0.0));
+  marker.points.push_back(
+    autoware::universe_utils::createPoint(min_corner.x(), max_corner.y(), 0.0));
+  // Close the box by adding the first point again
+  marker.points.push_back(
+    autoware::universe_utils::createPoint(min_corner.x(), min_corner.y(), 0.0));
+
+  marker_array_.markers.push_back(marker);
+}
 
 void PlanningValidatorDebugMarkerPublisher::pushWarningMsg(
   const geometry_msgs::msg::Pose & pose, const std::string & msg)

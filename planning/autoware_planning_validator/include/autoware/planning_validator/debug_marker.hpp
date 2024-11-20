@@ -39,6 +39,9 @@ public:
   void pushFootprintMarker(
     const geometry_msgs::msg::Pose & pose,
     const autoware::vehicle_info_utils::VehicleInfo & vehicle_info, const std::string & ns);
+  void pushBoxMarker(
+    const boost::geometry::model::box<autoware::universe_utils::Point2d> & polygon_box,
+    const std::string & ns);
   void pushVirtualWall(const geometry_msgs::msg::Pose & pose);
   void pushWarningMsg(const geometry_msgs::msg::Pose & pose, const std::string & msg);
   void publish();

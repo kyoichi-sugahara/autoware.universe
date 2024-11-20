@@ -577,6 +577,7 @@ bool PlanningValidator::checkValidTrajectoryCollision(const Trajectory & traject
       debug_pose_publisher_->pushPoseMarker(collided_points[i].pose, "collision", 0);
       debug_pose_publisher_->pushFootprintMarker(
         collided_points[i].pose, vehicle_info_, "collision");
+      debug_pose_publisher_->pushBoxMarker(collision_boxes[i], "collision");
     }
   }
   return !collision_result;
