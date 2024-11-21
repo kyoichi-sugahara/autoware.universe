@@ -1,0 +1,99 @@
+diff --git a/control/autoware_autonomous_emergency_braking/include/autoware/autonomous_emergency_braking/node.hpp b/control/autoware_autonomous_emergency_braking/include/autoware/autonomous_emergency_braking/node.hpp
+index b504f45ca40..59ead5d9b7a 100644
+--- a/control/autoware_autonomous_emergency_braking/include/autoware/autonomous_emergency_braking/node.hpp
++++ b/control/autoware_autonomous_emergency_braking/include/autoware/autonomous_emergency_braking/node.hpp
+@@ -405,7 +405,6 @@ public:
+     const ObjectData & object, const Path & path, const double current_velocity);
+   void publishDebugInformation(const PointCloud::Ptr & points);
+   CollisionCheckContext prepareCollisionCheckContext();
+-  std::vector<Path> preparePaths(const CollisionCheckContext & context);
+   std::vector<ObjectData> detectObjectsAlongPaths(
+     const CollisionCheckContext & context, const PointCloud::Ptr & processed_points,
+     MarkerArray & debug_markers);
+@@ -459,7 +458,7 @@ public:
+    * @param polygons vector to be filled with the polygons
+    * @return Vector of polygons representing the path footprint
+    */
+-  void generatePathFootprint(
++  void generatePathFootprintPolygons(
+     const Path & path, const double extra_width_margin, std::vector<Polygon2d> & polygons);
+
+   /**
+diff --git a/control/autoware_autonomous_emergency_braking/src/node.cpp b/control/autoware_autonomous_emergency_braking/src/node.cpp
+index efae6c624d5..7b298fbeeac 100644
+--- a/control/autoware_autonomous_emergency_braking/src/node.cpp
++++ b/control/autoware_autonomous_emergency_braking/src/node.cpp
+@@ -482,13 +482,12 @@ Path AEB::generateMergedPath(const CollisionCheckContext & context) const
+ }
+
+ PointCloud::Ptr AEB::filterPointCloudAroundPaths(
+-  const std::vector<Path> & paths, MarkerArray & debug_markers)
++  const std::vector<Polygon2d> & merged_path_polygons, MarkerArray & debug_markers)
+ {
+-  if (paths.empty() || !use_pointcloud_data_) {
++  if (!use_pointcloud_data_) {
+     return pcl::make_shared<PointCloud>();
+   }
+
+-  const auto merged_path_polygons = generateMergedPathPolygons(paths);
+   auto filtered_objects = pcl::make_shared<PointCloud>();
+   cropPointCloudWithEgoFootprintPath(merged_path_polygons, filtered_objects);
+
+@@ -504,7 +503,7 @@ std::vector<ObjectData> AEB::detectObjectsAlongPath(
+   const colorTuple & debug_colors, const std::string & debug_ns, MarkerArray & debug_markers)
+ {
+   // Check which points of the cropped point cloud are on the ego path, and get the closest one
+-  const auto ego_polys = generatePathFootprint(path, expand_width_);
++  const auto ego_polys = generatePathFootprintPolygons(path, expand_width_);
+   std::vector<ObjectData> objects;
+
+   // Crop out Pointcloud using an extra wide ego path
+@@ -552,11 +551,22 @@ bool AEB::checkCollisionWithClosestObject(
+   return has_collision;
+ }
+
+-std::vector<Polygon2d> AEB::generateMergedPathPolygons(const std::vector<Path> & paths)
++std::vector<Polygon2d> AEB::generateMergedPathPolygons(const CollisionCheckContext & context)
+ {
++  std::vector<Path> paths;
++  if (context.use_imu_path) {
++    paths.push_back(context.ego_imu_path);
++  }
++  if (context.ego_mpc_path.has_value()) {
++    paths.push_back(context.ego_mpc_path.value());
++  }
++  if(paths.empty()){
++    // should be returned as error
++    return {};
++  }
+   std::vector<Polygon2d> merged_polygons;
+   for (const auto & path : paths) {
+-    generatePathFootprint(path, expand_width_ + path_footprint_extra_margin_, merged_polygons);
++    generatePathFootprintPolygons(path, expand_width_ + path_footprint_extra_margin_, merged_polygons);
+   }
+   return merged_polygons;
+ }
+@@ -653,11 +663,11 @@ bool AEB::checkCollision(MarkerArray & debug_markers)
+   // Step 2: Prepare context for collision checking
+   const auto context = prepareCollisionCheckContext();
+
+-  // Step 3: Prepare path information for point cloud processing
+-  const auto paths = preparePaths(context);
++  // Step 3: Prepare paths for collision checking
++  const auto path_polygons = generateMergedPathPolygons(context);
+
+   // Step 4: Preprocess point cloud data
+-  auto processed_points = filterPointCloudAroundPaths(paths, debug_markers);
++  auto processed_points = filterPointCloudAroundPaths(context, debug_markers);
+
+   // Step 5: Detect objects along paths
+   auto merged_objects = detectObjectsAlongPaths(context, processed_points, debug_markers);
+@@ -812,7 +822,7 @@ void AEB::generatePathFootprint(
+   }
+ }
+
+-std::vector<Polygon2d> AEB::generatePathFootprint(
++std::vector<Polygon2d> AEB::generatePathFootprintPolygons(
+   const Path & path, const double extra_width_margin)
+ {
+   autoware::universe_utils::ScopedTimeTrack st(__func__, *time_keeper_);
