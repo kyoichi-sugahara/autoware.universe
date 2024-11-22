@@ -95,16 +95,6 @@ struct ObjectData
   bool is_target{true};
 };
 
-struct CollisionCheckContext
-{
-  const double current_velocity;
-  const rclcpp::Time current_time;
-  const bool use_imu_path;
-  const bool use_predicted_trajectory;
-  const Path ego_imu_path;
-  const std::optional<Path> ego_mpc_path;
-};
-
 /**
  * @brief Class to manage collision data
  */
@@ -390,25 +380,6 @@ public:
   rcl_interfaces::msg::SetParametersResult onParameter(
     const std::vector<rclcpp::Parameter> & parameters);
 
-  bool isValidOperatingCondition();
-  Path generateMergedPath(const CollisionCheckContext & context) const;
-  PointCloud::Ptr filterPointCloudAroundPaths(
-    const std::vector<Path> & paths, MarkerArray & debug_markers);
-  std::vector<ObjectData> detectObjectsAlongPath(
-    const Path & path, PointCloud::Ptr points, const rclcpp::Time & current_time,
-    const colorTuple & debug_colors, const std::string & debug_ns, MarkerArray & debug_markers);
-  bool checkCollisionWithClosestObject(
-    const double current_velocity, const Path & path, std::vector<ObjectData> & objects);
-  std::vector<Polygon2d> generateMergedPathPolygons(const std::vector<Path> & paths);
-  std::optional<ObjectData> findClosestObject(std::vector<ObjectData> & objects) const;
-  std::optional<double> calculateObjectSpeed(
-    const ObjectData & object, const Path & path, const double current_velocity);
-  void publishDebugInformation(const PointCloud::Ptr & points);
-  CollisionCheckContext prepareCollisionCheckContext();
-  std::vector<ObjectData> detectObjectsAlongPaths(
-    const CollisionCheckContext & context, const PointCloud::Ptr & processed_points,
-    MarkerArray & debug_markers);
-
   /**
    * @brief Fetch the latest data from subscribers
    * @return True if data fetch was successful, false otherwise
@@ -458,7 +429,7 @@ public:
    * @param polygons vector to be filled with the polygons
    * @return Vector of polygons representing the path footprint
    */
-  void generatePathFootprintPolygons(
+  void generatePathFootprint(
     const Path & path, const double extra_width_margin, std::vector<Polygon2d> & polygons);
 
   /**
@@ -479,7 +450,7 @@ public:
    * @param objects Vector to store the created object data
    * @param obstacle_points_ptr Pointer to the point cloud of obstacles
    */
-  void getObjectsInPathRegion(
+  void getClosestObjectsOnPath(
     const Path & ego_path, const rclcpp::Time & stamp,
     const PointCloud::Ptr points_belonging_to_cluster_hulls, std::vector<ObjectData> & objects);
 

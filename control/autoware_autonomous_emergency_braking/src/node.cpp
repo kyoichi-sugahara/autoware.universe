@@ -56,15 +56,6 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #endif
 
-namespace
-{
-using autoware::motion::control::autonomous_emergency_braking::colorTuple;
-constexpr double MIN_MOVING_VELOCITY_THRESHOLD = 0.1;
-constexpr colorTuple IMU_PATH_COLOR = {0.0 / 256.0, 148.0 / 256.0, 205.0 / 256.0, 0.999};
-constexpr colorTuple MPC_PATH_COLOR = {0.0 / 256.0, 100.0 / 256.0, 0.0 / 256.0, 0.999};
-constexpr colorTuple HULL_POLYGONS_COLOR = {255.0 / 256.0, 51.0 / 256.0, 255.0 / 256.0, 0.999};
-}  // namespace
-
 namespace autoware::motion::control::autonomous_emergency_braking
 {
 using autoware::motion::control::autonomous_emergency_braking::utils::convertObjToPolygon;
@@ -449,9 +440,11 @@ void AEB::onCheckCollision(DiagnosticStatusWrapper & stat)
   metrics_pub_->publish(metrics);
 }
 
-bool AEB::isValidOperatingCondition()
+bool AEB::checkCollision(MarkerArray & debug_markers)
 {
-  // check data
+  autoware::universe_utils::ScopedTimeTrack st(__func__, *time_keeper_);
+
+  // step1. check data
   if (!fetchLatestData()) {
     return false;
   }
@@ -461,247 +454,165 @@ bool AEB::isValidOperatingCondition()
     return false;
   }
 
-  // create velocity data check if the vehicle stops or not
+  // step2. create velocity data check if the vehicle stops or not
+  constexpr double min_moving_velocity_th{0.1};
   const double current_v = current_velocity_ptr_->longitudinal_velocity;
-  if (std::abs(current_v) < MIN_MOVING_VELOCITY_THRESHOLD) {
+  if (std::abs(current_v) < min_moving_velocity_th) {
     return false;
   }
 
-  return true;
-}
+  auto merge_expanded_path_polys = [&](const std::vector<Path> & paths) {
+    std::vector<Polygon2d> merged_expanded_path_polygons;
+    for (const auto & path : paths) {
+      generatePathFootprint(
+        path, expand_width_ + path_footprint_extra_margin_, merged_expanded_path_polygons);
+    }
+    return merged_expanded_path_polygons;
+  };
 
-Path AEB::generateMergedPath(const CollisionCheckContext & context) const
-{
-  if (!context.use_predicted_trajectory || !context.ego_mpc_path.has_value()) {
-    return context.ego_imu_path;
+  auto get_objects_on_path = [&](
+                               const auto & path, PointCloud::Ptr points_belonging_to_cluster_hulls,
+                               const colorTuple & debug_colors, const std::string & debug_ns) {
+    // Check which points of the cropped point cloud are on the ego path, and get the closest one
+    const auto ego_polys = generatePathFootprint(path, expand_width_);
+    std::vector<ObjectData> objects;
+    // Crop out Pointcloud using an extra wide ego path
+    if (
+      use_pointcloud_data_ && points_belonging_to_cluster_hulls &&
+      !points_belonging_to_cluster_hulls->empty()) {
+      const auto current_time = obstacle_ros_pointcloud_ptr_->header.stamp;
+      getClosestObjectsOnPath(path, current_time, points_belonging_to_cluster_hulls, objects);
+    }
+    if (use_predicted_object_data_) {
+      createObjectDataUsingPredictedObjects(path, ego_polys, objects);
+    }
+
+    // Add debug markers
+    if (publish_debug_markers_) {
+      addMarker(
+        this->get_clock()->now(), path, ego_polys, objects, collision_data_keeper_.get(),
+        debug_colors, debug_ns, debug_markers);
+    }
+    return objects;
+  };
+
+  auto check_collision = [&](const Path & path, std::vector<ObjectData> & objects) {
+    time_keeper_->start_track("has_collision");
+    const auto closest_object_point = std::invoke([&]() -> std::optional<ObjectData> {
+      // Attempt to find the closest object
+      const auto closest_object_itr =
+        std::min_element(objects.begin(), objects.end(), [](const auto & o1, const auto & o2) {
+          // target objects have priority
+          if (o1.is_target != o2.is_target) {
+            return o1.is_target;
+          }
+          return o1.distance_to_object < o2.distance_to_object;
+        });
+
+      if (closest_object_itr != objects.end()) {
+        // Calculate speed for the closest object
+        const auto closest_object_speed = (use_object_velocity_calculation_)
+                                            ? collision_data_keeper_.calcObjectSpeedFromHistory(
+                                                *closest_object_itr, path, current_v)
+                                            : std::make_optional<double>(0.0);
+
+        if (closest_object_speed.has_value()) {
+          closest_object_itr->velocity = closest_object_speed.value();
+          return std::make_optional<ObjectData>(*closest_object_itr);
+        }
+      }
+
+      return std::nullopt;
+    });
+
+    const bool has_collision =
+      (closest_object_point.has_value() && closest_object_point.value().is_target)
+        ? hasCollision(current_v, closest_object_point.value())
+        : false;
+
+    time_keeper_->end_track("has_collision");
+    // check collision using rss distance
+    return has_collision;
+  };
+
+  // step3. make function to check collision with ego path created with sensor data
+  const auto ego_imu_path = (!use_imu_path_ || !angular_velocity_ptr_)
+                              ? Path{}
+                              : generateEgoPath(current_v, angular_velocity_ptr_->z);
+
+  const auto ego_mpc_path = (!use_predicted_trajectory_ || !predicted_traj_ptr_)
+                              ? std::nullopt
+                              : generateEgoPath(*predicted_traj_ptr_);
+
+  PointCloud::Ptr filtered_objects = pcl::make_shared<PointCloud>();
+  if (use_pointcloud_data_) {
+    const std::vector<Path> paths = [&]() {
+      std::vector<Path> paths;
+      if (use_imu_path_) paths.push_back(ego_imu_path);
+      if (ego_mpc_path.has_value()) {
+        paths.push_back(ego_mpc_path.value());
+      }
+      return paths;
+    }();
+
+    if (paths.empty()) return false;
+    const std::vector<Polygon2d> merged_path_polygons = merge_expanded_path_polys(paths);
+    // Data of filtered point cloud
+    cropPointCloudWithEgoFootprintPath(merged_path_polygons, filtered_objects);
   }
 
-  Path merged_path = context.ego_imu_path;
-  merged_path.insert(
-    merged_path.end(), context.ego_mpc_path.value().begin(), context.ego_mpc_path.value().end());
-  return merged_path;
-}
-
-PointCloud::Ptr AEB::filterPointCloudAroundPaths(
-  const std::vector<Polygon2d> & merged_path_polygons, MarkerArray & debug_markers)
-{
-  if (!use_pointcloud_data_) {
-    return pcl::make_shared<PointCloud>();
-  }
-
-  auto filtered_objects = pcl::make_shared<PointCloud>();
-  cropPointCloudWithEgoFootprintPath(merged_path_polygons, filtered_objects);
-
-  auto points_belonging_to_cluster_hulls = pcl::make_shared<PointCloud>();
+  PointCloud::Ptr points_belonging_to_cluster_hulls = pcl::make_shared<PointCloud>();
   getPointsBelongingToClusterHulls(
     filtered_objects, points_belonging_to_cluster_hulls, debug_markers);
 
-  return points_belonging_to_cluster_hulls;
-}
+  const auto imu_path_objects = (!use_imu_path_ || !angular_velocity_ptr_)
+                                  ? std::vector<ObjectData>{}
+                                  : get_objects_on_path(
+                                      ego_imu_path, points_belonging_to_cluster_hulls,
+                                      {0.0 / 256.0, 148.0 / 256.0, 205.0 / 256.0, 0.999}, "imu");
 
-std::vector<ObjectData> AEB::detectObjectsAlongPath(
-  const Path & path, PointCloud::Ptr points_belonging_to_cluster_hulls,
-  const rclcpp::Time & current_time, const colorTuple & debug_colors, const std::string & debug_ns,
-  MarkerArray & debug_markers)
-{
-  // Check which points of the cropped point cloud are on the ego path, and get the closest one
-  const auto ego_polys = generatePathFootprintPolygons(path, expand_width_);
-  std::vector<ObjectData> objects;
+  const auto mpc_path_objects =
+    (!use_predicted_trajectory_ || !predicted_traj_ptr_ || !ego_mpc_path.has_value())
+      ? std::vector<ObjectData>{}
+      : get_objects_on_path(
+          ego_mpc_path.value(), points_belonging_to_cluster_hulls,
+          {0.0 / 256.0, 100.0 / 256.0, 0.0 / 256.0, 0.999}, "mpc");
 
-  // Crop out Pointcloud using an extra wide ego path
-  if (
-    use_pointcloud_data_ && points_belonging_to_cluster_hulls &&
-    !points_belonging_to_cluster_hulls->empty()) {
-    getObjectsInPathRegion(path, current_time, points_belonging_to_cluster_hulls, objects);
-  }
+  // merge object data which comes from the ego (imu) path and predicted path
+  auto merge_objects =
+    [&](const std::vector<ObjectData> & imu_objects, const std::vector<ObjectData> & mpc_objects) {
+      std::vector<ObjectData> merged_objects = imu_objects;
+      merged_objects.insert(merged_objects.end(), mpc_objects.begin(), mpc_objects.end());
+      return merged_objects;
+    };
 
-  if (use_predicted_object_data_) {
-    createObjectDataUsingPredictedObjects(path, ego_polys, objects);
-  }
+  auto merged_imu_mpc_objects = merge_objects(imu_path_objects, mpc_path_objects);
+  if (merged_imu_mpc_objects.empty()) return false;
 
-  // Add debug markers
-  if (publish_debug_markers_) {
-    addMarker(
-      this->get_clock()->now(), path, ego_polys, objects, collision_data_keeper_.get(),
-      debug_colors, debug_ns, debug_markers);
-  }
-
-  return objects;
-}
-
-bool AEB::checkCollisionWithClosestObject(
-  const double current_velocity, const Path & path, std::vector<ObjectData> & objects)
-{
-  time_keeper_->start_track("has_collision");
-
-  const auto closest_object_opt = findClosestObject(objects);
-  if (!closest_object_opt.has_value() || !closest_object_opt.value().is_target) {
-    time_keeper_->end_track("has_collision");
-    return false;
-  }
-
-  ObjectData closest_object = closest_object_opt.value();
-
-  const auto object_speed = calculateObjectSpeed(closest_object, path, current_velocity);
-  if (!object_speed.has_value()) {
-    time_keeper_->end_track("has_collision");
-    return false;
-  }
-
-  closest_object.velocity = object_speed.value();
-  const bool has_collision = hasCollision(current_velocity, closest_object);
-
-  time_keeper_->end_track("has_collision");
-  return has_collision;
-}
-
-std::vector<Polygon2d> AEB::generateMergedPathPolygons(const CollisionCheckContext & context)
-{
-  std::vector<Path> paths;
-  if (context.use_imu_path) {
-    paths.push_back(context.ego_imu_path);
-  }
-  if (context.ego_mpc_path.has_value()) {
-    paths.push_back(context.ego_mpc_path.value());
-  }
-  if (paths.empty()) {
-    // should be returned as error
-    return {};
-  }
-  std::vector<Polygon2d> merged_polygons;
-  for (const auto & path : paths) {
-    generatePathFootprintPolygons(
-      path, expand_width_ + path_footprint_extra_margin_, merged_polygons);
-  }
-  return merged_polygons;
-}
-
-std::optional<ObjectData> AEB::findClosestObject(std::vector<ObjectData> & objects) const
-{
-  if (objects.empty()) {
-    return std::nullopt;
-  }
-
-  return *std::min_element(objects.begin(), objects.end(), [](const auto & o1, const auto & o2) {
-    if (o1.is_target != o2.is_target) {
-      return o1.is_target;
+  // merge path points for the collision checking
+  auto merge_paths = [&](const std::optional<Path> & mpc_path, const Path & imu_path) {
+    if (!mpc_path.has_value()) {
+      return imu_path;
     }
-    return o1.distance_to_object < o2.distance_to_object;
-  });
-}
+    Path merged_path = imu_path;  // Start with imu_path
+    merged_path.insert(
+      merged_path.end(), mpc_path.value().begin(), mpc_path.value().end());  // Append mpc_path
+    return merged_path;
+  };
 
-std::optional<double> AEB::calculateObjectSpeed(
-  const ObjectData & object, const Path & path, const double current_velocity)
-{
-  if (!use_object_velocity_calculation_) {
-    return 0.0;
+  auto merge_imu_mpc_path = merge_paths(ego_mpc_path, ego_imu_path);
+  if (merge_imu_mpc_path.empty()) return false;
+
+  // evaluate if there is a collision for merged (imu and mpc) paths
+  const bool has_collision = check_collision(merge_imu_mpc_path, merged_imu_mpc_objects);
+
+  // Debug print
+  if (!filtered_objects->empty() && publish_debug_pointcloud_) {
+    const auto filtered_objects_ros_pointcloud_ptr = std::make_shared<PointCloud2>();
+    pcl::toROSMsg(*filtered_objects, *filtered_objects_ros_pointcloud_ptr);
+    pub_obstacle_pointcloud_->publish(*filtered_objects_ros_pointcloud_ptr);
   }
-  return collision_data_keeper_.calcObjectSpeedFromHistory(object, path, current_velocity);
-}
-
-CollisionCheckContext AEB::prepareCollisionCheckContext()
-{
-  const bool use_imu = use_imu_path_ && angular_velocity_ptr_;
-  const bool use_mpc = use_predicted_trajectory_ && predicted_traj_ptr_;
-
-  const Path ego_imu_path =
-    use_imu
-      ? generateEgoPath(current_velocity_ptr_->longitudinal_velocity, angular_velocity_ptr_->z)
-      : Path{};
-
-  const std::optional<Path> ego_mpc_path =
-    use_mpc ? generateEgoPath(*predicted_traj_ptr_) : std::nullopt;
-
-  return CollisionCheckContext{
-    current_velocity_ptr_->longitudinal_velocity,
-    obstacle_ros_pointcloud_ptr_->header.stamp,
-    use_imu,
-    use_mpc,
-    ego_imu_path,
-    ego_mpc_path};
-}
-
-std::vector<Path> AEB::preparePaths(const CollisionCheckContext & context)
-{
-  std::vector<Path> paths;
-  if (context.use_imu_path) {
-    paths.push_back(context.ego_imu_path);
-  }
-  if (context.ego_mpc_path.has_value()) {
-    paths.push_back(context.ego_mpc_path.value());
-  }
-  return paths;
-}
-
-std::vector<ObjectData> AEB::detectObjectsAlongPaths(
-  const CollisionCheckContext & context, const PointCloud::Ptr & processed_points,
-  MarkerArray & debug_markers)
-{
-  std::vector<ObjectData> objects;
-
-  if (context.use_imu_path) {
-    auto imu_objects = detectObjectsAlongPath(
-      context.ego_imu_path, processed_points, context.current_time, IMU_PATH_COLOR, "imu",
-      debug_markers);
-    objects.insert(objects.end(), imu_objects.begin(), imu_objects.end());
-  }
-
-  if (context.use_predicted_trajectory && context.ego_mpc_path.has_value()) {
-    auto mpc_objects = detectObjectsAlongPath(
-      context.ego_mpc_path.value(), processed_points, context.current_time, MPC_PATH_COLOR, "mpc",
-      debug_markers);
-    objects.insert(objects.end(), mpc_objects.begin(), mpc_objects.end());
-  }
-
-  return objects;
-}
-
-bool AEB::checkCollision(MarkerArray & debug_markers)
-{
-  autoware::universe_utils::ScopedTimeTrack st(__func__, *time_keeper_);
-
-  // Step 1: Check preconditions
-  if (!isValidOperatingCondition()) {
-    return false;
-  }
-
-  // Step 2: Prepare context for collision checking
-  const auto context = prepareCollisionCheckContext();
-
-  // Step 3: Prepare paths for collision checking
-  const auto path_polygons = generateMergedPathPolygons(context);
-
-  // Step 4: Preprocess point cloud data
-  auto processed_points = filterPointCloudAroundPaths(context, debug_markers);
-
-  // Step 5: Detect objects along paths
-  auto merged_objects = detectObjectsAlongPaths(context, processed_points, debug_markers);
-
-  if (merged_objects.empty()) {
-    return false;
-  }
-  // Step 6: Check collision with closest object
-  const auto merged_path = generateMergedPath(context);
-  if (merged_path.empty()) {
-    return false;
-  }
-
-  const bool has_collision =
-    checkCollisionWithClosestObject(context.current_velocity, merged_path, merged_objects);
-
-  // Step 7: Publish debug information (if enabled)
-  publishDebugInformation(processed_points);
-
   return has_collision;
-}
-
-void AEB::publishDebugInformation(const PointCloud::Ptr & points)
-{
-  if (publish_debug_pointcloud_ && points && !points->empty()) {
-    const auto ros_pointcloud = std::make_shared<PointCloud2>();
-    pcl::toROSMsg(*points, *ros_pointcloud);
-    pub_obstacle_pointcloud_->publish(*ros_pointcloud);
-  }
 }
 
 bool AEB::hasCollision(const double current_v, const ObjectData & closest_object)
@@ -827,7 +738,7 @@ void AEB::generatePathFootprint(
   }
 }
 
-std::vector<Polygon2d> AEB::generatePathFootprintPolygons(
+std::vector<Polygon2d> AEB::generatePathFootprint(
   const Path & path, const double extra_width_margin)
 {
   autoware::universe_utils::ScopedTimeTrack st(__func__, *time_keeper_);
@@ -976,11 +887,12 @@ void AEB::getPointsBelongingToClusterHulls(
     hull_polygons.push_back(hull_polygon);
   }
   if (publish_debug_markers_ && !hull_polygons.empty()) {
-    addClusterHullMarkers(now(), hull_polygons, HULL_POLYGONS_COLOR, "hulls", debug_markers);
+    constexpr colorTuple debug_color = {255.0 / 256.0, 51.0 / 256.0, 255.0 / 256.0, 0.999};
+    addClusterHullMarkers(now(), hull_polygons, debug_color, "hulls", debug_markers);
   }
 }
 
-void AEB::getObjectsInPathRegion(
+void AEB::getClosestObjectsOnPath(
   const Path & ego_path, const rclcpp::Time & stamp,
   const PointCloud::Ptr points_belonging_to_cluster_hulls, std::vector<ObjectData> & objects)
 {
@@ -1040,42 +952,37 @@ void AEB::getObjectsInPathRegion(
 }
 
 void AEB::cropPointCloudWithEgoFootprintPath(
-  const std::vector<Polygon2d> & ego_path_polygons, PointCloud::Ptr points_in_path)
+  const std::vector<Polygon2d> & ego_polys, PointCloud::Ptr filtered_objects)
 {
   autoware::universe_utils::ScopedTimeTrack st(__func__, *time_keeper_);
-
-  if (ego_path_polygons.empty()) {
+  if (ego_polys.empty()) {
     return;
   }
-  PointCloud::Ptr obstacle_points_ptr(new PointCloud);
-  pcl::fromROSMsg(*obstacle_ros_pointcloud_ptr_, *obstacle_points_ptr);
+  PointCloud::Ptr full_points_ptr(new PointCloud);
+  pcl::fromROSMsg(*obstacle_ros_pointcloud_ptr_, *full_points_ptr);
   // Create a Point cloud with the points of the ego footprint
-  PointCloud::Ptr ego_path_boundary_points(new PointCloud);
-  std::for_each(ego_path_polygons.begin(), ego_path_polygons.end(), [&](const auto & polygon) {
-    std::for_each(polygon.outer().begin(), polygon.outer().end(), [&](const auto & vertex) {
-      pcl::PointXYZ boundary_point(vertex.x(), vertex.y(), 0.0);
-      ego_path_boundary_points->push_back(boundary_point);
+  PointCloud::Ptr path_polygon_points(new PointCloud);
+  std::for_each(ego_polys.begin(), ego_polys.end(), [&](const auto & poly) {
+    std::for_each(poly.outer().begin(), poly.outer().end(), [&](const auto & p) {
+      pcl::PointXYZ point(p.x(), p.y(), 0.0);
+      path_polygon_points->push_back(point);
     });
   });
-
-  // Generate 2D convex hull from path boundary points
-  pcl::ConvexHull<pcl::PointXYZ> convex_hull;
-  convex_hull.setDimension(2);
-  convex_hull.setInputCloud(ego_path_boundary_points);
-
-  std::vector<pcl::Vertices> hull_polygons;
-  PointCloud::Ptr hull_boundary_points(new PointCloud);
-  convex_hull.reconstruct(*hull_boundary_points, hull_polygons);
-
-  // Extract points inside the convex hull only
+  // Make a surface hull with the ego footprint to filter out points
+  pcl::ConvexHull<pcl::PointXYZ> hull;
+  hull.setDimension(2);
+  hull.setInputCloud(path_polygon_points);
+  std::vector<pcl::Vertices> polygons;
+  PointCloud::Ptr surface_hull(new PointCloud);
+  hull.reconstruct(*surface_hull, polygons);
+  // Filter out points outside of the path's convex hull
   pcl::CropHull<pcl::PointXYZ> path_polygon_hull_filter;
   path_polygon_hull_filter.setDim(2);
-  path_polygon_hull_filter.setInputCloud(obstacle_points_ptr);
-  path_polygon_hull_filter.setHullIndices(hull_polygons);
-  path_polygon_hull_filter.setHullCloud(hull_boundary_points);
-  path_polygon_hull_filter.filter(*points_in_path);
-
-  points_in_path->header = obstacle_points_ptr->header;
+  path_polygon_hull_filter.setInputCloud(full_points_ptr);
+  path_polygon_hull_filter.setHullIndices(polygons);
+  path_polygon_hull_filter.setHullCloud(surface_hull);
+  path_polygon_hull_filter.filter(*filtered_objects);
+  filtered_objects->header = full_points_ptr->header;
 }
 
 void AEB::addClusterHullMarkers(
