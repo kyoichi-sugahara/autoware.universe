@@ -405,7 +405,6 @@ public:
     const ObjectData & object, const Path & path, const double current_velocity);
   void publishDebugInformation(const PointCloud::Ptr & points);
   CollisionCheckContext prepareCollisionCheckContext();
-  std::vector<Path> preparePaths(const CollisionCheckContext & context);
   std::vector<ObjectData> detectObjectsAlongPaths(
     const CollisionCheckContext & context, const PointCloud::Ptr & processed_points,
     MarkerArray & debug_markers);
@@ -459,7 +458,7 @@ public:
    * @param polygons vector to be filled with the polygons
    * @return Vector of polygons representing the path footprint
    */
-  void generatePathFootprint(
+  void generatePathFootprintPolygons(
     const Path & path, const double extra_width_margin, std::vector<Polygon2d> & polygons);
 
   /**
@@ -480,7 +479,7 @@ public:
    * @param objects Vector to store the created object data
    * @param obstacle_points_ptr Pointer to the point cloud of obstacles
    */
-  void getClosestObjectsOnPath(
+  void getObjectsInPathRegion(
     const Path & ego_path, const rclcpp::Time & stamp,
     const PointCloud::Ptr points_belonging_to_cluster_hulls, std::vector<ObjectData> & objects);
 

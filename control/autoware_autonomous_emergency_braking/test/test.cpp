@@ -163,7 +163,7 @@ TEST_F(TestAEB, checkImuPathGeneration)
   aeb_node_->getPointsBelongingToClusterHulls(
     obstacle_points_ptr, points_belonging_to_cluster_hulls, debug_markers);
   std::vector<ObjectData> objects;
-  aeb_node_->getClosestObjectsOnPath(imu_path, stamp, points_belonging_to_cluster_hulls, objects);
+  aeb_node_->getObjectsInPathRegion(imu_path, stamp, points_belonging_to_cluster_hulls, objects);
   ASSERT_FALSE(objects.empty());
 }
 
