@@ -313,7 +313,7 @@ std::optional<std::pair<std::vector<TrajectoryPoint>, std::vector<Box>>> check_c
       filtered_trajectory.push_back(point);
     }
   }
-  if (filtered_trajectory.size() == 0) {
+  if (filtered_trajectory.empty()) {
     return std::nullopt;
   }
   // Calculate timestamps for each trajectory point
@@ -352,9 +352,15 @@ std::optional<std::pair<std::vector<TrajectoryPoint>, std::vector<Box>>> check_c
     detect_collisions(ego_rtree, predicted_object_rtree, time_tolerance_threshold);
   std::vector<autoware_planning_msgs::msg::TrajectoryPoint> collision_points;
   std::vector<Box> collision_boxes;
-  for (const auto & [ego_index, obj_box] : collision_index_set) {
-    collision_points.push_back(filtered_trajectory[ego_index]);
-    collision_boxes.push_back(obj_box);
+
+  if (!collision_index_set.empty()) {
+    collision_points.reserve(collision_index_set.size());
+    collision_boxes.reserve(collision_index_set.size());
+
+    for (const auto & [ego_index, obj_box] : collision_index_set) {
+      collision_points.push_back(filtered_trajectory[ego_index]);
+      collision_boxes.push_back(obj_box);
+    }
   }
 
   return (collision_points.empty() && collision_boxes.empty())
