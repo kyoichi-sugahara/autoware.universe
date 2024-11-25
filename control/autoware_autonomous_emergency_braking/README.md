@@ -36,7 +36,7 @@ For the moment, there are no plans to implement the steering angle on the path c
 
 AEB has the following steps before it outputs the emergency stop signal.
 
-1. Activate AEB if necessary.
+1. Check module activation requirements.
 
 2. Generate a predicted path of the ego vehicle.
 
@@ -50,13 +50,48 @@ AEB has the following steps before it outputs the emergency stop signal.
 
 We give more details of each section below.
 
-### 1. Activate AEB if necessary
+### 1. Check module activation requirements
 
-We do not activate AEB module if it satisfies the following conditions.
+#### 1.1 Required Input Data
 
-- Ego vehicle is not in autonomous driving state
+The AEB module requires the following input data to operate:
 
-- When the ego vehicle is not moving (Current Velocity is below a 0.1 m/s threshold)
+##### Basic Information
+
+- Autonomous driving mode status
+- Ego vehicle velocity (absolute value)
+
+##### Object Information
+
+One or both of the following data sources must be available:
+
+- Ground-removed point cloud data (when `use_pointcloud_data` is enabled)
+- Predicted object data (when `use_predicted_object_data` is enabled)
+
+##### Path Information
+
+One or both of the following data sources must be available:
+
+- IMU-based path (when `use_imu_path` is enabled)
+- Predicted trajectory (when `use_predicted_trajectory` is enabled)
+
+#### 1.2 Activation Conditions
+
+##### Autonomous Driving Status
+
+- Autoware must be in the `DRIVING` state.
+
+##### Vehicle Motion Status
+
+- The absolute value of the ego vehicle velocity must exceed the minimum moving velocity threshold (`MIN_MOVING_VELOCITY_THRESHOLD = 0.1 m/s`).
+
+#### 1.3 Module Activation Logic
+
+The AEB module is activated when all the following conditions are met:
+
+1. The ego vehicle is in the autonomous driving state.
+2. The absolute value of the ego vehicle velocity is above the minimum threshold (0.1 m/s).
+3. All required input data (as specified in 1.1) is available.
 
 ### 2. Generate a predicted path of the ego vehicle
 
