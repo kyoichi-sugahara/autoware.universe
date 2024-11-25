@@ -165,6 +165,7 @@ AEB::AEB(const rclcpp::NodeOptions & node_options)
   use_predicted_trajectory_ = declare_parameter<bool>("use_predicted_trajectory");
   use_imu_path_ = declare_parameter<bool>("use_imu_path");
   limit_imu_path_lat_dev_ = declare_parameter<bool>("limit_imu_path_lat_dev");
+  limit_imu_path_length_ = declare_parameter<bool>("limit_imu_path_length");
   use_pointcloud_data_ = declare_parameter<bool>("use_pointcloud_data");
   use_predicted_object_data_ = declare_parameter<bool>("use_predicted_object_data");
   use_object_velocity_calculation_ = declare_parameter<bool>("use_object_velocity_calculation");
@@ -229,6 +230,7 @@ rcl_interfaces::msg::SetParametersResult AEB::onParameter(
   updateParam<bool>(parameters, "use_predicted_trajectory", use_predicted_trajectory_);
   updateParam<bool>(parameters, "use_imu_path", use_imu_path_);
   updateParam<bool>(parameters, "limit_imu_path_lat_dev", limit_imu_path_lat_dev_);
+  updateParam<bool>(parameters, "limit_imu_path_length", limit_imu_path_length_);
   updateParam<bool>(parameters, "use_pointcloud_data", use_pointcloud_data_);
   updateParam<bool>(parameters, "use_predicted_object_data", use_predicted_object_data_);
   updateParam<bool>(
@@ -708,7 +710,8 @@ Path AEB::generateEgoPath(const double curr_v, const double curr_w)
 
     const bool basic_path_conditions_satisfied =
       (t > horizon) && (path_arc_length > min_generated_imu_path_length_);
-    const bool path_length_threshold_surpassed = path_arc_length > max_generated_imu_path_length_;
+    const bool path_length_threshold_surpassed =
+      limit_imu_path_length_ && path_arc_length > max_generated_imu_path_length_;
     const bool lat_dev_threshold_surpassed =
       limit_imu_path_lat_dev_ && std::abs(edge_of_ego_vehicle.y) > imu_path_lat_dev_threshold_;
 
