@@ -571,7 +571,7 @@ public:
   double min_generated_imu_path_length_;
   double max_generated_imu_path_length_;
   double expand_width_;
-  double longitudinal_offset_;
+  double longitudinal_offset_margin_;
   double t_response_;
   double a_ego_min_;
   double a_obj_min_;

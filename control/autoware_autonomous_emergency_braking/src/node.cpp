@@ -182,7 +182,7 @@ AEB::AEB(const rclcpp::NodeOptions & node_options)
   min_generated_imu_path_length_ = declare_parameter<double>("min_generated_imu_path_length");
   max_generated_imu_path_length_ = declare_parameter<double>("max_generated_imu_path_length");
   expand_width_ = declare_parameter<double>("expand_width");
-  longitudinal_offset_ = declare_parameter<double>("longitudinal_offset");
+  longitudinal_offset_margin_ = declare_parameter<double>("longitudinal_offset_margin");
   t_response_ = declare_parameter<double>("t_response");
   a_ego_min_ = declare_parameter<double>("a_ego_min");
   a_obj_min_ = declare_parameter<double>("a_obj_min");
@@ -247,7 +247,7 @@ rcl_interfaces::msg::SetParametersResult AEB::onParameter(
   updateParam<double>(parameters, "min_generated_imu_path_length", min_generated_imu_path_length_);
   updateParam<double>(parameters, "max_generated_imu_path_length", max_generated_imu_path_length_);
   updateParam<double>(parameters, "expand_width", expand_width_);
-  updateParam<double>(parameters, "longitudinal_offset", longitudinal_offset_);
+  updateParam<double>(parameters, "longitudinal_offset_margin", longitudinal_offset_margin_);
   updateParam<double>(parameters, "t_response", t_response_);
   updateParam<double>(parameters, "a_ego_min", a_ego_min_);
   updateParam<double>(parameters, "a_obj_min", a_obj_min_);
@@ -641,7 +641,7 @@ bool AEB::hasCollision(const double current_v, const ObjectData & closest_object
     const double obj_braking_distance = (obj_v > 0.0)
                                           ? -(obj_v * obj_v) / (2 * std::fabs(a_obj_min_))
                                           : (obj_v * obj_v) / (2 * std::fabs(a_obj_min_));
-    return ego_stopping_distance + obj_braking_distance + longitudinal_offset_;
+    return ego_stopping_distance + obj_braking_distance + longitudinal_offset_margin_;
   });
 
   tier4_debug_msgs::msg::Float32Stamped rss_distance_msg;
@@ -664,10 +664,9 @@ Path AEB::generateEgoPath(const double curr_v, const double curr_w)
   const double & dt = imu_prediction_time_interval_;
   const double distance_between_points = std::abs(curr_v) * dt;
   constexpr double minimum_distance_between_points{1e-2};
-  // if current velocity is too small, assume it stops at the same point
   // if distance between points is too small, arc length calculation is unreliable, so we skip
   // creating the path
-  if (std::abs(curr_v) < 0.1 || distance_between_points < minimum_distance_between_points) {
+  if (distance_between_points < minimum_distance_between_points) {
     return {};
   }
 
