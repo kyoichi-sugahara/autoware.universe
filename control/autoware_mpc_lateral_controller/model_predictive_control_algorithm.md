@@ -166,6 +166,8 @@ We assume in this example that the MPC only generates the steering control, and 
 The kinematic vehicle model discrete update equations contain trigonometric functions; sin and cos, and the vehicle coordinates $x$, $y$, and yaw angles are global coordinates. In path tracking applications, it is common to reformulate the model in error dynamics to convert the control into a regulator problem in which the targets become zero (zero error).
 
 ![vehicle_error_kinematics](./image/vehicle_error_kinematics.png)
+![vehicle_kinematics](./image/vehicle_kinematics.drawio.svg)
+![vehicle_error_kinematics](./image/vehicle_error_kinematics.drawio.svg)
 
 We make small angle assumptions for the following derivations of linear equations. Given the nonlinear dynamics and omitting the longitudinal coordinate $x$, the resulting set of equations become;
 
