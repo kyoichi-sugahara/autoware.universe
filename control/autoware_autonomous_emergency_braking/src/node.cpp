@@ -61,9 +61,10 @@ namespace
 {
 using autoware::motion::control::autonomous_emergency_braking::colorTuple;
 constexpr double MIN_MOVING_VELOCITY_THRESHOLD = 0.1;
+// Sky blue (RGB: 0, 148, 205) - A medium-bright blue color
 constexpr colorTuple IMU_PATH_COLOR = {0.0 / 256.0, 148.0 / 256.0, 205.0 / 256.0, 0.999};
+// Forest green (RGB: 0, 100, 0) - A deep, dark green color
 constexpr colorTuple MPC_PATH_COLOR = {0.0 / 256.0, 100.0 / 256.0, 0.0 / 256.0, 0.999};
-constexpr colorTuple HULL_POLYGONS_COLOR = {255.0 / 256.0, 51.0 / 256.0, 255.0 / 256.0, 0.999};
 }  // namespace
 
 namespace autoware::motion::control::autonomous_emergency_braking
@@ -471,9 +472,8 @@ bool AEB::checkCollision(MarkerArray & debug_markers)
   }
 
   // step2. create velocity data check if the vehicle stops or not
-  constexpr double min_moving_velocity_th{0.1};
   const double current_v = current_velocity_ptr_->longitudinal_velocity;
-  if (std::abs(current_v) < min_moving_velocity_th) {
+  if (std::abs(current_v) < MIN_MOVING_VELOCITY_THRESHOLD) {
     return false;
   }
 
@@ -581,18 +581,16 @@ bool AEB::checkCollision(MarkerArray & debug_markers)
   getPointsBelongingToClusterHulls(
     filtered_objects, points_belonging_to_cluster_hulls, debug_markers);
 
-  const auto imu_path_objects = (!use_imu_path_ || !angular_velocity_ptr_)
-                                  ? std::vector<ObjectData>{}
-                                  : get_objects_on_path(
-                                      ego_imu_path, points_belonging_to_cluster_hulls,
-                                      {0.0 / 256.0, 148.0 / 256.0, 205.0 / 256.0, 0.999}, "imu");
+  const auto imu_path_objects =
+    (!use_imu_path_ || !angular_velocity_ptr_)
+      ? std::vector<ObjectData>{}
+      : get_objects_on_path(ego_imu_path, points_belonging_to_cluster_hulls, IMU_PATH_COLOR, "imu");
 
   const auto mpc_path_objects =
     (!use_predicted_trajectory_ || !predicted_traj_ptr_ || !ego_mpc_path.has_value())
       ? std::vector<ObjectData>{}
       : get_objects_on_path(
-          ego_mpc_path.value(), points_belonging_to_cluster_hulls,
-          {0.0 / 256.0, 100.0 / 256.0, 0.0 / 256.0, 0.999}, "mpc");
+          ego_mpc_path.value(), points_belonging_to_cluster_hulls, MPC_PATH_COLOR, "mpc");
 
   // merge object data which comes from the ego (imu) path and predicted path
   auto merge_objects =
@@ -944,7 +942,7 @@ void AEB::getClosestObjectsOnPath(
   }
 
   const auto longitudinal_offset_opt = utils::getLongitudinalOffset(
-    ego_path, vehicle_info_.front_overhang_m, vehicle_info_.rear_overhang_m);
+    ego_path, vehicle_info_.max_longitudinal_offset_m, vehicle_info_.rear_overhang_m);
 
   if (!longitudinal_offset_opt.has_value()) return;
   const auto longitudinal_offset = longitudinal_offset_opt.value();
