@@ -88,8 +88,7 @@ bool SideShiftModule::isExecutionRequested() const
   }
 
   // If the desired offset has a non-zero value, return true as we want to execute the plan.
-
-  const bool has_request = !isAlmostZero(requested_lateral_offset_);
+  const bool has_request = std::fabs(requested_lateral_offset_) >= 1.0e-4;
   RCLCPP_DEBUG_STREAM(
     getLogger(), "ESS::isExecutionRequested() : " << std::boolalpha << has_request);
 
@@ -119,6 +118,7 @@ bool SideShiftModule::canTransitSuccessState()
 {
   // Never return the FAILURE. When the desired offset is zero and the vehicle is in the original
   // drivable area,this module can stop the computation and return SUCCESS.
+  constexpr double ZERO_THRESHOLD = 1.0e-4;
 
   const auto isOffsetDiffAlmostZero = [this]() noexcept {
     const auto last_sp = path_shifter_.getLastShiftLine();
@@ -126,7 +126,7 @@ bool SideShiftModule::canTransitSuccessState()
       const auto length = std::fabs(last_sp.value().end_shift_length);
       const auto lateral_offset = std::fabs(requested_lateral_offset_);
       const auto offset_diff = lateral_offset - length;
-      if (!isAlmostZero(offset_diff)) {
+      if (std::fabs(offset_diff) >= ZERO_THRESHOLD) {
         lateral_offset_change_request_ = true;
         return false;
       }
@@ -135,7 +135,7 @@ bool SideShiftModule::canTransitSuccessState()
   }();
 
   const bool no_offset_diff = isOffsetDiffAlmostZero;
-  const bool no_request = isAlmostZero(requested_lateral_offset_);
+  const bool no_request = std::fabs(requested_lateral_offset_) < ZERO_THRESHOLD;
 
   const auto no_shifted_plan = [&]() {
     if (prev_output_.shift_length.empty()) {

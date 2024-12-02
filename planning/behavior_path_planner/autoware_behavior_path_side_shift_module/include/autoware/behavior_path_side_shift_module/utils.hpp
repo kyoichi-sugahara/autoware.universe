@@ -48,8 +48,6 @@ void setOrientation(PathWithLaneId * path);
 double getClosestShiftLength(
   const ShiftedPath & shifted_path, const geometry_msgs::msg::Point ego_point);
 
-bool isAlmostZero(double v);
-
 }  // namespace autoware::behavior_path_planner
 
 #endif  // AUTOWARE__BEHAVIOR_PATH_SIDE_SHIFT_MODULE__UTILS_HPP_

@@ -59,9 +59,4 @@ double getClosestShiftLength(
   return shifted_path.shift_length.at(closest);
 }
 
-bool isAlmostZero(double v)
-{
-  return std::fabs(v) < 1.0e-4;
-}
-
 }  // namespace autoware::behavior_path_planner
