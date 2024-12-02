@@ -53,6 +53,18 @@ void setOrientation(PathWithLaneId * path)
   }
 }
 
+double getClosestShiftLength(
+  const ShiftedPath & shifted_path, const geometry_msgs::msg::Point ego_point)
+{
+  if (shifted_path.shift_length.empty()) {
+    return 0.0;
+  }
+
+  const auto closest =
+    autoware::motion_utils::findNearestIndex(shifted_path.path.points, ego_point);
+  return shifted_path.shift_length.at(closest);
+}
+
 bool isAlmostZero(double v)
 {
   return std::fabs(v) < 1.0e-4;

@@ -369,19 +369,6 @@ ShiftLine SideShiftModule::calcShiftLine() const
   return shift_line;
 }
 
-// can be moved to utils
-double SideShiftModule::getClosestShiftLength(
-  const ShiftedPath & shifted_path, const geometry_msgs::msg::Point ego_point) const
-{
-  if (shifted_path.shift_length.empty()) {
-    return 0.0;
-  }
-
-  const auto closest =
-    autoware::motion_utils::findNearestIndex(shifted_path.path.points, ego_point);
-  return shifted_path.shift_length.at(closest);
-}
-
 BehaviorModuleOutput SideShiftModule::adjustDrivableArea(const ShiftedPath & path) const
 {
   BehaviorModuleOutput out;

@@ -15,6 +15,8 @@
 #ifndef AUTOWARE__BEHAVIOR_PATH_SIDE_SHIFT_MODULE__UTILS_HPP_
 #define AUTOWARE__BEHAVIOR_PATH_SIDE_SHIFT_MODULE__UTILS_HPP_
 
+#include "autoware/behavior_path_planner_common/utils/path_shifter/path_shifter.hpp"
+
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/pose.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
@@ -28,6 +30,9 @@ using geometry_msgs::msg::TransformStamped;
 using tier4_planning_msgs::msg::PathWithLaneId;
 
 void setOrientation(PathWithLaneId * path);
+
+double getClosestShiftLength(
+  const ShiftedPath & shifted_path, const geometry_msgs::msg::Point ego_point);
 
 bool isAlmostZero(double v);
 
