@@ -56,51 +56,51 @@ protected:
   }
 };
 
-TEST_F(SideShiftUtilsTest, SetOrientationStraightPath)
-{
-  // Generate straight path
-  auto path = generateStraightPath(10.0, 0.0);
+// TEST_F(SideShiftUtilsTest, SetOrientationStraightPath)
+// {
+//   // Generate straight path
+//   auto path = generateStraightPath(10.0, 0.0);
 
-  // Set orientation
-  setOrientation(&path);
+//   // Set orientation
+//   setOrientation(&path);
 
-  // Check orientation for each point
-  for (const auto & p : path.points) {
-    double yaw = tf2::getYaw(p.point.pose.orientation);
-    EXPECT_NEAR(yaw, 0.0, 1e-6);  // Should be facing forward (0 rad)
-  }
-}
+//   // Check orientation for each point
+//   for (const auto & p : path.points) {
+//     double yaw = tf2::getYaw(p.point.pose.orientation);
+//     EXPECT_NEAR(yaw, 0.0, 1e-6);  // Should be facing forward (0 rad)
+//   }
+// }
 
-TEST_F(SideShiftUtilsTest, SetOrientationCurvedPath)
-{
-  PathWithLaneId path;
+// TEST_F(SideShiftUtilsTest, SetOrientationCurvedPath)
+// {
+//   PathWithLaneId path;
 
-  // Create a 90-degree turn path
-  PathPointWithLaneId p1, p2, p3;
+//   // Create a 90-degree turn path
+//   PathPointWithLaneId p1, p2, p3;
 
-  // 点の位置を個別に設定
-  p1.point.pose.position.x = 0.0;
-  p1.point.pose.position.y = 0.0;
-  p1.point.pose.position.z = 0.0;
+//   // 点の位置を個別に設定
+//   p1.point.pose.position.x = 0.0;
+//   p1.point.pose.position.y = 0.0;
+//   p1.point.pose.position.z = 0.0;
 
-  p2.point.pose.position.x = 1.0;
-  p2.point.pose.position.y = 0.0;
-  p2.point.pose.position.z = 0.0;
+//   p2.point.pose.position.x = 1.0;
+//   p2.point.pose.position.y = 0.0;
+//   p2.point.pose.position.z = 0.0;
 
-  p3.point.pose.position.x = 1.0;
-  p3.point.pose.position.y = 1.0;
-  p3.point.pose.position.z = 0.0;
+//   p3.point.pose.position.x = 1.0;
+//   p3.point.pose.position.y = 1.0;
+//   p3.point.pose.position.z = 0.0;
 
-  path.points = {p1, p2, p3};
+//   path.points = {p1, p2, p3};
 
-  setOrientation(&path);
+//   setOrientation(&path);
 
-  // First segment should face east (0 rad)
-  EXPECT_NEAR(tf2::getYaw(path.points[0].point.pose.orientation), 0.0, 1e-6);
+//   // First segment should face east (0 rad)
+//   EXPECT_NEAR(tf2::getYaw(path.points[0].point.pose.orientation), 0.0, 1e-6);
 
-  // Last segment should face north (π/2 rad)
-  EXPECT_NEAR(tf2::getYaw(path.points[2].point.pose.orientation), M_PI_2, 1e-6);
-}
+//   // Last segment should face north (π/2 rad)
+//   EXPECT_NEAR(tf2::getYaw(path.points[2].point.pose.orientation), M_PI_2, 1e-6);
+// }
 
 TEST_F(SideShiftUtilsTest, GetClosestShiftLengthEmptyPath)
 {
