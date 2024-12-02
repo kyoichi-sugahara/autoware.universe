@@ -29,8 +29,22 @@ using geometry_msgs::msg::Pose;
 using geometry_msgs::msg::TransformStamped;
 using tier4_planning_msgs::msg::PathWithLaneId;
 
+/**
+ * @brief Sets the orientation (yaw angle) for all points in the path.
+ * @param [in,out] path Path with lane ID to set orientation.
+ * @details For each point, calculates orientation based on:
+ *          - Vector to next point if not last point
+ *          - Vector from previous point if last point
+ *          - Zero angle if single point
+ */
 void setOrientation(PathWithLaneId * path);
 
+/**
+ * @brief Gets the shift length at the closest path point to the ego position.
+ * @param [in] shifted_path Path with shift length information.
+ * @param [in] ego_point Current ego position.
+ * @return Shift length at the closest path point. Returns 0.0 if path is empty.
+ */
 double getClosestShiftLength(
   const ShiftedPath & shifted_path, const geometry_msgs::msg::Point ego_point);
 
