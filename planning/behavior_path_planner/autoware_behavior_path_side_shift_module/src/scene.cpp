@@ -336,6 +336,7 @@ BehaviorModuleOutput SideShiftModule::planWaitingApproval()
   return output;
 }
 
+// can be moved to utils
 ShiftLine SideShiftModule::calcShiftLine() const
 {
   const auto & p = parameters_;
@@ -345,7 +346,8 @@ ShiftLine SideShiftModule::calcShiftLine() const
     std::max(p->min_distance_to_start_shifting, ego_speed * p->time_to_start_shifting);
 
   const double dist_to_end = [&]() {
-    const double shift_length = requested_lateral_offset_ - getClosestShiftLength();
+    const double shift_length =
+      requested_lateral_offset_ - getClosestShiftLength(prev_output_, getEgoPose().position);
     const double jerk_shifting_distance = autoware::motion_utils::calc_longitudinal_dist_from_jerk(
       shift_length, p->shifting_lateral_jerk, std::max(ego_speed, p->min_shifting_speed));
     const double shifting_distance = std::max(jerk_shifting_distance, p->min_shifting_distance);
@@ -367,16 +369,17 @@ ShiftLine SideShiftModule::calcShiftLine() const
   return shift_line;
 }
 
-double SideShiftModule::getClosestShiftLength() const
+// can be moved to utils
+double SideShiftModule::getClosestShiftLength(
+  const ShiftedPath & shifted_path, const geometry_msgs::msg::Point ego_point) const
 {
-  if (prev_output_.shift_length.empty()) {
+  if (shifted_path.shift_length.empty()) {
     return 0.0;
   }
 
-  const auto ego_point = planner_data_->self_odometry->pose.pose.position;
   const auto closest =
-    autoware::motion_utils::findNearestIndex(prev_output_.path.points, ego_point);
-  return prev_output_.shift_length.at(closest);
+    autoware::motion_utils::findNearestIndex(shifted_path.path.points, ego_point);
+  return shifted_path.shift_length.at(closest);
 }
 
 BehaviorModuleOutput SideShiftModule::adjustDrivableArea(const ShiftedPath & path) const
