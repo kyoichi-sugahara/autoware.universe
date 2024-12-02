@@ -279,6 +279,11 @@ BehaviorModuleOutput SideShiftModule::plan()
   ShiftedPath shifted_path;
   path_shifter_.generate(&shifted_path);
 
+  if (shifted_path.path.points.empty()) {
+    RCLCPP_ERROR(getLogger(), "Generated shift_path has no points");
+    return {};
+  }
+
   // Reset orientation
   setOrientation(&shifted_path.path);
 

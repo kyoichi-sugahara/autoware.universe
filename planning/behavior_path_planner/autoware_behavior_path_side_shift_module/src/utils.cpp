@@ -26,12 +26,6 @@ namespace autoware::behavior_path_planner
 {
 void setOrientation(PathWithLaneId * path)
 {
-  if (!path) {
-    RCLCPP_ERROR(
-      rclcpp::get_logger("behavior_path_planner").get_child("side_shift").get_child("util"),
-      "Pointer to path is NULL!");
-  }
-
   // Reset orientation
   for (size_t idx = 0; idx < path->points.size(); ++idx) {
     double angle = 0.0;
