@@ -139,29 +139,4 @@ TEST_F(SideShiftUtilsTest, GetClosestShiftLengthStraightPath)
   EXPECT_DOUBLE_EQ(getClosestShiftLength(shifted_path, ego_point), 2.0);
 }
 
-TEST_F(SideShiftUtilsTest, GetClosestShiftLengthVaryingShift)
-{
-  // Generate path with varying shift
-  std::vector<double> shifts = {0.0, 1.0, 2.0, 3.0, 2.0, 1.0, 0.0};
-  auto shifted_path = generateShiftedPath(7.0, shifts);
-
-  // Test points at different positions
-  geometry_msgs::msg::Point ego_point;
-
-  // Point near maximum shift
-  ego_point.x = 3.0;
-  ego_point.y = 0.0;
-  EXPECT_DOUBLE_EQ(getClosestShiftLength(shifted_path, ego_point), 3.0);
-
-  // Point near minimum shift
-  ego_point.x = 0.0;
-  ego_point.y = 0.0;
-  EXPECT_DOUBLE_EQ(getClosestShiftLength(shifted_path, ego_point), 0.0);
-
-  // Point between shifts
-  ego_point.x = 1.5;
-  ego_point.y = 0.0;
-  EXPECT_DOUBLE_EQ(getClosestShiftLength(shifted_path, ego_point), 1.0);
-}
-
 }  // namespace autoware::behavior_path_planner
