@@ -106,7 +106,7 @@ struct StartPlannerParameters
   bool skip_rear_vehicle_check{false};
   double extra_width_margin_for_rear_obstacle{0.0};
   std::vector<double> collision_check_margins{};
-  double back_objects_collision_check_margin{};
+  double back_objects_collision_check_margin{0.0};
   double collision_check_margin_from_front_object{0.0};
   double th_moving_object_velocity{0.0};
   autoware::behavior_path_planner::utils::path_safety_checker::ObjectTypesToCheck
