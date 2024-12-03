@@ -24,11 +24,20 @@
 #include <geometry_msgs/msg/pose_with_covariance.hpp>
 #include <tier4_planning_msgs/msg/path_with_lane_id.hpp>
 
+#include <lanelet2_core/primitives/CompoundPolygon.h>
+#include <lanelet2_core/primitives/Lanelet.h>
+#include <lanelet2_core/primitives/Polygon.h>
+
+// #include <lanelet2_core/LaneletMap.h>
+// #include <lanelet2_routing/RoutingGraph.h>
+// #include <lanelet2_traffic_rules/TrafficRules.h>
+
 #include <vector>
 
 namespace autoware::lane_departure_checker::utils
 {
 using autoware::universe_utils::LinearRing2d;
+using autoware::universe_utils::MultiPoint2d;
 using autoware::universe_utils::PoseDeviation;
 using autoware_planning_msgs::msg::Trajectory;
 using autoware_planning_msgs::msg::TrajectoryPoint;
@@ -75,6 +84,22 @@ std::vector<LinearRing2d> createVehicleFootprints(
 std::vector<LinearRing2d> createVehicleFootprints(
   const PathWithLaneId & path, const autoware::vehicle_info_utils::VehicleInfo & vehicle_info,
   const double footprint_extra_margin);
+
+lanelet::ConstLanelets getCandidateLanelets(
+  const lanelet::ConstLanelets & route_lanelets,
+  const std::vector<LinearRing2d> & vehicle_footprints);
+
+LinearRing2d createHullFromFootprints(const std::vector<LinearRing2d> & footprints);
+
+/**
+ * @brief create passing areas of the vehicle from vehicle footprints
+ * @param vehicle_footprints vehicle footprints along trajectory
+ * @return passing areas of the vehicle that are created from adjacent vehicle footprints
+ *         If vehicle_footprints is empty, returns empty vector
+ *         If vehicle_footprints size is 1, returns vector with that footprint
+ */
+std::vector<LinearRing2d> createVehiclePassingAreas(
+  const std::vector<LinearRing2d> & vehicle_footprints);
 
 /**
  * @brief calculate the deviation of the given pose from the nearest pose on the trajectory

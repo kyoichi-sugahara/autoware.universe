@@ -163,6 +163,75 @@ std::vector<LinearRing2d> createVehicleFootprints(
   return vehicle_footprints;
 }
 
+lanelet::ConstLanelets getCandidateLanelets(
+  const lanelet::ConstLanelets & route_lanelets,
+  const std::vector<LinearRing2d> & vehicle_footprints)
+{
+  lanelet::ConstLanelets candidate_lanelets;
+
+  // Find lanes within the convex hull of footprints
+  const auto footprint_hull = createHullFromFootprints(vehicle_footprints);
+
+  // laneletの多角形をboost::geometryの多角形に変換する関数
+  auto toBoostPolygon = [](const lanelet::BasicPolygon2d & lanelet_polygon) {
+    LinearRing2d boost_polygon;
+    boost_polygon.reserve(lanelet_polygon.size());
+    for (const auto & point : lanelet_polygon) {
+      boost_polygon.push_back({point.x(), point.y()});
+    }
+    return boost_polygon;
+  };
+
+  for (const auto & route_lanelet : route_lanelets) {
+    const auto poly = route_lanelet.polygon2d().basicPolygon();
+    const auto boost_poly = toBoostPolygon(poly);
+    if (!boost::geometry::disjoint(boost_poly, footprint_hull)) {
+      candidate_lanelets.push_back(route_lanelet);
+    }
+  }
+
+  return candidate_lanelets;
+}
+
+LinearRing2d createHullFromFootprints(const std::vector<LinearRing2d> & footprints)
+{
+  MultiPoint2d combined;
+  for (const auto & footprint : footprints) {
+    for (const auto & p : footprint) {
+      combined.push_back(p);
+    }
+  }
+
+  LinearRing2d hull;
+  boost::geometry::convex_hull(combined, hull);
+
+  return hull;
+}
+
+std::vector<LinearRing2d> createVehiclePassingAreas(
+  const std::vector<LinearRing2d> & vehicle_footprints)
+{
+  if (vehicle_footprints.empty()) {
+    return std::vector<LinearRing2d>();
+  }
+
+  std::vector<LinearRing2d> areas;
+  areas.reserve(vehicle_footprints.size() == 1 ? 1 : vehicle_footprints.size() - 1);
+
+  if (vehicle_footprints.size() == 1) {
+    areas.push_back(vehicle_footprints.front());
+    return areas;
+  }
+
+  for (size_t i = 0; i < vehicle_footprints.size() - 1; ++i) {
+    const auto & footprint1 = vehicle_footprints.at(i);
+    const auto & footprint2 = vehicle_footprints.at(i + 1);
+    areas.push_back(createHullFromFootprints({footprint1, footprint2}));
+  }
+
+  return areas;
+}
+
 PoseDeviation calcTrajectoryDeviation(
   const Trajectory & trajectory, const geometry_msgs::msg::Pose & pose, const double dist_threshold,
   const double yaw_threshold)
