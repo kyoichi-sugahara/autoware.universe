@@ -19,6 +19,8 @@
 
 #include <boost/geometry.hpp>
 
+#include <lanelet2_core/geometry/Polygon.h>
+
 namespace
 {
 struct FootprintMargin
@@ -173,19 +175,20 @@ lanelet::ConstLanelets getCandidateLanelets(
   const auto footprint_hull = createHullFromFootprints(vehicle_footprints);
 
   // laneletの多角形をboost::geometryの多角形に変換する関数
-  auto toBoostPolygon = [](const lanelet::BasicPolygon2d & lanelet_polygon) {
-    LinearRing2d boost_polygon;
-    boost_polygon.reserve(lanelet_polygon.size());
-    for (const auto & point : lanelet_polygon) {
-      boost_polygon.push_back({point.x(), point.y()});
-    }
-    return boost_polygon;
-  };
+  // auto toBoostPolygon = [](const lanelet::BasicPolygon2d & lanelet_polygon) {
+  //   LinearRing2d boost_polygon;
+  //   boost_polygon.reserve(lanelet_polygon.size());
+  //   for (const auto & point : lanelet_polygon) {
+  //     boost_polygon.push_back({point.x(), point.y()});
+  //   }
+  //   return boost_polygon;
+  // };
 
   for (const auto & route_lanelet : route_lanelets) {
     const auto poly = route_lanelet.polygon2d().basicPolygon();
-    const auto boost_poly = toBoostPolygon(poly);
-    if (!boost::geometry::disjoint(boost_poly, footprint_hull)) {
+    // const auto boost_poly = toBoostPolygon(poly);
+    // if (!boost::geometry::disjoint(boost_poly, footprint_hull)) {
+    if (!boost::geometry::disjoint(poly, footprint_hull)) {
       candidate_lanelets.push_back(route_lanelet);
     }
   }
