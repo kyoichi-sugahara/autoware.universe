@@ -26,105 +26,114 @@
 
 using autoware::lane_departure_checker::utils::createVehiclePassingAreas;
 using autoware::universe_utils::LinearRing2d;
+using autoware::universe_utils::Point2d;
 
 class CreateVehiclePassingAreasTest : public ::testing::Test
 {
 protected:
-  virtual void SetUp()
+  LinearRing2d createSquare(double x, double y, double size)
   {
-    // 時計回りで点を定義
-    square1_.reserve(5);
-    square1_.push_back({0.0, 0.0});  // 左下
-    square1_.push_back({0.0, 1.0});  // 左上
-    square1_.push_back({1.0, 1.0});  // 右上
-    square1_.push_back({1.0, 0.0});  // 右下
-    square1_.push_back({0.0, 0.0});  // 閉じる
-
-    square2_.reserve(5);
-    square2_.push_back({1.0, 0.0});  // 左下
-    square2_.push_back({1.0, 1.0});  // 左上
-    square2_.push_back({2.0, 1.0});  // 右上
-    square2_.push_back({2.0, 0.0});  // 右下
-    square2_.push_back({1.0, 0.0});  // 閉じる
-
-    // 多角形の方向を正しく修正
-    boost::geometry::correct(square1_);
-    boost::geometry::correct(square2_);
-
-    // // デバッグ情報の出力
-    // std::cout << "Square1 points after correction:" << std::endl;
-    // for (const auto & p : square1_) {
-    //   std::cout << "  (" << p.x() << ", " << p.y() << ")" << std::endl;
-    // }
-
-    // std::string reason;
-    // bool valid = boost::geometry::is_valid(square1_, reason);
-    // if (!valid) {
-    //   std::cout << "Square1 is invalid: " << reason << std::endl;
-    // }
+    LinearRing2d square;
+    square.reserve(5);
+    square.push_back(Point2d{x, y});                // bottom-left
+    square.push_back(Point2d{x, y + size});         // top-left
+    square.push_back(Point2d{x + size, y + size});  // top-right
+    square.push_back(Point2d{x + size, y});         // bottom-right
+    square.push_back(Point2d{x, y});                // close the square
+    boost::geometry::correct(square);
+    return square;
   }
 
-  LinearRing2d square1_;  // 1x1の正方形
-  LinearRing2d square2_;  // 隣接する1x1の正方形
+  bool isPointInsideHull(const Point2d & point, const LinearRing2d & hull)
+  {
+    return boost::geometry::within(point, hull) || boost::geometry::covered_by(point, hull);
+  }
+
+  void validateFootprintsInHull(
+    const std::vector<LinearRing2d> & footprints, const LinearRing2d & hull)
+  {
+    for (const auto & footprint : footprints) {
+      for (size_t i = 0; i < footprint.size() - 1; ++i) {
+        const auto & point = footprint[i];
+        EXPECT_TRUE(isPointInsideHull(point, hull))
+          << "Point (" << point.x() << ", " << point.y() << ") is not inside the hull";
+      }
+    }
+  }
+
+  void SetUp() override
+  {
+    /*
+    Square placement:
+    Y-axis
+    ^
+    |
+    1   +---+   +---+   +---+
+    |   |s1 |   |s2 |   |s3 |
+    0   +---+   +---+   +---+
+    |
+    +---+---+---+---+---+---+--> X-axis
+        0   1   1   2   3   4
+
+    s1: square1_ from (0,0) to (1,1)
+    s2: square2_ from (1,0) to (2,1) - adjacent to s1
+    s3: square3_ from (3,0) to (4,1) - 1 unit apart from s2
+    */
+    square1_ = createSquare(0.0, 0.0, 1.0);  // 1x1 square at origin
+    square2_ = createSquare(1.0, 0.0, 1.0);  // square adjacent to square1_
+    square3_ = createSquare(3.0, 0.0, 1.0);  // square one unit apart from square2_
+  }
+
+  LinearRing2d square1_;  // Reference square (0,0)
+  LinearRing2d square2_;  // Adjacent square (1,0)
+  LinearRing2d square3_;  // Distant square (3,0)
 };
 
-TEST_F(CreateVehiclePassingAreasTest, EmptyInput)
+TEST_F(CreateVehiclePassingAreasTest, ReturnsEmptyAreaForEmptyInput)
 {
   const std::vector<LinearRing2d> empty_footprints;
   const auto areas = createVehiclePassingAreas(empty_footprints);
   EXPECT_TRUE(areas.empty());
 }
 
-TEST_F(CreateVehiclePassingAreasTest, SingleFootprint)
+TEST_F(CreateVehiclePassingAreasTest, ReturnsSameAreaForSingleFootprint)
 {
   const std::vector<LinearRing2d> single_footprint = {square1_};
   const auto areas = createVehiclePassingAreas(single_footprint);
 
   ASSERT_EQ(areas.size(), 1);
 
-  // 結果の多角形の方向を修正
   auto result = areas.front();
   boost::geometry::correct(result);
-
   EXPECT_EQ(result, square1_);
 }
 
-TEST_F(CreateVehiclePassingAreasTest, MultipleFootprints)
+TEST_F(CreateVehiclePassingAreasTest, CreatesValidHullForAdjacentFootprints)
 {
   const std::vector<LinearRing2d> footprints = {square1_, square2_};
   auto areas = createVehiclePassingAreas(footprints);
 
   ASSERT_EQ(areas.size(), 1);
   auto & hull = areas.front();
-
-  // 結果の多角形の方向を修正
   boost::geometry::correct(hull);
 
-  // 凸包は少なくとも四角形になるはず
-  EXPECT_GE(hull.size(), 5);  // 4つの点 + 閉じるための重複点
+  // Basic validation of the convex hull
+  EXPECT_GE(hull.size(), 5);  // At least a quadrilateral plus closing point
 
-  // デバッグ用に座標を出力
-  // std::cout << "Hull points after correction:" << std::endl;
-  for (const auto & p : hull) {
-    std::cout << "  (" << p.x() << ", " << p.y() << ")" << std::endl;
-  }
+  // Verify all points from original footprints are inside the hull
+  validateFootprintsInHull(footprints, hull);
+}
 
-  // 元の頂点が全て凸包内に含まれることを確認
-  for (const auto & footprint : footprints) {
-    for (size_t j = 0; j < footprint.size() - 1; ++j) {  // 最後の点は重複なのでスキップ
-      const auto & point = footprint[j];
+TEST_F(CreateVehiclePassingAreasTest, HandlesNonAdjacentFootprints)
+{
+  const std::vector<LinearRing2d> footprints = {
+    square1_, square3_};  // Using square3_ which is not adjacent to square1_
+  auto areas = createVehiclePassingAreas(footprints);
 
-      // within または covered_by を使用して点が領域内/境界上にあるかチェック
-      bool is_inside =
-        boost::geometry::within(point, hull) || boost::geometry::covered_by(point, hull);
+  ASSERT_EQ(areas.size(), 1);
+  auto & hull = areas.front();
+  boost::geometry::correct(hull);
 
-      if (!is_inside) {
-        std::cout << "Point not inside hull: (" << point.x() << ", " << point.y() << ")"
-                  << std::endl;
-      }
-
-      EXPECT_TRUE(is_inside) << "Point (" << point.x() << ", " << point.y()
-                             << ") is not inside the hull";
-    }
-  }
+  // Verify all points are inside the hull even for non-adjacent squares
+  validateFootprintsInHull(footprints, hull);
 }
