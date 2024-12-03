@@ -81,10 +81,21 @@ std::vector<LinearRing2d> createVehicleFootprints(
   const PathWithLaneId & path, const autoware::vehicle_info_utils::VehicleInfo & vehicle_info,
   const double footprint_extra_margin);
 
+/**
+ * @brief find lanelets that potentially intersect with the vehicle's trajectory
+ * @param route_lanelets lanelets along the planned route
+ * @param vehicle_footprints series of vehicle footprint polygons along the trajectory
+ * @return lanelets that are not disjoint from the convex hull of vehicle footprints
+ */
 lanelet::ConstLanelets getCandidateLanelets(
   const lanelet::ConstLanelets & route_lanelets,
   const std::vector<LinearRing2d> & vehicle_footprints);
 
+/**
+ * @brief create a convex hull from multiple footprint polygons
+ * @param footprints collection of footprint polygons represented as LinearRing2d
+ * @return a single LinearRing2d representing the convex hull containing all input footprints
+ */
 LinearRing2d createHullFromFootprints(const std::vector<LinearRing2d> & footprints);
 
 /**
