@@ -28,10 +28,6 @@
 #include <lanelet2_core/primitives/Lanelet.h>
 #include <lanelet2_core/primitives/Polygon.h>
 
-// #include <lanelet2_core/LaneletMap.h>
-// #include <lanelet2_routing/RoutingGraph.h>
-// #include <lanelet2_traffic_rules/TrafficRules.h>
-
 #include <vector>
 
 namespace autoware::lane_departure_checker::utils
