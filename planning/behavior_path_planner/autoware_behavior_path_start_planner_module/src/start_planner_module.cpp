@@ -992,7 +992,6 @@ bool StartPlannerModule::findPullOutPath(
 
   const auto pull_out_path = planner->plan(start_pose_candidate, goal_pose, debug_data);
   debug_data_vector.push_back(debug_data);
-  // If no path is found, return false
   if (!pull_out_path) {
     return false;
   }
@@ -1273,10 +1272,14 @@ std::vector<Pose> StartPlannerModule::searchPullOutStartPoseCandidates(
       continue;
     }
 
-    if (utils::checkCollisionBetweenFootprintAndObjects(
-          local_vehicle_footprint, *backed_pose, stop_objects_in_pull_out_lanes,
-          parameters_->collision_check_margins.back())) {
-      break;  // poses behind this has a collision, so break.
+    if (
+      (start_planner_utils::calcMinArcLengthDistanceFromEgoToObjects(
+         local_vehicle_footprint, *backed_pose, pull_out_lanes,
+         back_stop_objects_in_pull_out_lanes) < parameters_->back_objects_collision_check_margin) ||
+      (utils::checkCollisionBetweenFootprintAndObjects(
+        local_vehicle_footprint, *backed_pose, stop_objects_in_pull_out_lanes,
+        parameters_->collision_check_margins.back()))) {
+      break;  // poses behind this is too close to back static object, so break.
     }
 
     pull_out_start_pose_candidates.push_back(*backed_pose);
@@ -1286,8 +1289,8 @@ std::vector<Pose> StartPlannerModule::searchPullOutStartPoseCandidates(
 
 PredictedObjects StartPlannerModule::filterStopObjectsInPullOutLanes(
   const lanelet::ConstLanelets & pull_out_lanes, const geometry_msgs::msg::Point & current_point,
-  const double velocity_threshold, const double object_check_forward_distance,
-  const double object_check_backward_distance) const
+  const double velocity_threshold, const double object_check_backward_distance,
+  const double object_check_forward_distance) const
 {
   universe_utils::ScopedTimeTrack st(__func__, *time_keeper_);
 

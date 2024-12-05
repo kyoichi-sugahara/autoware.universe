@@ -327,8 +327,8 @@ ego pose.
   void updateStatusAfterBackwardDriving();
   PredictedObjects filterStopObjectsInPullOutLanes(
     const lanelet::ConstLanelets & pull_out_lanes, const geometry_msgs::msg::Point & current_point,
-    const double velocity_threshold, const double object_check_forward_distance,
-    const double object_check_backward_distance) const;
+    const double velocity_threshold, const double object_check_backward_distance,
+    const double object_check_forward_distance) const;
   bool needToPrepareBlinkerBeforeStartDrivingForward() const;
   bool hasReachedFreespaceEnd() const;
   bool hasReachedPullOutEnd() const;
