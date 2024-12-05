@@ -21,6 +21,7 @@
 
 #include <boost/geometry/algorithms/intersects.hpp>
 
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <utility>

@@ -32,6 +32,9 @@
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace autoware::motion::control::mpc_lateral_controller
 {

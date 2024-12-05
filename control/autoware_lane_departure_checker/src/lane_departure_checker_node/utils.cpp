@@ -21,6 +21,8 @@
 
 #include <lanelet2_core/geometry/Polygon.h>
 
+#include <vector>
+
 namespace
 {
 struct FootprintMargin

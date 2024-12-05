@@ -30,6 +30,7 @@
 
 #include <tf2/utils.h>
 
+#include <iostream>
 #include <memory>
 #include <vector>
 
