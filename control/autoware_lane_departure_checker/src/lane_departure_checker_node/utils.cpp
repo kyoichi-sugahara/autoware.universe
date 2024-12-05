@@ -217,16 +217,15 @@ std::vector<LinearRing2d> createVehiclePassingAreas(
   const std::vector<LinearRing2d> & vehicle_footprints)
 {
   if (vehicle_footprints.empty()) {
-    return std::vector<LinearRing2d>();
+    return {};
+  }
+
+  if (vehicle_footprints.size() == 1) {
+    return {vehicle_footprints.front()};
   }
 
   std::vector<LinearRing2d> areas;
-  areas.reserve(vehicle_footprints.size() == 1 ? 1 : vehicle_footprints.size() - 1);
-
-  if (vehicle_footprints.size() == 1) {
-    areas.push_back(vehicle_footprints.front());
-    return areas;
-  }
+  areas.reserve(vehicle_footprints.size() - 1);
 
   for (size_t i = 0; i < vehicle_footprints.size() - 1; ++i) {
     const auto & footprint1 = vehicle_footprints.at(i);
