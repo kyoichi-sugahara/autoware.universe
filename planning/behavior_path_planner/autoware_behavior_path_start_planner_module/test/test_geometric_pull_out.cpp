@@ -89,6 +89,8 @@ private:
       parameters->lane_departure_check_expansion_margin;
 
     lane_departure_checker->setParam(lane_departure_checker_params);
+    parameters->parallel_parking_parameters.pull_out_max_steer_angle = 0.35;
+    parameters->parallel_parking_parameters.pull_out_arc_path_interval = 1.0;
 
     geometric_pull_out =
       std::make_shared<GeometricPullOut>(*node, *parameters, lane_departure_checker, time_keeper);
@@ -136,19 +138,32 @@ TEST_F(TestGeometricPullOut, NormalPullOutPlan)
 
   // Set odometry with start pose
   auto odometry = std::make_shared<nav_msgs::msg::Odometry>();
+  // const geometry_msgs::msg::Pose start_pose =
+  //   geometry_msgs::build<geometry_msgs::msg::Pose>()
+  //     .position(geometry_msgs::build<geometry_msgs::msg::Point>().x(362.225).y(378.580).z(100.000))
+  //     .orientation(
+  //       geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(0.709157).w(
+  //         0.705051));
+
+  // const geometry_msgs::msg::Pose goal_pose =
+  //   geometry_msgs::build<geometry_msgs::msg::Pose>()
+  //     .position(geometry_msgs::build<geometry_msgs::msg::Point>().x(365.575).y(450.062).z(100.000))
+  //     .orientation(
+  //       geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(0.706060).w(
+  //         0.708152));
   const geometry_msgs::msg::Pose start_pose =
     geometry_msgs::build<geometry_msgs::msg::Pose>()
-      .position(geometry_msgs::build<geometry_msgs::msg::Point>().x(362.225).y(378.580).z(100.000))
+      .position(geometry_msgs::build<geometry_msgs::msg::Point>().x(362.181).y(362.164).z(100.000))
       .orientation(
-        geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(0.709157).w(
-          0.705051));
+        geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(0.709650).w(
+          0.704554));
 
   const geometry_msgs::msg::Pose goal_pose =
     geometry_msgs::build<geometry_msgs::msg::Pose>()
-      .position(geometry_msgs::build<geometry_msgs::msg::Point>().x(365.575).y(450.062).z(100.000))
+      .position(geometry_msgs::build<geometry_msgs::msg::Point>().x(365.658).y(507.253).z(100.000))
       .orientation(
-        geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(0.706060).w(
-          0.708152));
+        geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(0.705897).w(
+          0.708314));
 
   // Find path lanelets between start and goal
   LaneletRoute route;
@@ -190,15 +205,16 @@ TEST_F(TestGeometricPullOut, NormalPullOutPlan)
   // Set parameters
   planner_data.parameters.backward_path_length = 5.0;   // Example value
   planner_data.parameters.forward_path_length = 100.0;  // Example value
+  planner_data.parameters.wheel_base = 2.79;
+  planner_data.parameters.wheel_tread = 1.64;
+  planner_data.parameters.front_overhang = 1.0;
+  planner_data.parameters.left_over_hang = 0.128;
 
   // Update planner with new data
   geometric_pull_out->setPlannerData(std::make_shared<PlannerData>(planner_data));
 
   PlannerDebugData debug_data;
-  std::cerr << "Start pose: " << start_pose.position.x << ", " << start_pose.position.y
-            << std::endl;
   auto result = plan(start_pose, goal_pose, debug_data);
-  std::cerr << "End pose: " << goal_pose.position.x << ", " << goal_pose.position.y << std::endl;
 
   ASSERT_TRUE(result.has_value()) << "Failed to generate pull out path";
   if (result) {

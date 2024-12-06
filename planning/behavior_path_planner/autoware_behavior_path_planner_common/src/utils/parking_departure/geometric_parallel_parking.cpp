@@ -28,6 +28,7 @@
 #include <lanelet2_core/geometry/Polygon.h>
 
 #include <algorithm>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -229,19 +230,42 @@ bool GeometricParallelParking::planPullOut(
   const std::shared_ptr<autoware::lane_departure_checker::LaneDepartureChecker>
     lane_departure_checker)
 {
+  std::cerr << "[planPullOut] Start planning pull out..." << std::endl;
+  std::cerr << "[planPullOut] Left side start: " << (left_side_start ? "true" : "false")
+            << std::endl;
+  std::cerr << "[planPullOut] R_E_min_: " << R_E_min_ << std::endl;
+
+  if (road_lanes.empty()) {
+    std::cerr << "[planPullOut] Failed: road_lanes is empty" << std::endl;
+    return false;
+  }
+
+  if (pull_over_lanes.empty()) {
+    std::cerr << "[planPullOut] Failed: pull_over_lanes is empty" << std::endl;
+    return false;
+  }
+
   constexpr bool is_forward = false;         // parking backward means pull_out forward
   constexpr double start_pose_offset = 0.0;  // start_pose is current_pose
   constexpr double max_offset = 10.0;
   constexpr double offset_interval = 1.0;
 
+  std::cerr << "[planPullOut] Starting end pose offset loop (max_offset: " << max_offset
+            << ", interval: " << offset_interval << ")" << std::endl;
+
   for (double end_pose_offset = 0; end_pose_offset < max_offset;
        end_pose_offset += offset_interval) {
+    std::cerr << "\n[planPullOut] Trying with end_pose_offset: " << end_pose_offset << std::endl;
+
     // pull_out end pose which is the second arc path end
     const auto end_pose =
       calcStartPose(start_pose, road_lanes, end_pose_offset, R_E_min_, is_forward, left_side_start);
     if (!end_pose) {
+      std::cerr << "[planPullOut] Failed to calculate end pose for offset " << end_pose_offset
+                << std::endl;
       continue;
     }
+    std::cerr << "[planPullOut] Successfully calculated end pose" << std::endl;
 
     // plan reverse path of parking. end_pose <-> start_pose
     auto arc_paths = planOneTrial(
@@ -249,14 +273,15 @@ bool GeometricParallelParking::planPullOut(
       start_pose_offset, parameters_.pull_out_lane_departure_margin,
       parameters_.pull_out_arc_path_interval, lane_departure_checker);
     if (arc_paths.empty()) {
-      // not found path
+      std::cerr << "[planPullOut] No valid arc paths found in planOneTrial" << std::endl;
       continue;
     }
+    std::cerr << "[planPullOut] Found valid arc paths, count: " << arc_paths.size() << std::endl;
 
     // reverse to turn_right -> turn_left
     std::reverse(arc_paths.begin(), arc_paths.end());
 
-    // reverse path points order
+    // reverse path points order and lane_ids
     for (auto & path : arc_paths) {
       std::reverse(path.points.begin(), path.points.end());
     }
@@ -268,35 +293,45 @@ bool GeometricParallelParking::planPullOut(
       }
     }
 
-    // get road center line path from pull_out end to goal, and combine after the second arc path
+    // get road center line path
     const double s_start = getArcCoordinates(road_lanes, *end_pose).length;
     const auto path_end_info = utils::parking_departure::calcEndArcLength(
       s_start, planner_data_->parameters.forward_path_length, road_lanes, goal_pose);
     const double s_end = path_end_info.first;
     const bool path_terminal_is_goal = path_end_info.second;
+
+    std::cerr << "[planPullOut] Calculating road center line path (s_start: " << s_start
+              << ", s_end: " << s_end << ")" << std::endl;
+
     const PathWithLaneId road_center_line_path = utils::resamplePathWithSpline(
       planner_data_->route_handler->getCenterLinePath(road_lanes, s_start, s_end, true),
       parameters_.center_line_path_interval);
 
     if (road_center_line_path.points.empty()) {
+      std::cerr << "[planPullOut] Failed: Road center line path is empty" << std::endl;
       continue;
     }
 
-    // check the continuity of straight path and arc path
+    // check path continuity
     const Pose & road_path_first_pose = road_center_line_path.points.front().point.pose;
     const Pose & arc_path_last_pose = arc_paths.back().points.back().point.pose;
     const double yaw_diff = std::abs(autoware::universe_utils::normalizeRadian(
       tf2::getYaw(road_path_first_pose.orientation) - tf2::getYaw(arc_path_last_pose.orientation)));
     const double distance = calcDistance2d(road_path_first_pose, arc_path_last_pose);
+
+    std::cerr << "[planPullOut] Path continuity check - yaw_diff: " << yaw_diff << " rad ("
+              << autoware::universe_utils::rad2deg(yaw_diff) << " deg)"
+              << ", distance: " << distance << " m" << std::endl;
+
     if (yaw_diff > autoware::universe_utils::deg2rad(5.0) || distance > 0.1) {
+      std::cerr << "[planPullOut] Failed: Path continuity check failed" << std::endl;
       continue;
     }
 
-    // set pull_out velocity to arc paths and 0 velocity to end point
+    // set velocity and combine paths
     constexpr bool set_stop_end = false;
     setVelocityToArcPaths(arc_paths, parameters_.pull_out_velocity, set_stop_end);
 
-    // combine the road center line path with the second arc path
     auto paths = arc_paths;
     paths.back().points.insert(
       paths.back().points.end(),
@@ -304,16 +339,19 @@ bool GeometricParallelParking::planPullOut(
       road_center_line_path.points.end());
     paths.back().points = autoware::motion_utils::removeOverlapPoints(paths.back().points);
 
-    // if the end point is the goal, set the velocity to 0
     if (path_terminal_is_goal) {
       paths.back().points.back().point.longitudinal_velocity_mps = 0.0;
+      std::cerr << "[planPullOut] Set zero velocity to goal point" << std::endl;
     }
 
     arc_paths_ = arc_paths;
     paths_ = paths;
 
+    std::cerr << "[planPullOut] Successfully generated pull out path" << std::endl;
     return true;
   }
+
+  std::cerr << "[planPullOut] Failed: Could not find valid path with any offset" << std::endl;
   return false;
 }
 
@@ -321,35 +359,91 @@ std::optional<Pose> GeometricParallelParking::calcStartPose(
   const Pose & goal_pose, const lanelet::ConstLanelets & road_lanes, const double start_pose_offset,
   const double R_E_far, const bool is_forward, const bool left_side_parking)
 {
-  const auto arc_coordinates = lanelet::utils::getArcCoordinates(road_lanes, goal_pose);
+  std::cerr << "\n[calcStartPose] Starting calculation with parameters:"
+            << "\n  start_pose_offset: " << start_pose_offset << "\n  R_E_far: " << R_E_far
+            << "\n  is_forward: " << (is_forward ? "true" : "false")
+            << "\n  left_side_parking: " << (left_side_parking ? "true" : "false") << std::endl;
 
-  // todo
-  // When forwarding, the turning radius of the right and left will be the same.
-  // But the left turn should also have a minimum turning radius.
-  // see https://www.sciencedirect.com/science/article/pii/S1474667016436852 for the dx detail
+  const auto arc_coordinates = lanelet::utils::getArcCoordinates(road_lanes, goal_pose);
+  std::cerr << "[calcStartPose] Arc coordinates:"
+            << "\n  distance: " << arc_coordinates.distance
+            << "\n  length: " << arc_coordinates.length << std::endl;
+
+  // Calculate squared_distance_to_arc_connect
+  const double term_inside_sqrt = left_side_parking ? -arc_coordinates.distance / 2 + R_E_far
+                                                    : arc_coordinates.distance / 2 + R_E_far;
+
+  std::cerr << "[calcStartPose] Calculation details:"
+            << "\n  term_inside_sqrt: " << term_inside_sqrt
+            << "\n  R_E_far^2: " << std::pow(R_E_far, 2)
+            << "\n  term_inside_sqrt^2: " << std::pow(term_inside_sqrt, 2) << std::endl;
+
   const double squared_distance_to_arc_connect =
     left_side_parking ? std::pow(R_E_far, 2) - std::pow(-arc_coordinates.distance / 2 + R_E_far, 2)
                       : std::pow(R_E_far, 2) - std::pow(arc_coordinates.distance / 2 + R_E_far, 2);
+
+  std::cerr << "[calcStartPose] squared_distance_to_arc_connect: "
+            << squared_distance_to_arc_connect << std::endl;
+
   if (squared_distance_to_arc_connect < 0) {
-    // may be current_pose is behind the lane
+    std::cerr << "[calcStartPose] Failed: squared_distance_to_arc_connect is negative"
+              << " (may be current_pose is behind the lane)" << std::endl;
     return std::nullopt;
   }
+
   const double dx_sign = is_forward ? -1 : 1;
   const double dx = 2 * std::sqrt(squared_distance_to_arc_connect) * dx_sign;
 
-  // Assuming parallel poses, calculate the approximate start pose on the centerline from the goal
-  // pose
-  const Pose approximate_start_pose = calcOffsetPose(goal_pose, dx, -arc_coordinates.distance, 0);
-  lanelet::ConstLanelet closest_road_lane{};
+  std::cerr << "[calcStartPose] Offset calculations:"
+            << "\n  dx_sign: " << dx_sign << "\n  dx: " << dx << std::endl;
 
-  // Calculate start pose on the centerline, then offset it.
+  // Calculate approximate start pose
+  const Pose approximate_start_pose = calcOffsetPose(goal_pose, dx, -arc_coordinates.distance, 0);
+  std::cerr << "[calcStartPose] Approximate start pose:"
+            << "\n  x: " << approximate_start_pose.position.x
+            << "\n  y: " << approximate_start_pose.position.y
+            << "\n  yaw: " << tf2::getYaw(approximate_start_pose.orientation) << std::endl;
+
+  // Get closest road lane
+  lanelet::ConstLanelet closest_road_lane{};
   lanelet::utils::query::getClosestLanelet(road_lanes, approximate_start_pose, &closest_road_lane);
+
+  if (!closest_road_lane.id()) {
+    std::cerr << "[calcStartPose] Failed: Could not find closest road lane" << std::endl;
+    return std::nullopt;
+  }
+  std::cerr << "[calcStartPose] Found closest road lane ID: " << closest_road_lane.id()
+            << std::endl;
+
+  // Calculate start pose on centerline
   const Pose start_pose_no_offset =
     lanelet::utils::getClosestCenterPose(closest_road_lane, approximate_start_pose.position);
+
+  std::cerr << "[calcStartPose] Start pose (before offset):"
+            << "\n  x: " << start_pose_no_offset.position.x
+            << "\n  y: " << start_pose_no_offset.position.y
+            << "\n  yaw: " << tf2::getYaw(start_pose_no_offset.orientation) << std::endl;
+
+  // Get road lane path and calculate final start pose
   const auto road_lane_path = planner_data_->route_handler->getCenterLinePath(
     road_lanes, 0.0, std::numeric_limits<double>::max());
+
+  if (road_lane_path.points.empty()) {
+    std::cerr << "[calcStartPose] Failed: Road lane path is empty" << std::endl;
+    return std::nullopt;
+  }
+
   const auto start_pose = autoware::motion_utils::calcLongitudinalOffsetPose(
     road_lane_path.points, start_pose_no_offset.position, start_pose_offset);
+
+  if (!start_pose) {
+    std::cerr << "[calcStartPose] Failed: Could not calculate final start pose" << std::endl;
+    return std::nullopt;
+  }
+
+  std::cerr << "[calcStartPose] Final start pose:"
+            << "\n  x: " << start_pose->position.x << "\n  y: " << start_pose->position.y
+            << "\n  yaw: " << tf2::getYaw(start_pose->orientation) << std::endl;
 
   return start_pose;
 }
@@ -383,8 +477,14 @@ std::vector<PathWithLaneId> GeometricParallelParking::planOneTrial(
   const std::shared_ptr<autoware::lane_departure_checker::LaneDepartureChecker>
     lane_departure_checker)
 {
-  clearPaths();
+  std::cerr << "\n[planOneTrial] Starting with parameters:"
+            << "\n  R_E_far: " << R_E_far << "\n  is_forward: " << (is_forward ? "true" : "false")
+            << "\n  left_side_parking: " << (left_side_parking ? "true" : "false")
+            << "\n  end_pose_offset: " << end_pose_offset
+            << "\n  lane_departure_margin: " << lane_departure_margin
+            << "\n  arc_path_interval: " << arc_path_interval << std::endl;
 
+  clearPaths();
   const auto & common_params = planner_data_->parameters;
   const auto & route_handler = planner_data_->route_handler;
 
@@ -392,6 +492,10 @@ std::vector<PathWithLaneId> GeometricParallelParking::planOneTrial(
   const double self_yaw = tf2::getYaw(start_pose.orientation);
   const double goal_yaw = tf2::getYaw(arc_end_pose.orientation);
   const double psi = normalizeRadian(self_yaw - goal_yaw);
+
+  std::cerr << "[planOneTrial] Pose calculations:"
+            << "\n  self_yaw: " << self_yaw << "\n  goal_yaw: " << goal_yaw << "\n  psi: " << psi
+            << std::endl;
 
   const Pose C_far = left_side_parking ? calcOffsetPose(arc_end_pose, 0, -R_E_far, 0)
                                        : calcOffsetPose(arc_end_pose, 0, R_E_far, 0);
@@ -405,24 +509,35 @@ std::vector<PathWithLaneId> GeometricParallelParking::planOneTrial(
       ? M_PI_2 - psi + std::asin((self_point_goal_coords.y - C_far_goal_coords.y) / d_C_far_Einit)
       : M_PI_2 + psi - std::asin((self_point_goal_coords.y - C_far_goal_coords.y) / d_C_far_Einit);
 
+  std::cerr << "[planOneTrial] Path geometry calculations:"
+            << "\n  d_C_far_Einit: " << d_C_far_Einit << "\n  alpha: " << alpha << std::endl;
+
   const double R_E_near = (std::pow(d_C_far_Einit, 2) - std::pow(R_E_far, 2)) /
                           (2 * (R_E_far + d_C_far_Einit * std::cos(alpha)));
+
+  std::cerr << "[planOneTrial] Calculated R_E_near: " << R_E_near << std::endl;
+
   if (R_E_near <= 0) {
+    std::cerr << "[planOneTrial] Failed: R_E_near is non-positive" << std::endl;
     return std::vector<PathWithLaneId>{};
   }
 
-  // combine road and shoulder lanes
-  // cut the road lanes up to start_pose to prevent unintended processing for overlapped lane
   lanelet::ConstLanelets lanes{};
   autoware::universe_utils::Point2d start_point2d(start_pose.position.x, start_pose.position.y);
+
+  std::cerr << "[planOneTrial] Finding containing lane for start point: (" << start_point2d.x()
+            << ", " << start_point2d.y() << ")" << std::endl;
+
   for (const auto & lane : road_lanes) {
     if (boost::geometry::within(start_point2d, lane.polygon2d().basicPolygon())) {
+      std::cerr << "[planOneTrial] Found containing lane ID: " << lane.id() << std::endl;
       lanes.push_back(lane);
       break;
     }
     lanes.push_back(lane);
   }
   lanes.insert(lanes.end(), pull_over_lanes.begin(), pull_over_lanes.end());
+  std::cerr << "[planOneTrial] Total combined lanes: " << lanes.size() << std::endl;
 
   // If start_pose is parallel to goal_pose, we can know lateral deviation of edges of vehicle,
   // and detect lane departure.
@@ -432,21 +547,40 @@ std::vector<PathWithLaneId> GeometricParallelParking::planOneTrial(
     const double distance_to_near_bound =
       utils::getSignedDistanceFromBoundary(pull_over_lanes, arc_end_pose, left_side_parking);
     const double near_deviation = R_front_near - R_E_far;
+
+    std::cerr << "[planOneTrial] Forward check parameters:"
+              << "\n  R_front_near: " << R_front_near
+              << "\n  distance_to_near_bound: " << distance_to_near_bound
+              << "\n  near_deviation: " << near_deviation
+              << "\n  margin check: " << (std::abs(distance_to_near_bound) - near_deviation)
+              << " vs " << lane_departure_margin << std::endl;
+
     if (std::abs(distance_to_near_bound) - near_deviation < lane_departure_margin) {
+      std::cerr << "[planOneTrial] Failed: Forward check margin violation" << std::endl;
       return std::vector<PathWithLaneId>{};
     }
-  } else {  // Check far bound
+  } else {
     const double R_front_far =
       std::hypot(R_E_near + common_params.vehicle_width / 2, common_params.base_link2front);
     const double far_deviation = R_front_far - R_E_near;
     const double distance_to_far_bound =
       utils::getSignedDistanceFromBoundary(lanes, start_pose, !left_side_parking);
+
+    std::cerr << "[planOneTrial] Backward check parameters:"
+              << "\n  R_front_far: " << R_front_far
+              << "\n  distance_to_far_bound: " << distance_to_far_bound
+              << "\n  far_deviation: " << far_deviation
+              << "\n  margin check: " << (std::abs(distance_to_far_bound) - far_deviation) << " vs "
+              << lane_departure_margin << std::endl;
+
     if (std::abs(distance_to_far_bound) - far_deviation < lane_departure_margin) {
+      std::cerr << "[planOneTrial] Failed: Backward check margin violation" << std::endl;
       return std::vector<PathWithLaneId>{};
     }
   }
 
-  // Generate arc path(first turn -> second turn)
+  std::cerr << "[planOneTrial] Generating arc paths..." << std::endl;
+
   const Pose C_near = left_side_parking ? calcOffsetPose(start_pose, 0, R_E_near, 0)
                                         : calcOffsetPose(start_pose, 0, -R_E_near, 0);
   const double theta_near =
@@ -455,22 +589,61 @@ std::vector<PathWithLaneId> GeometricParallelParking::planOneTrial(
       (2 * R_E_near * (R_E_near + R_E_far))) *
     (is_forward == left_side_parking ? 1 : -1);
 
+  std::cerr << "[planOneTrial] Arc path parameters:"
+            << "\n  theta_near: " << theta_near << "\n  arc_path_interval: " << arc_path_interval
+            << std::endl;
+
+  // Check if arc_path_interval is valid
+  if (arc_path_interval <= 0.0) {
+    std::cerr << "[planOneTrial] Error: Invalid arc_path_interval: " << arc_path_interval
+              << std::endl;
+    return std::vector<PathWithLaneId>{};
+  }
+
   const auto generateArcPathWithHeader =
     [&](
       const auto & C, const auto & R_E, const auto & start_angle, const auto & end_angle,
       bool is_forward_first, bool is_forward_second) -> PathWithLaneId {
+    std::cerr << "[generateArcPathWithHeader] Generating arc path with:"
+              << "\n  C: (" << C.position.x << ", " << C.position.y << ")"
+              << "\n  R_E: " << R_E << "\n  start_angle: " << start_angle << " rad ("
+              << start_angle * 180.0 / M_PI << " deg)"
+              << "\n  end_angle: " << end_angle << " rad (" << end_angle * 180.0 / M_PI << " deg)"
+              << "\n  is_forward_first: " << (is_forward_first ? "true" : "false")
+              << "\n  is_forward_second: " << (is_forward_second ? "true" : "false") << std::endl;
+
     auto path = generateArcPath(
       C, R_E, start_angle, end_angle, arc_path_interval, is_forward_first, is_forward_second);
+
+    std::cerr << "[generateArcPathWithHeader] Generated path with " << path.points.size()
+              << " points" << std::endl;
+
     path.header = route_handler->getRouteHeader();
     return path;
   };
 
+  std::cerr << "[planOneTrial] Calculating path_turn_first parameters for "
+            << (left_side_parking ? "left side parking" : "right side parking") << std::endl;
+
+  double first_start_angle = left_side_parking ? -M_PI_2 : M_PI_2;
+  double first_end_angle = left_side_parking ? normalizeRadian(-M_PI_2 + theta_near)
+                                             : normalizeRadian(M_PI_2 + theta_near);
+
+  std::cerr << "[planOneTrial] First turn angles:"
+            << "\n  start: " << first_start_angle << " rad (" << first_start_angle * 180.0 / M_PI
+            << " deg)"
+            << "\n  end: " << first_end_angle << " rad (" << first_end_angle * 180.0 / M_PI
+            << " deg)" << std::endl;
+
   PathWithLaneId path_turn_first =
     left_side_parking
       ? generateArcPathWithHeader(
-          C_near, R_E_near, -M_PI_2, normalizeRadian(-M_PI_2 + theta_near), is_forward, is_forward)
+          C_near, R_E_near, first_start_angle, first_end_angle, is_forward, is_forward)
       : generateArcPathWithHeader(
-          C_near, R_E_near, M_PI_2, normalizeRadian(M_PI_2 + theta_near), !is_forward, is_forward);
+          C_near, R_E_near, first_start_angle, first_end_angle, !is_forward, is_forward);
+
+  std::cerr << "[planOneTrial] Generated first turn path with " << path_turn_first.points.size()
+            << " points" << std::endl;
 
   PathWithLaneId path_turn_second =
     left_side_parking ? generateArcPathWithHeader(
@@ -480,40 +653,54 @@ std::vector<PathWithLaneId> GeometricParallelParking::planOneTrial(
                           C_far, R_E_far, normalizeRadian(psi - M_PI_2 + theta_near), -M_PI_2,
                           is_forward, is_forward);
 
-  // Need to add straight path to last right_turning for parking in parallel
+  std::cerr << "[planOneTrial] Generated second turn path with " << path_turn_second.points.size()
+            << " points" << std::endl;
+
   if (std::abs(end_pose_offset) > 0) {
     PathPointWithLaneId straight_point{};
     straight_point.point.pose = goal_pose;
     path_turn_second.points.push_back(straight_point);
+    std::cerr << "[planOneTrial] Added straight point to second turn path" << std::endl;
   }
 
   // Populate lane ids for a given path.
   // It checks if each point in the path is within a lane
   // and if its ID hasn't been added yet, it appends the ID to the container.
   std::vector<lanelet::Id> path_lane_ids;
-  const auto populateLaneIds = [&](const auto & path) {
-    for (const auto & p : path.points) {
-      for (const auto & lane : lanes) {
-        if (
-          lanelet::utils::isInLanelet(p.point.pose, lane) &&
-          std::find(path_lane_ids.begin(), path_lane_ids.end(), lane.id()) == path_lane_ids.end()) {
-          path_lane_ids.push_back(lane.id());
-        }
+  std::cerr << "[planOneTrial] Starting lane ID population..." << std::endl;
+
+  for (const auto & p : path_turn_first.points) {
+    for (const auto & lane : lanes) {
+      if (
+        lanelet::utils::isInLanelet(p.point.pose, lane) &&
+        std::find(path_lane_ids.begin(), path_lane_ids.end(), lane.id()) == path_lane_ids.end()) {
+        path_lane_ids.push_back(lane.id());
+        std::cerr << "[planOneTrial] Added lane ID: " << lane.id() << " for first turn"
+                  << std::endl;
       }
     }
-  };
-  populateLaneIds(path_turn_first);
-  populateLaneIds(path_turn_second);
+  }
 
-  // Set lane ids to each point in a given path.
-  // It assigns the accumulated lane ids from path_lane_ids to each point's lane_ids member.
-  const auto setLaneIdsToPath = [&](PathWithLaneId & path) {
-    for (auto & p : path.points) {
-      p.lane_ids = path_lane_ids;
+  for (const auto & p : path_turn_second.points) {
+    for (const auto & lane : lanes) {
+      if (
+        lanelet::utils::isInLanelet(p.point.pose, lane) &&
+        std::find(path_lane_ids.begin(), path_lane_ids.end(), lane.id()) == path_lane_ids.end()) {
+        path_lane_ids.push_back(lane.id());
+        std::cerr << "[planOneTrial] Added lane ID: " << lane.id() << " for second turn"
+                  << std::endl;
+      }
     }
-  };
-  setLaneIdsToPath(path_turn_first);
-  setLaneIdsToPath(path_turn_second);
+  }
+
+  for (auto & p : path_turn_first.points) {
+    p.lane_ids = path_lane_ids;
+  }
+  for (auto & p : path_turn_second.points) {
+    p.lane_ids = path_lane_ids;
+  }
+
+  std::cerr << "[planOneTrial] Checking lane departure..." << std::endl;
 
   if (lane_departure_checker) {
     const auto lanelet_map_ptr = planner_data_->route_handler->getLaneletMapPtr();
@@ -522,6 +709,7 @@ std::vector<PathWithLaneId> GeometricParallelParking::planOneTrial(
       lane_departure_checker->checkPathWillLeaveLane(lanelet_map_ptr, path_turn_first);
 
     if (is_path_turn_first_outside_lanes) {
+      std::cerr << "[planOneTrial] Failed: First turn path will leave lane" << std::endl;
       return std::vector<PathWithLaneId>{};
     }
 
@@ -529,6 +717,7 @@ std::vector<PathWithLaneId> GeometricParallelParking::planOneTrial(
       lane_departure_checker->checkPathWillLeaveLane(lanelet_map_ptr, path_turn_second);
 
     if (is_path_turn_second_outside_lanes) {
+      std::cerr << "[planOneTrial] Failed: Second turn path will leave lane" << std::endl;
       return std::vector<PathWithLaneId>{};
     }
   }
@@ -555,6 +744,7 @@ std::vector<PathWithLaneId> GeometricParallelParking::planOneTrial(
   Cr_ = left_side_parking ? C_far : C_near;
   Cl_ = left_side_parking ? C_near : C_far;
 
+  std::cerr << "[planOneTrial] Successfully generated pull-out path" << std::endl;
   return paths_;
 }
 
@@ -621,6 +811,12 @@ PathPointWithLaneId GeometricParallelParking::generateArcPathPoint(
 void GeometricParallelParking::setTurningRadius(
   const BehaviorPathPlannerParameters & common_params, const double max_steer_angle)
 {
+  std::cerr << "[setTurningRadius] Setting turning radius with parameters:"
+            << "\n  wheel_base: " << common_params.wheel_base
+            << "\n  wheel_tread: " << common_params.wheel_tread
+            << "\n  left_over_hang: " << common_params.left_over_hang
+            << "\n  front_overhang: " << common_params.front_overhang
+            << "\n  max_steer_angle: " << max_steer_angle << std::endl;
   R_E_min_ = common_params.wheel_base / std::tan(max_steer_angle);
   R_Bl_min_ = std::hypot(
     R_E_min_ + common_params.wheel_tread / 2 + common_params.left_over_hang,
