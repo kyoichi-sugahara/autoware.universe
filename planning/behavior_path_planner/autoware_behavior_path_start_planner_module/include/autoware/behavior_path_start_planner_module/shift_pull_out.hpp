@@ -43,6 +43,36 @@ public:
     const Pose & start_pose, const Pose & goal_pose,
     PlannerDebugData & planner_debug_data) override;
 
+  /**
+   * @brief Calculates possible pull-out paths from a parking spot to the road
+   *
+   * @details Generates multiple candidate paths for pulling out from a parked position to the road,
+   *          considering various parameters and constraints. The function:
+   *          1. Generates a reference path from the road lanes
+   *          2. Creates multiple path candidates with different lateral accelerations
+   *          3. Evaluates path feasibility based on curvature and distance constraints
+   *          4. Applies velocity profiles to the generated paths
+   *
+   * @param[in] route_handler    Handler containing route information
+   * @param[in] road_lanes      Target road lanelets for pull-out
+   * @param[in] start_pose      Initial pose of the vehicle (parked position)
+   * @param[in] goal_pose       Target goal pose on the road
+   *
+   * @return Vector of PullOutPath containing all viable pull-out path candidates
+   *
+   * @note Key parameters considered include:
+   *       - Forward/backward path lengths
+   *       - Lateral jerk and acceleration limits
+   *       - Maximum curvature constraints
+   *       - Minimum pull-out distance
+   *       - Path interval parameters
+   *
+   * @note Special cases:
+   *       - Returns non-shifted path if shift length is very small (< 0.01)
+   *       - Handles cases where end pose is on a curve
+   *       - Adjusts velocity profile based on path characteristics
+   *
+   */
   std::vector<PullOutPath> calcPullOutPaths(
     const RouteHandler & route_handler, const lanelet::ConstLanelets & road_lanes,
     const Pose & start_pose, const Pose & goal_pose);
@@ -50,6 +80,22 @@ public:
   double calcBeforeShiftedArcLength(
     const PathWithLaneId & path, const double target_after_arc_length, const double dr);
 
+  /**
+   * @brief Iteratively refines a shifted path to match the start pose
+   *
+   * @details Iteratively improves a shifted path based on given start and end poses.
+   *          In each iteration, the function:
+   *          1. Calculates the lateral offset at the start pose for the current path
+   *          2. Generates a new shift line and processes it with the path shifter
+   *          3. Continues until the lateral offset converges within tolerance
+   *
+   * @param[in,out] shifted_path      The shifted path to be refined
+   * @param[in]     start_pose        The target start pose
+   * @param[in]     end_pose          The target end pose
+   * @param[in]     longitudinal_acc  Longitudinal acceleration limit
+   * @param[in]     lateral_acc       Lateral acceleration limit
+   * @return true if successful, false if refinement fails
+   */
   bool refineShiftedPathToStartPose(
     ShiftedPath & shifted_path, const Pose & start_pose, const Pose & end_pose,
     const double longitudinal_acc, const double lateral_acc);
