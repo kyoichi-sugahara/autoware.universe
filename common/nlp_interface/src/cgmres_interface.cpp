@@ -16,6 +16,8 @@
 
 #include <cmath>
 #include <stdexcept>
+#include <string>
+#include <vector>
 
 namespace autoware::common
 {

@@ -19,10 +19,12 @@
 #include <autoware/lane_departure_checker/lane_departure_checker.hpp>
 #include <autoware/route_handler/route_handler.hpp>
 #include <autoware_lanelet2_extension/utility/query.hpp>
+#include <autoware_planning_test_manager/autoware_planning_test_manager_utils.hpp>
 #include <autoware_test_utils/autoware_test_utils.hpp>
 
 #include <gtest/gtest.h>
 
+#include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
@@ -31,6 +33,9 @@ using autoware::behavior_path_planner::GeometricPullOut;
 using autoware::behavior_path_planner::StartPlannerParameters;
 using autoware::lane_departure_checker::LaneDepartureChecker;
 using autoware::test_utils::get_absolute_path_to_config;
+using autoware_planning_msgs::msg::LaneletRoute;
+using RouteSections = std::vector<autoware_planning_msgs::msg::LaneletSegment>;
+using autoware_planning_test_manager::utils::makeBehaviorRouteFromLaneId;
 
 namespace autoware::behavior_path_planner
 {
@@ -38,13 +43,11 @@ namespace autoware::behavior_path_planner
 class TestGeometricPullOut : public ::testing::Test
 {
 public:
-  // double calcPullOutLongitudinalDistance(
-  //   const double lon_acc, const double shift_time, const double shift_length,
-  //   const double max_curvature, const double min_distance)
-  // {
-  //   return geometric_pull_out->calcPullOutLongitudinalDistance(
-  //     lon_acc, shift_time, shift_length, max_curvature, min_distance);
-  // }
+  std::optional<PullOutPath> plan(
+    const Pose & start_pose, const Pose & goal_pose, PlannerDebugData & planner_debug_data)
+  {
+    return geometric_pull_out->plan(start_pose, goal_pose, planner_debug_data);
+  }
 
   std::shared_ptr<autoware::route_handler::RouteHandler> route_handler;
   autoware::vehicle_info_utils::VehicleInfo vehicle_info;
@@ -127,14 +130,158 @@ private:
   }
 };
 
-// TEST_F(GeometricPullOut, calcPullOutLongitudinalDistance)
+TEST_F(TestGeometricPullOut, NormalPullOutPlan)
+{
+  PlannerData planner_data;
+
+  // Set odometry with start pose
+  auto odometry = std::make_shared<nav_msgs::msg::Odometry>();
+  const geometry_msgs::msg::Pose start_pose =
+    geometry_msgs::build<geometry_msgs::msg::Pose>()
+      .position(geometry_msgs::build<geometry_msgs::msg::Point>().x(362.225).y(378.580).z(100.000))
+      .orientation(
+        geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(0.709157).w(
+          0.705051));
+
+  const geometry_msgs::msg::Pose goal_pose =
+    geometry_msgs::build<geometry_msgs::msg::Pose>()
+      .position(geometry_msgs::build<geometry_msgs::msg::Point>().x(365.575).y(450.062).z(100.000))
+      .orientation(
+        geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(0.706060).w(
+          0.708152));
+
+  // Find path lanelets between start and goal
+  LaneletRoute route;
+  LaneletRoute route_msg;
+  RouteSections route_sections;
+  lanelet::ConstLanelets all_route_lanelets;
+  lanelet::ConstLanelets path_lanelets;
+
+  route_handler->planPathLaneletsBetweenCheckpoints(start_pose, goal_pose, &path_lanelets);
+  for (const auto & lane : path_lanelets) {
+    all_route_lanelets.push_back(lane);
+  }
+  route_handler->setRouteLanelets(path_lanelets);
+  const auto local_route_sections = route_handler->createMapSegments(path_lanelets);
+
+  route_sections =
+    autoware::test_utils::combineConsecutiveRouteSections(route_sections, local_route_sections);
+  for (const auto & route_section : route_sections) {
+    for (const auto & primitive : route_section.primitives) {
+      std::cerr << "primitive: " << primitive.id << std::endl;
+    }
+    std::cerr << "preferred_primitive id : " << route_section.preferred_primitive.id << std::endl;
+  }
+  route_handler->setRouteLanelets(all_route_lanelets);
+  route.segments = route_sections;
+
+  route.allow_modification = false;
+  route_handler->setRoute(route);
+
+  // Set current pose as odometry
+  odometry->pose.pose = start_pose;
+  odometry->header.frame_id = "map";
+  // odometry->header.stamp = route_handler->getNode()->now();
+  planner_data.self_odometry = odometry;
+
+  // Set route handler
+  planner_data.route_handler = route_handler;
+
+  // Set parameters
+  planner_data.parameters.backward_path_length = 5.0;   // Example value
+  planner_data.parameters.forward_path_length = 100.0;  // Example value
+
+  // Update planner with new data
+  geometric_pull_out->setPlannerData(std::make_shared<PlannerData>(planner_data));
+
+  PlannerDebugData debug_data;
+  std::cerr << "Start pose: " << start_pose.position.x << ", " << start_pose.position.y
+            << std::endl;
+  auto result = plan(start_pose, goal_pose, debug_data);
+  std::cerr << "End pose: " << goal_pose.position.x << ", " << goal_pose.position.y << std::endl;
+
+  ASSERT_TRUE(result.has_value()) << "Failed to generate pull out path";
+  if (result) {
+    EXPECT_FALSE(result->partial_paths.empty()) << "Generated path is empty";
+    EXPECT_EQ(debug_data.conditions_evaluation.back(), "success");
+  }
+}
+
+// TEST_F(TestGeometricPullOut, NoValidPathPlan)
 // {
-//   const double lon_acc = 1.0;
-//   const double shift_time = 1.0;
-//   const double shift_length = 1.0;
-//   const double max_curvature = 0.1;
-//   const double min_distance = 1.0;
-//   calcPullOutLongitudinalDistance(lon_acc, shift_time, shift_length, max_curvature,
-//   min_distance);
+//   const Pose start_pose{
+//     {0.0, 20.0, 0.0},  // Start pose too far from road
+//     {0.0, 0.0, 0.0, 1.0}
+//   };
+//   const Pose goal_pose{
+//     {10.0, 0.0, 0.0},
+//     {0.0, 0.0, 0.0, 1.0}
+//   };
+
+//   PlannerDebugData debug_data;
+
+//   auto result = plan(start_pose, goal_pose, debug_data);
+
+//   EXPECT_FALSE(result.has_value());
+//   EXPECT_EQ(debug_data.conditions_evaluation.back(), "no path found");
+// }
+
+// TEST_F(TestGeometricPullOut, PullOutWithDifferentParameters)
+// {
+//   // Modify planner parameters
+//   auto parameters = std::make_shared<StartPlannerParameters>();
+//   parameters->backward_path_length = 10.0;
+//   auto time_keeper = std::make_shared<autoware::universe_utils::TimeKeeper>();
+
+//   geometric_pull_out =
+//     std::make_shared<GeometricPullOut>(*route_handler->getNode(), *parameters,
+//     lane_departure_checker, time_keeper);
+
+//   const Pose start_pose{
+//     {0.0, 5.0, 0.0},
+//     {0.0, 0.0, 0.0, 1.0}
+//   };
+//   const Pose goal_pose{
+//     {10.0, 0.0, 0.0},
+//     {0.0, 0.0, 0.0, 1.0}
+//   };
+
+//   PlannerDebugData debug_data;
+
+//   auto result = plan(start_pose, goal_pose, debug_data);
+
+//   ASSERT_TRUE(result.has_value());
+//   if (result) {
+//     EXPECT_FALSE(result->partial_paths.empty());
+//     EXPECT_FALSE(result->pairs_terminal_velocity_and_accel.empty());
+//   }
+// }
+
+// TEST_F(TestGeometricPullOut, PathEndPointsMatchInputPoses)
+// {
+//   const Pose start_pose{
+//     {0.0, 5.0, 0.0},
+//     {0.0, 0.0, 0.0, 1.0}
+//   };
+//   const Pose goal_pose{
+//     {10.0, 0.0, 0.0},
+//     {0.0, 0.0, 0.0, 1.0}
+//   };
+
+//   PlannerDebugData debug_data;
+
+//   auto result = plan(start_pose, goal_pose, debug_data);
+
+//   ASSERT_TRUE(result.has_value());
+//   if (result) {
+//     // Check if start and end poses match input
+//     const auto & output_start = result->start_pose;
+//     const auto & output_end = result->end_pose;
+
+//     EXPECT_NEAR(output_start.position.x, start_pose.position.x, 0.1);
+//     EXPECT_NEAR(output_start.position.y, start_pose.position.y, 0.1);
+//     EXPECT_NEAR(output_end.position.x, goal_pose.position.x, 0.1);
+//     EXPECT_NEAR(output_end.position.y, goal_pose.position.y, 0.1);
+//   }
 // }
 }  // namespace autoware::behavior_path_planner

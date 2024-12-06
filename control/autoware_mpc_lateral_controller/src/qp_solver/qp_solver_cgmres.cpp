@@ -16,6 +16,7 @@
 
 #include <Eigen/Dense>
 
+#include <iostream>
 #include <string>
 #include <vector>
 

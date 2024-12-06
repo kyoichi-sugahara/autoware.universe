@@ -87,7 +87,7 @@ Trajectory convertToAutowareTrajectory(const MPCTrajectory & input);
 
 template <typename T>
 std::vector<double> extract_trajectory_attribute(
-  const MPCTrajectory & trajectory, const std::vector<T> MPCTrajectory::*attribute)
+  const MPCTrajectory & trajectory, const std::vector<T> MPCTrajectory::* attribute)
 {
   std::vector<double> attributes;
   attributes.reserve(trajectory.size());
