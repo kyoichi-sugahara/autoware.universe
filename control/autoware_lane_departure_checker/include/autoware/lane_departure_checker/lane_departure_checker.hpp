@@ -157,10 +157,6 @@ private:
   Param param_;
   std::shared_ptr<autoware::vehicle_info_utils::VehicleInfo> vehicle_info_ptr_;
 
-  static PoseDeviation calcTrajectoryDeviation(
-    const Trajectory & trajectory, const geometry_msgs::msg::Pose & pose,
-    const double dist_threshold, const double yaw_threshold);
-
   bool willLeaveLane(
     const lanelet::ConstLanelets & candidate_lanelets,
     const std::vector<LinearRing2d> & vehicle_footprints) const;

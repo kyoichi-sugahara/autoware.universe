@@ -82,9 +82,6 @@ std::vector<LinearRing2d> createVehicleFootprints(
   const double footprint_extra_margin);
 
 /**
- * @brief create convex hull that covers all given footprints
- * @param footprints vehicle footprints
- * @return convex hull that covers all footprints
  * @brief find lanelets that potentially intersect with the vehicle's trajectory
  * @param route_lanelets lanelets along the planned route
  * @param vehicle_footprints series of vehicle footprint polygons along the trajectory
@@ -102,12 +99,6 @@ lanelet::ConstLanelets getCandidateLanelets(
 LinearRing2d createHullFromFootprints(const std::vector<LinearRing2d> & footprints);
 
 /**
- * @brief create vehicle passing areas from every two consecutive footprints
- * @param vehicle_footprints vehicle footprints
- * @return vehicle passing areas
- */
-std::vector<LinearRing2d> createVehiclePassingAreas(
-  const std::vector<LinearRing2d> & vehicle_footprints);
  * @brief create passing areas of the vehicle from vehicle footprints
  * @param vehicle_footprints vehicle footprints along trajectory
  * @return passing areas of the vehicle that are created from adjacent vehicle footprints

@@ -155,15 +155,6 @@ bool LaneDepartureChecker::checkPathWillLeaveLane(
   return willLeaveLane(candidate_lanelets, vehicle_footprints);
 }
 
-PoseDeviation LaneDepartureChecker::calcTrajectoryDeviation(
-  const Trajectory & trajectory, const geometry_msgs::msg::Pose & pose, const double dist_threshold,
-  const double yaw_threshold)
-{
-  const auto nearest_idx = autoware::motion_utils::findFirstNearestIndexWithSoftConstraints(
-    trajectory.points, pose, dist_threshold, yaw_threshold);
-  return autoware::universe_utils::calcPoseDeviation(trajectory.points.at(nearest_idx).pose, pose);
-}
-
 bool LaneDepartureChecker::willLeaveLane(
   const lanelet::ConstLanelets & candidate_lanelets,
   const std::vector<LinearRing2d> & vehicle_footprints) const

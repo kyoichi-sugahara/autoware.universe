@@ -167,25 +167,6 @@ std::vector<LinearRing2d> createVehicleFootprints(
   return vehicle_footprints;
 }
 
-lanelet::ConstLanelets getCandidateLanelets(
-  const lanelet::ConstLanelets & route_lanelets,
-  const std::vector<LinearRing2d> & vehicle_footprints)
-{
-  lanelet::ConstLanelets candidate_lanelets;
-
-  // Find lanes within the convex hull of footprints
-  const auto footprint_hull = createHullFromFootprints(vehicle_footprints);
-
-  for (const auto & route_lanelet : route_lanelets) {
-    const auto poly = route_lanelet.polygon2d().basicPolygon();
-    if (!boost::geometry::disjoint(poly, footprint_hull)) {
-      candidate_lanelets.push_back(route_lanelet);
-    }
-  }
-
-  return candidate_lanelets;
-}
-
 LinearRing2d createHullFromFootprints(const std::vector<LinearRing2d> & footprints)
 {
   MultiPoint2d combined;
