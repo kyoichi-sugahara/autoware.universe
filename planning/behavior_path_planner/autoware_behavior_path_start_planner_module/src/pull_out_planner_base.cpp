@@ -14,6 +14,8 @@
 
 #include "autoware/behavior_path_start_planner_module/pull_out_planner_base.hpp"
 
+#include <iostream>
+
 namespace autoware::behavior_path_planner
 {
 bool PullOutPlannerBase::isPullOutPathCollided(
@@ -24,6 +26,10 @@ bool PullOutPlannerBase::isPullOutPathCollided(
 
   // check for collisions
   const auto & dynamic_objects = planner_data_->dynamic_object;
+  if (!dynamic_objects) {
+    std::cerr << "dynamic_objects is null" << std::endl;
+    return false;  // もしくは適切なエラーハンドリング
+  }
   const auto pull_out_lanes = start_planner_utils::getPullOutLanes(
     planner_data_, planner_data_->parameters.backward_path_length + parameters_.max_back_distance);
   // extract stop objects in pull out lane for collision check

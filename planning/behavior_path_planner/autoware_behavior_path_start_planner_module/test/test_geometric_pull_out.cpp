@@ -91,6 +91,8 @@ private:
     lane_departure_checker->setParam(lane_departure_checker_params);
     parameters->parallel_parking_parameters.pull_out_max_steer_angle = 0.35;
     parameters->parallel_parking_parameters.pull_out_arc_path_interval = 1.0;
+    parameters->parallel_parking_parameters.center_line_path_interval = 1.0;
+    parameters->th_moving_object_velocity = 1.0;
 
     geometric_pull_out =
       std::make_shared<GeometricPullOut>(*node, *parameters, lane_departure_checker, time_keeper);
