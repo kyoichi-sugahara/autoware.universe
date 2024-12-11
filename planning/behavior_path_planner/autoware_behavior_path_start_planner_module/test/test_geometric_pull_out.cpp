@@ -124,20 +124,12 @@ private:
     return node_options;
   }
 
-  void init_module()
-  {
-    // geometric_pull_out = std::make_shared<GeometricPullOut>(
-    //   *route_handler->getNode(), route_handler->getStartPlannerParameters(),
-    //   route_handler->getLaneDepartureChecker(), route_handler->getTimeKeeper());
-  }
+  void init_module() {}
 };
 
-TEST_F(TestGeometricPullOut, NormalPullOutPlan)
+TEST_F(TestGeometricPullOut, GenerateValidGeometricPullOutPath)
 {
-  PlannerData planner_data;
-
-  // Set odometry with start pose
-  auto odometry = std::make_shared<nav_msgs::msg::Odometry>();
+  // Given: A valid start pose and goal pose
   const geometry_msgs::msg::Pose start_pose =
     geometry_msgs::build<geometry_msgs::msg::Pose>()
       .position(geometry_msgs::build<geometry_msgs::msg::Point>().x(362.181).y(362.164).z(100.000))
@@ -152,46 +144,18 @@ TEST_F(TestGeometricPullOut, NormalPullOutPlan)
         geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(0.705897).w(
           0.708314));
 
-  // Find path lanelets between start and goal
-  // LaneletRoute route;
-  // LaneletRoute route_msg;
-  // RouteSections route_sections;
-  // lanelet::ConstLanelets all_route_lanelets;
-  // lanelet::ConstLanelets path_lanelets;
-
-  // route_handler->planPathLaneletsBetweenCheckpoints(start_pose, goal_pose, &path_lanelets);
-  // for (const auto & lane : path_lanelets) {
-  //   all_route_lanelets.push_back(lane);
-  // }
-  // route_handler->setRouteLanelets(path_lanelets);
-  // const auto local_route_sections = route_handler->createMapSegments(path_lanelets);
-
-  // route_sections =
-  //   autoware::test_utils::combineConsecutiveRouteSections(route_sections, local_route_sections);
-  // route_handler->setRouteLanelets(all_route_lanelets);
-  // route.segments = route_sections;
-  // for (const auto & route_section : route_sections) {
-  //   for (const auto & primitive : route_section.primitives) {
-  //     std::cerr << "primitive: " << primitive.id << std::endl;
-  //   }
-  //   std::cerr << "preferred_primitive id : " << route_section.preferred_primitive.id <<
-  //   std::endl;
-  // }
-
-  // route.allow_modification = false;
-  const auto route = makeBehaviorRouteFromLaneId(
-    4619, 4635, "autoware_test_utils", "road_shoulder/lanelet2_map.osm");
-  route_handler->setRoute(route);
-
-  // Set current pose as odometry
+  // And: Required planner configuration is set up
+  PlannerData planner_data;
+  auto odometry = std::make_shared<nav_msgs::msg::Odometry>();
   odometry->pose.pose = start_pose;
   odometry->header.frame_id = "map";
   planner_data.self_odometry = odometry;
 
-  // Set route handler
+  const auto route = makeBehaviorRouteFromLaneId(
+    4619, 4635, "autoware_test_utils", "road_shoulder/lanelet2_map.osm");
+  route_handler->setRoute(route);
   planner_data.route_handler = route_handler;
 
-  // Set parameters
   planner_data.parameters.backward_path_length = 5.0;
   planner_data.parameters.forward_path_length = 100.0;
   planner_data.parameters.wheel_base = 2.79;
@@ -199,17 +163,18 @@ TEST_F(TestGeometricPullOut, NormalPullOutPlan)
   planner_data.parameters.front_overhang = 1.0;
   planner_data.parameters.left_over_hang = 0.128;
 
-  // Update planner with new data
   geometric_pull_out->setPlannerData(std::make_shared<PlannerData>(planner_data));
 
+  // When: Pull out path is planned
   PlannerDebugData debug_data;
   auto result = plan(start_pose, goal_pose, debug_data);
 
-  ASSERT_TRUE(result.has_value()) << "Failed to generate pull out path";
-  if (result) {
-    EXPECT_FALSE(result->partial_paths.empty()) << "Generated path is empty";
-    EXPECT_EQ(debug_data.conditions_evaluation.back(), "success");
-  }
+  // Then: A valid geometric pull out path should be generated
+  ASSERT_TRUE(result.has_value()) << "Geometric pull out path generation failed";
+  EXPECT_FALSE(result->partial_paths.empty())
+    << "Generated pull out path contains no partial paths";
+  EXPECT_EQ(debug_data.conditions_evaluation.back(), "success")
+    << "Geometric pull out path planning did not succeed";
 }
 
 }  // namespace autoware::behavior_path_planner
