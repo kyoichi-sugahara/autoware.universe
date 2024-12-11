@@ -16,7 +16,6 @@
 
 #include "autoware/lane_departure_checker/utils.hpp"
 
-#include <autoware/motion_utils/trajectory/trajectory.hpp>
 #include <autoware/universe_utils/math/normalization.hpp>
 #include <autoware/universe_utils/math/unit_conversion.hpp>
 #include <autoware/universe_utils/system/stop_watch.hpp>
@@ -27,9 +26,9 @@
 #include <tf2/utils.h>
 
 #include <algorithm>
+#include <string>
 #include <vector>
 
-using autoware::motion_utils::calcArcLength;
 using autoware::universe_utils::LinearRing2d;
 using autoware::universe_utils::LineString2d;
 using autoware::universe_utils::MultiPoint2d;
@@ -89,7 +88,7 @@ Output LaneDepartureChecker::update(const Input & input)
 
   autoware::universe_utils::StopWatch<std::chrono::milliseconds> stop_watch;
 
-  output.trajectory_deviation = calcTrajectoryDeviation(
+  output.trajectory_deviation = utils::calcTrajectoryDeviation(
     *input.reference_trajectory, input.current_odom->pose.pose, param_.ego_nearest_dist_threshold,
     param_.ego_nearest_yaw_threshold);
   output.processing_time_map["calcTrajectoryDeviation"] = stop_watch.toc(true);
@@ -117,9 +116,9 @@ Output LaneDepartureChecker::update(const Input & input)
   output.processing_time_map["createVehiclePassingAreas"] = stop_watch.toc(true);
 
   const auto candidate_road_lanelets =
-    getCandidateLanelets(input.route_lanelets, output.vehicle_footprints);
+    utils::getCandidateLanelets(input.route_lanelets, output.vehicle_footprints);
   const auto candidate_shoulder_lanelets =
-    getCandidateLanelets(input.shoulder_lanelets, output.vehicle_footprints);
+    utils::getCandidateLanelets(input.shoulder_lanelets, output.vehicle_footprints);
   output.candidate_lanelets = candidate_road_lanelets;
   output.candidate_lanelets.insert(
     output.candidate_lanelets.end(), candidate_shoulder_lanelets.begin(),
@@ -134,7 +133,7 @@ Output LaneDepartureChecker::update(const Input & input)
   output.processing_time_map["isOutOfLane"] = stop_watch.toc(true);
 
   const double max_search_length_for_boundaries =
-    calcMaxSearchLengthForBoundaries(*input.predicted_trajectory);
+    utils::calcMaxSearchLengthForBoundaries(*input.predicted_trajectory, *vehicle_info_ptr_);
   const auto uncrossable_boundaries = extractUncrossableBoundaries(
     *input.lanelet_map, input.predicted_trajectory->points.front().pose.position,
     max_search_length_for_boundaries, input.boundary_types_to_detect);
@@ -151,7 +150,8 @@ bool LaneDepartureChecker::checkPathWillLeaveLane(
 
   std::vector<LinearRing2d> vehicle_footprints =
     utils::createVehicleFootprints(path, *vehicle_info_ptr_, param_.footprint_extra_margin);
-  lanelet::ConstLanelets candidate_lanelets = getCandidateLanelets(lanelets, vehicle_footprints);
+  lanelet::ConstLanelets candidate_lanelets =
+    utils::getCandidateLanelets(lanelets, vehicle_footprints);
   return willLeaveLane(candidate_lanelets, vehicle_footprints);
 }
 
@@ -312,13 +312,21 @@ bool LaneDepartureChecker::checkPathWillLeaveLane(
 }
 
 PathWithLaneId LaneDepartureChecker::cropPointsOutsideOfLanes(
-  const lanelet::LaneletMapPtr lanelet_map_ptr, const PathWithLaneId & path, const size_t end_index)
+  const lanelet::LaneletMapPtr lanelet_map_ptr, const PathWithLaneId & path, const size_t end_index,
+  std::vector<lanelet::Id> & fused_lanelets_id,
+  std::optional<autoware::universe_utils::Polygon2d> & fused_lanelets_polygon)
 {
   universe_utils::ScopedTimeTrack st(__func__, *time_keeper_);
 
   PathWithLaneId temp_path;
-  const auto fused_lanelets_polygon = getFusedLaneletPolygonForPath(lanelet_map_ptr, path);
-  if (path.points.empty() || !fused_lanelets_polygon) return temp_path;
+
+  // Update the lanelet polygon for the current path
+  if (
+    path.points.empty() || !updateFusedLaneletPolygonForPath(
+                             lanelet_map_ptr, path, fused_lanelets_id, fused_lanelets_polygon)) {
+    return temp_path;
+  }
+
   const auto vehicle_footprints =
     utils::createVehicleFootprints(path, *vehicle_info_ptr_, param_.footprint_extra_margin);
 
@@ -350,18 +358,6 @@ bool LaneDepartureChecker::isOutOfLane(
   }
 
   return false;
-}
-
-double LaneDepartureChecker::calcMaxSearchLengthForBoundaries(const Trajectory & trajectory) const
-{
-  const double max_ego_lon_length = std::max(
-    std::abs(vehicle_info_ptr_->max_longitudinal_offset_m),
-    std::abs(vehicle_info_ptr_->min_longitudinal_offset_m));
-  const double max_ego_lat_length = std::max(
-    std::abs(vehicle_info_ptr_->max_lateral_offset_m),
-    std::abs(vehicle_info_ptr_->min_lateral_offset_m));
-  const double max_ego_search_length = std::hypot(max_ego_lon_length, max_ego_lat_length);
-  return calcArcLength(trajectory.points) + max_ego_search_length;
 }
 
 SegmentRtree LaneDepartureChecker::extractUncrossableBoundaries(

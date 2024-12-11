@@ -16,10 +16,13 @@
 
 #include "obstacle_pointcloud_validator.hpp"
 
+#include <autoware/object_recognition_utils/object_recognition_utils.hpp>
 #include <autoware/universe_utils/geometry/boost_polygon_utils.hpp>
-#include <object_recognition_utils/object_recognition_utils.hpp>
 
 #include <boost/geometry.hpp>
+
+#include <memory>
+#include <vector>
 
 #ifdef ROS_DISTRO_GALACTIC
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
@@ -29,6 +32,8 @@
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+
+#include <cmath>
 
 namespace autoware::detected_object_validation
 {
@@ -54,10 +59,9 @@ size_t Validator::getThresholdPointCloud(
     object.kinematics.pose_with_covariance.pose.position.x,
     object.kinematics.pose_with_covariance.pose.position.y);
   size_t threshold_pc = std::clamp(
-    static_cast<size_t>(
+    static_cast<size_t>(std::lround(
       points_num_threshold_param_.min_points_and_distance_ratio.at(object_label_id) /
-        object_distance +
-      0.5f),
+      object_distance)),
     static_cast<size_t>(points_num_threshold_param_.min_points_num.at(object_label_id)),
     static_cast<size_t>(points_num_threshold_param_.max_points_num.at(object_label_id)));
   return threshold_pc;
@@ -325,7 +329,7 @@ void ObstaclePointCloudBasedValidator::onObjectsAndObstaclePointCloud(
 
   // Transform to pointcloud frame
   autoware_perception_msgs::msg::DetectedObjects transformed_objects;
-  if (!object_recognition_utils::transformObjects(
+  if (!autoware::object_recognition_utils::transformObjects(
         *input_objects, input_obstacle_pointcloud->header.frame_id, tf_buffer_,
         transformed_objects)) {
     // objects_pub_->publish(*input_objects);

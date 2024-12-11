@@ -14,6 +14,11 @@
 
 #include "autoware/universe_utils/geometry/alt_geometry.hpp"
 
+#include <algorithm>
+#include <limits>
+#include <utility>
+#include <vector>
+
 namespace autoware::universe_utils
 {
 // Alternatives for Boost.Geometry ----------------------------------------------------------------
@@ -68,6 +73,9 @@ std::optional<Polygon2d> Polygon2d::create(
   std::vector<PointList2d> inners;
   for (const auto & inner : polygon.inners()) {
     PointList2d _inner;
+    if (inner.empty()) {
+      continue;
+    }
     for (const auto & point : inner) {
       _inner.push_back(Point2d(point));
     }
@@ -75,6 +83,25 @@ std::optional<Polygon2d> Polygon2d::create(
   }
 
   return Polygon2d::create(outer, inners);
+}
+
+autoware::universe_utils::Polygon2d Polygon2d::to_boost() const
+{
+  autoware::universe_utils::Polygon2d polygon;
+
+  for (const auto & point : outer_) {
+    polygon.outer().emplace_back(point.x(), point.y());
+  }
+
+  for (const auto & inner : inners_) {
+    autoware::universe_utils::LinearRing2d _inner;
+    for (const auto & point : inner) {
+      _inner.emplace_back(point.x(), point.y());
+    }
+    polygon.inners().push_back(_inner);
+  }
+
+  return polygon;
 }
 
 std::optional<ConvexPolygon2d> ConvexPolygon2d::create(const PointList2d & vertices) noexcept

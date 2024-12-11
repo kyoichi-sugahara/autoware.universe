@@ -10,6 +10,7 @@ autoware_package()
 pluginlib_export_plugin_description_file(autoware_behavior_path_planner plugins.xml)
 
 ament_auto_add_library(${PROJECT_NAME} SHARED
+  src/pull_over_planner/pull_over_planner_base.cpp
   src/pull_over_planner/freespace_pull_over.cpp
   src/pull_over_planner/geometric_pull_over.cpp
   src/pull_over_planner/shift_pull_over.cpp
@@ -18,6 +19,7 @@ ament_auto_add_library(${PROJECT_NAME} SHARED
   src/util.cpp
   src/goal_planner_module.cpp
   src/manager.cpp
+  src/decision_state.cpp
 )
 
 if(BUILD_EXAMPLES)
