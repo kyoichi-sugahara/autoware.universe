@@ -25,7 +25,7 @@ bool PullOutPlannerBase::isPullOutPathCollided(
   // check for collisions
   const auto & dynamic_objects = planner_data_->dynamic_object;
   if (!dynamic_objects) {
-    return false;  // もしくは適切なエラーハンドリング
+    return false;
   }
   const auto pull_out_lanes = start_planner_utils::getPullOutLanes(
     planner_data_, planner_data_->parameters.backward_path_length + parameters_.max_back_distance);
