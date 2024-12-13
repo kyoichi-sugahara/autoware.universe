@@ -53,6 +53,7 @@ public:
   autoware::vehicle_info_utils::VehicleInfo vehicle_info;
   std::shared_ptr<GeometricPullOut> geometric_pull_out;
   std::shared_ptr<LaneDepartureChecker> lane_departure_checker;
+  PlannerData planner_data;
 
 protected:
   void SetUp() override
@@ -68,6 +69,9 @@ private:
   {
     auto node_options = get_node_options();
     auto node = rclcpp::Node::make_shared("geometric_pull_out", node_options);
+    const auto dp_double = [&](const std::string & s) {
+      return node->declare_parameter<double>(s);
+    };
 
     vehicle_info = autoware::vehicle_info_utils::VehicleInfoUtils(*node).getVehicleInfo();
 
@@ -85,14 +89,26 @@ private:
     auto time_keeper = std::make_shared<autoware::universe_utils::TimeKeeper>();
 
     autoware::lane_departure_checker::Param lane_departure_checker_params{};
+    const std::string ns = "start_planner.";
     lane_departure_checker_params.footprint_extra_margin =
-      parameters->lane_departure_check_expansion_margin;
+      dp_double(ns + "lane_departure_check_expansion_margin");
 
     lane_departure_checker->setParam(lane_departure_checker_params);
-    parameters->parallel_parking_parameters.pull_out_max_steer_angle = 0.35;
-    parameters->parallel_parking_parameters.pull_out_arc_path_interval = 1.0;
-    parameters->parallel_parking_parameters.center_line_path_interval = 1.0;
-    parameters->th_moving_object_velocity = 1.0;
+    parameters->parallel_parking_parameters.pull_out_max_steer_angle =
+      dp_double(ns + "pull_out_max_steer_angle");
+    parameters->parallel_parking_parameters.pull_out_arc_path_interval =
+      dp_double(ns + "arc_path_interval");
+
+    parameters->parallel_parking_parameters.center_line_path_interval =
+      dp_double(ns + "center_line_path_interval");
+    parameters->th_moving_object_velocity = dp_double(ns + "th_moving_object_velocity");
+    planner_data.parameters.backward_path_length = dp_double("backward_path_length");
+    planner_data.parameters.forward_path_length = dp_double("forward_path_length");
+    planner_data.parameters.wheel_base = vehicle_info.wheel_base_m;
+    planner_data.parameters.wheel_tread = vehicle_info.wheel_tread_m;
+    planner_data.parameters.front_overhang = vehicle_info.front_overhang_m;
+    planner_data.parameters.left_over_hang = vehicle_info.left_overhang_m;
+    planner_data.parameters.right_over_hang = vehicle_info.right_overhang_m;
 
     geometric_pull_out =
       std::make_shared<GeometricPullOut>(*node, *parameters, lane_departure_checker, time_keeper);
@@ -145,7 +161,6 @@ TEST_F(TestGeometricPullOut, GenerateValidGeometricPullOutPath)
           0.708314));
 
   // And: Required planner configuration is set up
-  PlannerData planner_data;
   auto odometry = std::make_shared<nav_msgs::msg::Odometry>();
   odometry->pose.pose = start_pose;
   odometry->header.frame_id = "map";
@@ -155,13 +170,6 @@ TEST_F(TestGeometricPullOut, GenerateValidGeometricPullOutPath)
     4619, 4635, "autoware_test_utils", "road_shoulder/lanelet2_map.osm");
   route_handler->setRoute(route);
   planner_data.route_handler = route_handler;
-
-  planner_data.parameters.backward_path_length = 5.0;
-  planner_data.parameters.forward_path_length = 100.0;
-  planner_data.parameters.wheel_base = 2.79;
-  planner_data.parameters.wheel_tread = 1.64;
-  planner_data.parameters.front_overhang = 1.0;
-  planner_data.parameters.left_over_hang = 0.128;
 
   geometric_pull_out->setPlannerData(std::make_shared<PlannerData>(planner_data));
 
