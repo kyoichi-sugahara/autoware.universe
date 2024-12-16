@@ -22,6 +22,7 @@
 #include <autoware_lanelet2_extension/utility/utilities.hpp>
 
 #include <algorithm>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <vector>
@@ -39,9 +40,11 @@ FreespacePullOut::FreespacePullOut(
     vehicle_info, parameters.vehicle_shape_margin);
   if (parameters.freespace_planner_algorithm == "astar") {
     use_back_ = parameters.astar_parameters.use_back;
+    std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
     planner_ = std::make_unique<AstarSearch>(
       parameters.freespace_planner_common_parameters, vehicle_shape, parameters.astar_parameters,
       node.get_clock());
+    std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
   } else if (parameters.freespace_planner_algorithm == "rrtstar") {
     use_back_ = true;  // no option for disabling back in rrtstar
     planner_ = std::make_unique<RRTStar>(
@@ -54,17 +57,26 @@ std::optional<PullOutPath> FreespacePullOut::plan(
   const Pose & start_pose, const Pose & end_pose, PlannerDebugData & planner_debug_data)
 {
   const auto & route_handler = planner_data_->route_handler;
+  std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
   const double backward_path_length = planner_data_->parameters.backward_path_length;
+  std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
   const double forward_path_length = planner_data_->parameters.forward_path_length;
 
+  std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
   planner_->setMap(*planner_data_->costmap);
 
+  std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
   try {
+    std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
     if (!planner_->makePlan(start_pose, end_pose)) {
+      std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
       planner_debug_data.conditions_evaluation.emplace_back("no path found");
+      std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
       return {};
     }
+    std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
   } catch (const std::exception & e) {
+    std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
     return {};
   }
 
