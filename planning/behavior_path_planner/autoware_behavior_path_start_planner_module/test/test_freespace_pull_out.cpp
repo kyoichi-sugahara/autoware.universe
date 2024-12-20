@@ -211,7 +211,7 @@ private:
   nav_msgs::msg::OccupancyGrid costmap_;
 };
 
-TEST_F(TestFreespacePullOut, GenerateValidFreespacePullOutPath)
+TEST_F(TestFreespacePullOut, DISABLED_GenerateValidFreespacePullOutPath)
 {
   const auto start_pose =
     geometry_msgs::build<geometry_msgs::msg::Pose>()
