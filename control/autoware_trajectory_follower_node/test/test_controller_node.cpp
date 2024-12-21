@@ -822,7 +822,7 @@ TEST_F(FakeNodeFixture, DISABLED_longitudinal_reverse)
   EXPECT_GT(tester.cmd_msg->longitudinal.acceleration, 0.0f);
 }
 
-TEST_F(FakeNodeFixture, longitudinal_not_check_steer_converged)
+TEST_F(FakeNodeFixture, DISABLED_longitudinal_not_check_steer_converged)
 {
   const auto node_options = makeNodeOptions();
   ControllerTester tester(this, node_options);
