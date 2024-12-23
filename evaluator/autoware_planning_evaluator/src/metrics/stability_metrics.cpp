@@ -128,6 +128,7 @@ Accumulator<double> calcTrajectoryLateralDisplacement(
   const double interval = evaluation_section_length / num_evaluation_points;
 
   const auto resampled_traj1 = autoware::motion_utils::resampleTrajectory(traj1, interval);
+
   for (const auto & point : resampled_traj1.points) {
     const auto p0 = autoware::universe_utils::getPoint(point);
     const double dist = autoware::motion_utils::calcLateralOffset(traj2.points, p0);

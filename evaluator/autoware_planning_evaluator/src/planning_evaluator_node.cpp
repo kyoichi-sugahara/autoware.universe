@@ -241,6 +241,12 @@ void PlanningEvaluatorNode::AddMetricMsg(
     metrics_msg_.metric_array.push_back(metric_msg);
   }
 
+  {
+    metric_msg.name = base_name + "count";
+    metric_msg.value = boost::lexical_cast<decltype(metric_msg.value)>(metric_stat.count());
+    metrics_msg_.metric_array.push_back(metric_msg);
+  }
+
   return;
 }
 
