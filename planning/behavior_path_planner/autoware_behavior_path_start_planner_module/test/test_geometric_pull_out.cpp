@@ -56,7 +56,6 @@ protected:
     rclcpp::init(0, nullptr);
     node_ = rclcpp::Node::make_shared("geometric_pull_out", get_node_options());
 
-    load_parameters();
     initialize_vehicle_info();
     initialize_lane_departure_checker();
     initialize_route_handler();
@@ -102,25 +101,6 @@ private:
     return node_options;
   }
 
-  void load_parameters()
-  {
-    const auto dp_double = [&](const std::string & s) {
-      return node_->declare_parameter<double>(s);
-    };
-    const auto dp_bool = [&](const std::string & s) { return node_->declare_parameter<bool>(s); };
-    // Load parameters required for planning
-    const std::string ns = "start_planner.";
-    lane_departure_check_expansion_margin_ =
-      dp_double(ns + "lane_departure_check_expansion_margin");
-    pull_out_max_steer_angle_ = dp_double(ns + "pull_out_max_steer_angle");
-    pull_out_arc_path_interval_ = dp_double(ns + "arc_path_interval");
-    center_line_path_interval_ = dp_double(ns + "center_line_path_interval");
-    th_moving_object_velocity_ = dp_double(ns + "th_moving_object_velocity");
-    divide_pull_out_path_ = dp_bool(ns + "divide_pull_out_path");
-    backward_path_length_ = dp_double("backward_path_length");
-    forward_path_length_ = dp_double("forward_path_length");
-  }
-
   void initialize_vehicle_info()
   {
     vehicle_info_ = autoware::vehicle_info_utils::VehicleInfoUtils(*node_).getVehicleInfo();
@@ -148,28 +128,19 @@ private:
 
   void initialize_geometric_pull_out_planner()
   {
-    auto parameters = std::make_shared<StartPlannerParameters>();
-    parameters->parallel_parking_parameters.pull_out_max_steer_angle = pull_out_max_steer_angle_;
-    parameters->parallel_parking_parameters.pull_out_arc_path_interval =
-      pull_out_arc_path_interval_;
-    parameters->parallel_parking_parameters.center_line_path_interval = center_line_path_interval_;
-    parameters->th_moving_object_velocity = th_moving_object_velocity_;
-    parameters->divide_pull_out_path = divide_pull_out_path_;
+    auto parameters = StartPlannerParameters::init(*node_);
 
     auto time_keeper = std::make_shared<autoware::universe_utils::TimeKeeper>();
     geometric_pull_out_ =
-      std::make_shared<GeometricPullOut>(*node_, *parameters, lane_departure_checker_, time_keeper);
+      std::make_shared<GeometricPullOut>(*node_, parameters, lane_departure_checker_, time_keeper);
   }
 
   void initialize_planner_data()
   {
-    planner_data_.parameters.backward_path_length = backward_path_length_;
-    planner_data_.parameters.forward_path_length = forward_path_length_;
-    planner_data_.parameters.wheel_base = vehicle_info_.wheel_base_m;
-    planner_data_.parameters.wheel_tread = vehicle_info_.wheel_tread_m;
-    planner_data_.parameters.front_overhang = vehicle_info_.front_overhang_m;
-    planner_data_.parameters.left_over_hang = vehicle_info_.left_overhang_m;
-    planner_data_.parameters.right_over_hang = vehicle_info_.right_overhang_m;
+    // temp
+    PlannerData planner_data;
+    planner_data.init_parameters(*node_);
+    planner_data_ = planner_data;
   }
 
   // Parameter variables
