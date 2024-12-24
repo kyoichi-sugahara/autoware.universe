@@ -165,7 +165,6 @@ TEST_F(TestGeometricPullOut, GenerateValidGeometricPullOutPath)
 
   const auto planner_data = make_planner_data(start_pose, 4619, 4635);
 
-  // Update planner data with the route handler
   geometric_pull_out_->setPlannerData(std::make_shared<PlannerData>(planner_data));
 
   // Plan the pull out path
