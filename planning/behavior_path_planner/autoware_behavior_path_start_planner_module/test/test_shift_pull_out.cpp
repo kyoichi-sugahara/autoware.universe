@@ -54,12 +54,8 @@ protected:
     rclcpp::init(0, nullptr);
     node_ = rclcpp::Node::make_shared("shift_pull_out", make_node_options());
 
-    load_parameters();
-    initialize_vehicle_info();
     initialize_lane_departure_checker();
-    initialize_route_handler();
     initialize_shift_pull_out_planner();
-    initialize_planner_data();
   }
 
   void TearDown() override { rclcpp::shutdown(); }
@@ -133,7 +129,7 @@ private:
     const auto vehicle_info =
       autoware::vehicle_info_utils::VehicleInfoUtils(*node_).getVehicleInfo();
     lane_departure_checker_ = std::make_shared<LaneDepartureChecker>();
-    lane_departure_checker_->setVehicleInfo(vehicle_info_);
+    lane_departure_checker_->setVehicleInfo(vehicle_info);
 
     autoware::lane_departure_checker::Param lane_departure_checker_params{};
     lane_departure_checker_->setParam(lane_departure_checker_params);
