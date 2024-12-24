@@ -45,7 +45,7 @@ namespace autoware::behavior_path_planner
 class TestGeometricPullOut : public ::testing::Test
 {
 public:
-  std::optional<PullOutPath> plan(
+  std::optional<PullOutPath> call_plan(
     const Pose & start_pose, const Pose & goal_pose, PlannerDebugData & planner_debug_data)
   {
     return geometric_pull_out_->plan(start_pose, goal_pose, planner_debug_data);
@@ -55,19 +55,24 @@ protected:
   void SetUp() override
   {
     rclcpp::init(0, nullptr);
-    node_ = rclcpp::Node::make_shared("geometric_pull_out", get_node_options());
+    node_ = rclcpp::Node::make_shared("geometric_pull_out", make_node_options());
 
-    initialize_vehicle_info();
     initialize_lane_departure_checker();
-    initialize_route_handler();
     initialize_geometric_pull_out_planner();
   }
+  void TearDown() override { rclcpp::shutdown(); }
 
-  PlannerData create_planner_data(
+  PlannerData make_planner_data(
     const Pose & start_pose, const int route_start_lane_id, const int route_goal_lane_id)
   {
     PlannerData planner_data;
     planner_data.init_parameters(*node_);
+
+    // Load a sample lanelet map and create a route handler
+    const auto shoulder_map_path = autoware::test_utils::get_absolute_path_to_lanelet_map(
+      "autoware_test_utils", "road_shoulder/lanelet2_map.osm");
+    const auto map_bin_msg = autoware::test_utils::make_map_bin_msg(shoulder_map_path, 0.5);
+    auto route_handler = std::make_shared<autoware::route_handler::RouteHandler>(map_bin_msg);
 
     // Set up current odometry at start pose
     auto odometry = std::make_shared<nav_msgs::msg::Odometry>();
@@ -79,24 +84,21 @@ protected:
     const auto route = makeBehaviorRouteFromLaneId(
       route_start_lane_id, route_goal_lane_id, "autoware_test_utils",
       "road_shoulder/lanelet2_map.osm");
-    route_handler_->setRoute(route);
+    route_handler->setRoute(route);
 
     // Update planner data with the route handler
-    planner_data.route_handler = route_handler_;
+    planner_data.route_handler = route_handler;
 
     return planner_data;
   }
 
-  void TearDown() override { rclcpp::shutdown(); }
   // Member variables
   std::shared_ptr<rclcpp::Node> node_;
-  std::shared_ptr<autoware::route_handler::RouteHandler> route_handler_;
-  autoware::vehicle_info_utils::VehicleInfo vehicle_info_;
   std::shared_ptr<GeometricPullOut> geometric_pull_out_;
   std::shared_ptr<LaneDepartureChecker> lane_departure_checker_;
 
 private:
-  rclcpp::NodeOptions get_node_options() const
+  rclcpp::NodeOptions make_node_options() const
   {
     // Load common configuration files
     auto node_options = rclcpp::NodeOptions{};
@@ -124,28 +126,15 @@ private:
     return node_options;
   }
 
-  void initialize_vehicle_info()
-  {
-    vehicle_info_ = autoware::vehicle_info_utils::VehicleInfoUtils(*node_).getVehicleInfo();
-  }
-
   void initialize_lane_departure_checker()
   {
+    const auto vehicle_info =
+      autoware::vehicle_info_utils::VehicleInfoUtils(*node_).getVehicleInfo();
     lane_departure_checker_ = std::make_shared<LaneDepartureChecker>();
-    lane_departure_checker_->setVehicleInfo(vehicle_info_);
+    lane_departure_checker_->setVehicleInfo(vehicle_info);
 
     autoware::lane_departure_checker::Param lane_departure_checker_params{};
     lane_departure_checker_->setParam(lane_departure_checker_params);
-  }
-
-  void initialize_route_handler()
-  {
-    // Load a sample lanelet map and create a route handler
-    const auto shoulder_map_path = autoware::test_utils::get_absolute_path_to_lanelet_map(
-      "autoware_test_utils", "road_shoulder/lanelet2_map.osm");
-    const auto map_bin_msg = autoware::test_utils::make_map_bin_msg(shoulder_map_path, 0.5);
-
-    route_handler_ = std::make_shared<autoware::route_handler::RouteHandler>(map_bin_msg);
   }
 
   void initialize_geometric_pull_out_planner()
@@ -174,14 +163,14 @@ TEST_F(TestGeometricPullOut, GenerateValidGeometricPullOutPath)
         geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(0.705897).w(
           0.708314));
 
-  const auto planner_data = create_planner_data(start_pose, 4619, 4635);
+  const auto planner_data = make_planner_data(start_pose, 4619, 4635);
 
   // Update planner data with the route handler
   geometric_pull_out_->setPlannerData(std::make_shared<PlannerData>(planner_data));
 
   // Plan the pull out path
   PlannerDebugData debug_data;
-  auto result = plan(start_pose, goal_pose, debug_data);
+  auto result = call_plan(start_pose, goal_pose, debug_data);
 
   // Assert that a valid geometric pull out path is generated
   ASSERT_TRUE(result.has_value()) << "Geometric pull out path generation failed.";
