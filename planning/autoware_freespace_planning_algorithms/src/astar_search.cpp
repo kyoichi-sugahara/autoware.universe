@@ -35,7 +35,6 @@
 #endif
 
 #include <algorithm>
-#include <iostream>
 #include <vector>
 
 namespace autoware::freespace_planning_algorithms

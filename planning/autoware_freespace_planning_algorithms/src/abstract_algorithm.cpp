@@ -318,6 +318,7 @@ bool AbstractPlanningAlgorithm::detectCollision(const geometry_msgs::msg::Pose &
 bool AbstractPlanningAlgorithm::detectCollision(const IndexXYT & base_index) const
 {
   if (coll_indexes_table_.empty()) {
+    std::cerr << "[abstract_algorithm] setMap has not yet been done." << std::endl;
     return false;
   }
 
