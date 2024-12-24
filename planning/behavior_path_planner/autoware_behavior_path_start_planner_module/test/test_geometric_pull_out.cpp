@@ -135,7 +135,6 @@ private:
     lane_departure_checker_->setVehicleInfo(vehicle_info_);
 
     autoware::lane_departure_checker::Param lane_departure_checker_params{};
-    lane_departure_checker_params.footprint_extra_margin = lane_departure_check_expansion_margin_;
     lane_departure_checker_->setParam(lane_departure_checker_params);
   }
 
@@ -157,9 +156,6 @@ private:
     geometric_pull_out_ =
       std::make_shared<GeometricPullOut>(*node_, parameters, lane_departure_checker_, time_keeper);
   }
-
-  // Parameter variables
-  double lane_departure_check_expansion_margin_{0.0};
 };
 
 TEST_F(TestGeometricPullOut, GenerateValidGeometricPullOutPath)
