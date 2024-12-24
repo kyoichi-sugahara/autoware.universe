@@ -158,19 +158,19 @@ TEST_F(TestFreespacePullOut, GenerateValidFreespacePullOutPath)
 {
   const auto start_pose =
     geometry_msgs::build<geometry_msgs::msg::Pose>()
-      .position(geometry_msgs::build<geometry_msgs::msg::Point>().x(362.181).y(362.164).z(100.000))
+      .position(geometry_msgs::build<geometry_msgs::msg::Point>().x(299.996).y(302.435).z(100.000))
       .orientation(
-        geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(0.709650).w(
-          0.704554));
+        geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(-0.774764).w(
+          0.632251));
 
   const auto goal_pose =
     geometry_msgs::build<geometry_msgs::msg::Pose>()
-      .position(geometry_msgs::build<geometry_msgs::msg::Point>().x(365.658).y(507.253).z(100.000))
+      .position(geometry_msgs::build<geometry_msgs::msg::Point>().x(270.637).y(251.228).z(100.000))
       .orientation(
-        geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(0.705897).w(
-          0.708314));
+        geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(-0.715821).w(
+          0.698284));
 
-  const auto planner_data = make_planner_data(start_pose, 4619, 4635);
+  const auto planner_data = make_planner_data(start_pose, 508, 720);
 
   freespace_pull_out_->setPlannerData(std::make_shared<PlannerData>(planner_data));
 
