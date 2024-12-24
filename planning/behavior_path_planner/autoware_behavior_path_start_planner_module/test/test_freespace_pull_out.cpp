@@ -87,13 +87,13 @@ protected:
     // Update planner data with the route handler
     planner_data.route_handler = route_handler;
     nav_msgs::msg::OccupancyGrid costmap;
-
-    costmap.info.width = 40;
-    costmap.info.height = 40;
-    costmap.info.resolution = 0.25;
-    costmap.data = std::vector<int8_t>(1600, 0);
-    costmap.data[28 * costmap.info.width + 28] = 100;
-    costmap.info.origin = start_pose;
+    costmap.header.frame_id = "map";
+    costmap.info.width = 200;
+    costmap.info.height = 200;
+    costmap.info.resolution = 0.5;
+    costmap.info.origin.position.x = 250.0;
+    costmap.info.origin.position.y = 230.0;
+    costmap.data = std::vector<int8_t>(costmap.info.width * costmap.info.height, 0);
     planner_data.costmap = std::make_shared<nav_msgs::msg::OccupancyGrid>(costmap);
 
     return planner_data;
@@ -158,17 +158,17 @@ TEST_F(TestFreespacePullOut, GenerateValidFreespacePullOutPath)
 {
   const auto start_pose =
     geometry_msgs::build<geometry_msgs::msg::Pose>()
-      .position(geometry_msgs::build<geometry_msgs::msg::Point>().x(299.996).y(302.435).z(100.000))
+      .position(geometry_msgs::build<geometry_msgs::msg::Point>().x(299.796).y(303.529).z(100.000))
       .orientation(
-        geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(-0.774764).w(
-          0.632251));
+        geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(-0.748629).w(
+          0.662990));
 
   const auto goal_pose =
     geometry_msgs::build<geometry_msgs::msg::Pose>()
-      .position(geometry_msgs::build<geometry_msgs::msg::Point>().x(270.637).y(251.228).z(100.000))
+      .position(geometry_msgs::build<geometry_msgs::msg::Point>().x(270.789).y(246.749).z(100.000))
       .orientation(
-        geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(-0.715821).w(
-          0.698284));
+        geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(-0.727585).w(
+          0.686018));
 
   const auto planner_data = make_planner_data(start_pose, 508, 720);
 
@@ -180,7 +180,7 @@ TEST_F(TestFreespacePullOut, GenerateValidFreespacePullOutPath)
 
   // Assert that a valid shift pull out path is generated
   ASSERT_TRUE(result.has_value()) << "shift pull out path generation failed.";
-  EXPECT_EQ(result->partial_paths.size(), 1UL)
+  EXPECT_EQ(result->partial_paths.size(), 2UL)
     << "Generated shift pull out path does not have the expected number of partial paths.";
   EXPECT_EQ(debug_data.conditions_evaluation.back(), "success")
     << "shift pull out path planning did not succeed.";

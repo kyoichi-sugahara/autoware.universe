@@ -311,47 +311,33 @@ bool AbstractPlanningAlgorithm::detectBoundaryExit(const IndexXYT & base_index) 
 
 bool AbstractPlanningAlgorithm::detectCollision(const geometry_msgs::msg::Pose & base_pose) const
 {
-  std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
   const auto base_index = pose2index(costmap_, base_pose, planner_common_param_.theta_size);
-  std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
   return detectCollision(base_index);
 }
 
 bool AbstractPlanningAlgorithm::detectCollision(const IndexXYT & base_index) const
 {
-  std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
   if (coll_indexes_table_.empty()) {
-    std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
-    std::cerr << "[abstract_algorithm] setMap has not yet been done." << std::endl;
     return false;
   }
 
-  std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
   if (detectBoundaryExit(base_index)) return true;
 
-  std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
   double obstacle_edt = getObstacleEDT(base_index).distance;
 
   // if nearest obstacle is further than largest dimension, no collision is guaranteed
   // if nearest obstacle is closer than smallest dimension, collision is guaranteed
-  std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
   if (obstacle_edt > collision_vehicle_shape_.max_dimension) return false;
-  std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
   if (obstacle_edt < collision_vehicle_shape_.min_dimension) return true;
 
-  std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
   const auto & coll_indexes_2d = coll_indexes_table_[base_index.theta];
-  std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
   for (const auto & coll_index_2d : coll_indexes_2d) {
-    std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
     IndexXY coll_index{coll_index_2d.x, coll_index_2d.y};
     // must slide to current base position
     coll_index.x += base_index.x;
     coll_index.y += base_index.y;
 
-    std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
     if (isObs(coll_index)) {
-      std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
       return true;
     }
   }

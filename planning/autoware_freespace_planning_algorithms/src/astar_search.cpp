@@ -145,35 +145,24 @@ void AstarSearch::resetData()
 
 bool AstarSearch::makePlan(const Pose & start_pose, const Pose & goal_pose)
 {
-  std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
   resetData();
 
-  std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
   start_pose_ = global2local(costmap_, start_pose);
-  std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
   goal_pose_ = global2local(costmap_, goal_pose);
 
-  std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
   if (detectCollision(start_pose_) || detectCollision(goal_pose_)) {
-    std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
     throw std::logic_error("Invalid start or goal pose");
   }
 
-  std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
   if (is_backward_search_) std::swap(start_pose_, goal_pose_);
 
-  std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
   setCollisionFreeDistanceMap();
 
-  std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
   is_multiple_goals_ = false;
 
-  std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
   setStartNode();
 
-  std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
   if (!search()) {
-    std::cerr << "line: " << __LINE__ << " function: " << __FUNCTION__ << std::endl;
     throw std::logic_error("HA* failed to find path to goal");
   }
 
