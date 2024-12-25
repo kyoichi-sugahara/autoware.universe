@@ -97,27 +97,13 @@ void StartPlannerTestHelper::set_costmap(
 {
   nav_msgs::msg::OccupancyGrid costmap;
   costmap.header.frame_id = "map";
-  costmap.info.resolution = grid_resolution;
   costmap.info.width = static_cast<uint>(grid_length_x / grid_resolution);
   costmap.info.height = static_cast<uint>(grid_length_y / grid_resolution);
+  costmap.info.resolution = grid_resolution;
 
   costmap.info.origin.position.x = start_pose.position.x - grid_length_x / 2;
   costmap.info.origin.position.y = start_pose.position.y - grid_length_y / 2;
-  costmap.info.origin.position.z = start_pose.position.z;
-
   costmap.data = std::vector<int8_t>(costmap.info.width * costmap.info.height, 0);
-  // costmap.data.resize(costmap.info.width * costmap.info.height, 0);
-  // std::cerr << "Start pose:\n"
-  //           << "  position: (" << start_pose.position.x << ", " << start_pose.position.y << ", "
-  //           << start_pose.position.z << ")\n"
-  //           << "  orientation: (" << start_pose.orientation.x << ", " << start_pose.orientation.y
-  //           << ", " << start_pose.orientation.z << ", " << start_pose.orientation.w << ")\n\n"
-  //           << "Costmap:\n"
-  //           << "  resolution: " << costmap.info.resolution << "\n"
-  //           << "  width: " << costmap.info.width << "\n"
-  //           << "  height: " << costmap.info.height << "\n"
-  //           << "  origin: (" << costmap.info.origin.position.x << ", "
-  //           << costmap.info.origin.position.y << ", " << costmap.info.origin.position.z << ")\n";
 
   planner_data->costmap = std::make_shared<nav_msgs::msg::OccupancyGrid>(costmap);
 }
