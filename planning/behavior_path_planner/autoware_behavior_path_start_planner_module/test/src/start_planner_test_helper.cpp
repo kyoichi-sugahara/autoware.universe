@@ -57,11 +57,9 @@ std::shared_ptr<LaneDepartureChecker> StartPlannerTestHelper::make_lane_departur
   rclcpp::Node & node)
 {
   const auto vehicle_info = autoware::vehicle_info_utils::VehicleInfoUtils(node).getVehicleInfo();
-  auto lane_departure_checker = std::make_shared<LaneDepartureChecker>();
-  lane_departure_checker->setVehicleInfo(vehicle_info);
-
   autoware::lane_departure_checker::Param lane_departure_checker_params{};
-  lane_departure_checker->setParam(lane_departure_checker_params);
+  auto lane_departure_checker =
+    std::make_shared<LaneDepartureChecker>(lane_departure_checker_params, vehicle_info);
 
   return lane_departure_checker;
 }
