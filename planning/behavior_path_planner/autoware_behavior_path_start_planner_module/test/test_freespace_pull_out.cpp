@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "include/start_planner_test_helper.hpp"
 #include "start_planner_test_helper.hpp"
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
@@ -98,7 +99,12 @@ TEST_F(TestFreespacePullOut, GenerateValidFreespacePullOutPath)
         geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(-0.727585).w(
           0.686018));
 
-  const auto planner_data = StartPlannerTestHelper::make_planner_data(*node_, start_pose, 508, 720);
+  auto planner_data = std::make_shared<PlannerData>();
+  planner_data->init_parameters(*node_);
+
+  StartPlannerTestHelper::set_odometry(planner_data, start_pose);
+  StartPlannerTestHelper::set_route(planner_data, 508, 720);
+  StartPlannerTestHelper::set_costmap(planner_data, start_pose, 0.3, 70.0, 70.0);
 
   // Plan the pull out path
   PlannerDebugData debug_data;

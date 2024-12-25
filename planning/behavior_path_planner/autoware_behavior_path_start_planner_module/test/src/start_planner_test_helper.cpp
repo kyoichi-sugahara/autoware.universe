@@ -66,46 +66,60 @@ std::shared_ptr<LaneDepartureChecker> StartPlannerTestHelper::make_lane_departur
   return lane_departure_checker;
 }
 
-std::shared_ptr<const PlannerData> StartPlannerTestHelper::make_planner_data(
-  rclcpp::Node & node, const geometry_msgs::msg::Pose & start_pose, const int route_start_lane_id,
+void StartPlannerTestHelper::set_odometry(
+  std::shared_ptr<PlannerData> & planner_data, const geometry_msgs::msg::Pose & start_pose)
+{
+  auto odometry = std::make_shared<nav_msgs::msg::Odometry>();
+  odometry->pose.pose = start_pose;
+  odometry->header.frame_id = "map";
+  planner_data->self_odometry = odometry;
+}
+
+void StartPlannerTestHelper::set_route(
+  std::shared_ptr<PlannerData> & planner_data, const int route_start_lane_id,
   const int route_goal_lane_id)
 {
-  auto planner_data = std::make_shared<PlannerData>();
-  planner_data->init_parameters(node);
-
-  // Load a sample lanelet map and create a route handler
   const auto shoulder_map_path = autoware::test_utils::get_absolute_path_to_lanelet_map(
     "autoware_test_utils", "road_shoulder/lanelet2_map.osm");
   const auto map_bin_msg = autoware::test_utils::make_map_bin_msg(shoulder_map_path, 0.5);
   auto route_handler = std::make_shared<autoware::route_handler::RouteHandler>(map_bin_msg);
 
-  // Set up current odometry at start pose
-  auto odometry = std::make_shared<nav_msgs::msg::Odometry>();
-  odometry->pose.pose = start_pose;
-  odometry->header.frame_id = "map";
-  planner_data->self_odometry = odometry;
-
-  // Setup route
   const auto route = makeBehaviorRouteFromLaneId(
     route_start_lane_id, route_goal_lane_id, "autoware_test_utils",
     "road_shoulder/lanelet2_map.osm");
   route_handler->setRoute(route);
-
-  // Update planner data with the route handler
   planner_data->route_handler = route_handler;
+}
 
-  // Add costmap setting
+void StartPlannerTestHelper::set_costmap(
+  std::shared_ptr<PlannerData> & planner_data, const geometry_msgs::msg::Pose & start_pose,
+  const double grid_resolution, const double grid_length_x, const double grid_length_y)
+{
   nav_msgs::msg::OccupancyGrid costmap;
   costmap.header.frame_id = "map";
-  costmap.info.width = 200;
-  costmap.info.height = 200;
-  costmap.info.resolution = 0.5;
-  costmap.info.origin.position.x = 250.0;
-  costmap.info.origin.position.y = 230.0;
-  costmap.data = std::vector<int8_t>(costmap.info.width * costmap.info.height, 0);
-  planner_data->costmap = std::make_shared<nav_msgs::msg::OccupancyGrid>(costmap);
+  costmap.info.resolution = grid_resolution;
+  costmap.info.width = static_cast<uint>(grid_length_x / grid_resolution);
+  costmap.info.height = static_cast<uint>(grid_length_y / grid_resolution);
 
-  return planner_data;
+  costmap.info.origin.position.x = start_pose.position.x - grid_length_x / 2;
+  costmap.info.origin.position.y = start_pose.position.y - grid_length_y / 2;
+  costmap.info.origin.position.z = start_pose.position.z;
+
+  costmap.data = std::vector<int8_t>(costmap.info.width * costmap.info.height, 0);
+  // costmap.data.resize(costmap.info.width * costmap.info.height, 0);
+  // std::cerr << "Start pose:\n"
+  //           << "  position: (" << start_pose.position.x << ", " << start_pose.position.y << ", "
+  //           << start_pose.position.z << ")\n"
+  //           << "  orientation: (" << start_pose.orientation.x << ", " << start_pose.orientation.y
+  //           << ", " << start_pose.orientation.z << ", " << start_pose.orientation.w << ")\n\n"
+  //           << "Costmap:\n"
+  //           << "  resolution: " << costmap.info.resolution << "\n"
+  //           << "  width: " << costmap.info.width << "\n"
+  //           << "  height: " << costmap.info.height << "\n"
+  //           << "  origin: (" << costmap.info.origin.position.x << ", "
+  //           << costmap.info.origin.position.y << ", " << costmap.info.origin.position.z << ")\n";
+
+  planner_data->costmap = std::make_shared<nav_msgs::msg::OccupancyGrid>(costmap);
 }
 
 }  // namespace autoware::behavior_path_planner::testing

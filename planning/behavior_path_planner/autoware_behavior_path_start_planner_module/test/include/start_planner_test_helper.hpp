@@ -29,10 +29,15 @@ public:
 
   static std::shared_ptr<LaneDepartureChecker> make_lane_departure_checker(rclcpp::Node & node);
 
-  static std::shared_ptr<const PlannerData> make_planner_data(
-    [[maybe_unused]] rclcpp::Node & node,
-    [[maybe_unused]] const geometry_msgs::msg::Pose & start_pose,
-    [[maybe_unused]] const int route_start_lane_id, [[maybe_unused]] const int route_goal_lane_id);
+  static void set_odometry(
+    std::shared_ptr<PlannerData> & planner_data, const geometry_msgs::msg::Pose & start_pose);
+  static void set_route(
+    std::shared_ptr<PlannerData> & planner_data, const int route_start_lane_id,
+    const int route_goal_lane_id);
+
+  static void set_costmap(
+    std::shared_ptr<PlannerData> & planner_data, const geometry_msgs::msg::Pose & start_pose,
+    const double grid_resolution, const double grid_length_x, const double grid_length_y);
 };
 
 }  // namespace autoware::behavior_path_planner::testing

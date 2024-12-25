@@ -107,9 +107,11 @@ TEST_F(TestShiftPullOut, GenerateValidShiftPullOutPath)
       .orientation(
         geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(0.705897).w(
           0.708314));
-  const auto planner_data =
-    StartPlannerTestHelper::make_planner_data(*node_, start_pose, 4619, 4635);
 
+  auto planner_data = std::make_shared<PlannerData>();
+  planner_data->init_parameters(*node_);
+  StartPlannerTestHelper::set_odometry(planner_data, start_pose);
+  StartPlannerTestHelper::set_route(planner_data, 4619, 4635);
   // Plan the pull out path
   PlannerDebugData debug_data;
   auto result = call_plan(start_pose, goal_pose, planner_data, debug_data);
