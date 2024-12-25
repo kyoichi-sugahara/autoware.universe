@@ -14,6 +14,7 @@
 // pull_out_test_utils.cpp
 #include "start_planner_test_helper.hpp"
 
+#include <autoware_planning_test_manager/autoware_planning_test_manager_utils.hpp>
 #include <autoware_test_utils/autoware_test_utils.hpp>
 
 #include <memory>
@@ -21,6 +22,7 @@
 namespace autoware::behavior_path_planner::testing
 {
 using autoware::test_utils::get_absolute_path_to_config;
+using autoware_planning_test_manager::utils::makeBehaviorRouteFromLaneId;
 
 rclcpp::NodeOptions StartPlannerTestHelper::make_node_options()
 {

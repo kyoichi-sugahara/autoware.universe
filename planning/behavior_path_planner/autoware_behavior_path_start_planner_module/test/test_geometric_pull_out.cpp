@@ -68,36 +68,6 @@ protected:
   }
   void TearDown() override { rclcpp::shutdown(); }
 
-  std::shared_ptr<const PlannerData> make_planner_data(
-    const Pose & start_pose, const int route_start_lane_id, const int route_goal_lane_id)
-  {
-    auto planner_data = std::make_shared<PlannerData>();
-    planner_data->init_parameters(*node_);
-
-    // Load a sample lanelet map and create a route handler
-    const auto shoulder_map_path = autoware::test_utils::get_absolute_path_to_lanelet_map(
-      "autoware_test_utils", "road_shoulder/lanelet2_map.osm");
-    const auto map_bin_msg = autoware::test_utils::make_map_bin_msg(shoulder_map_path, 0.5);
-    auto route_handler = std::make_shared<autoware::route_handler::RouteHandler>(map_bin_msg);
-
-    // Set up current odometry at start pose
-    auto odometry = std::make_shared<nav_msgs::msg::Odometry>();
-    odometry->pose.pose = start_pose;
-    odometry->header.frame_id = "map";
-    planner_data->self_odometry = odometry;
-
-    // Setup route
-    const auto route = makeBehaviorRouteFromLaneId(
-      route_start_lane_id, route_goal_lane_id, "autoware_test_utils",
-      "road_shoulder/lanelet2_map.osm");
-    route_handler->setRoute(route);
-
-    // Update planner data with the route handler
-    planner_data->route_handler = route_handler;
-
-    return planner_data;
-  }
-
   // Member variables
   std::shared_ptr<rclcpp::Node> node_;
   std::shared_ptr<GeometricPullOut> geometric_pull_out_;
@@ -130,7 +100,8 @@ TEST_F(TestGeometricPullOut, GenerateValidGeometricPullOutPath)
         geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(0.705897).w(
           0.708314));
 
-  const auto planner_data = make_planner_data(start_pose, 4619, 4635);
+  const auto planner_data =
+    StartPlannerTestHelper::make_planner_data(*node_, start_pose, 4619, 4635);
 
   // Plan the pull out path
   PlannerDebugData debug_data;
