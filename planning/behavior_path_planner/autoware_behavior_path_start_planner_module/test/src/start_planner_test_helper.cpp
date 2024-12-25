@@ -18,6 +18,7 @@
 #include <autoware_test_utils/autoware_test_utils.hpp>
 
 #include <memory>
+#include <vector>
 
 namespace autoware::behavior_path_planner::testing
 {
@@ -92,6 +93,17 @@ std::shared_ptr<const PlannerData> StartPlannerTestHelper::make_planner_data(
 
   // Update planner data with the route handler
   planner_data->route_handler = route_handler;
+
+  // Add costmap setting
+  nav_msgs::msg::OccupancyGrid costmap;
+  costmap.header.frame_id = "map";
+  costmap.info.width = 200;
+  costmap.info.height = 200;
+  costmap.info.resolution = 0.5;
+  costmap.info.origin.position.x = 250.0;
+  costmap.info.origin.position.y = 230.0;
+  costmap.data = std::vector<int8_t>(costmap.info.width * costmap.info.height, 0);
+  planner_data->costmap = std::make_shared<nav_msgs::msg::OccupancyGrid>(costmap);
 
   return planner_data;
 }
