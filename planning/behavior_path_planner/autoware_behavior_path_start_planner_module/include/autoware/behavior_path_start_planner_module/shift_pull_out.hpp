@@ -41,6 +41,7 @@ public:
   PlannerType getPlannerType() const override { return PlannerType::SHIFT; };
   std::optional<PullOutPath> plan(
     const Pose & start_pose, const Pose & goal_pose,
+    const std::shared_ptr<const PlannerData> & planner_data,
     PlannerDebugData & planner_debug_data) override;
 
   /**
@@ -75,7 +76,8 @@ public:
    */
   std::vector<PullOutPath> calcPullOutPaths(
     const RouteHandler & route_handler, const lanelet::ConstLanelets & road_lanes,
-    const Pose & start_pose, const Pose & goal_pose);
+    const Pose & start_pose, const Pose & goal_pose,
+    const BehaviorPathPlannerParameters & behavior_path_parameters);
 
   double calcBeforeShiftedArcLength(
     const PathWithLaneId & path, const double target_after_arc_length, const double dr);

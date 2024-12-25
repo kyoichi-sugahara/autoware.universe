@@ -46,9 +46,10 @@ class TestGeometricPullOut : public ::testing::Test
 {
 public:
   std::optional<PullOutPath> call_plan(
-    const Pose & start_pose, const Pose & goal_pose, PlannerDebugData & planner_debug_data)
+    const Pose & start_pose, const Pose & goal_pose,
+    const std::shared_ptr<const PlannerData> & planner_data, PlannerDebugData & planner_debug_data)
   {
-    return geometric_pull_out_->plan(start_pose, goal_pose, planner_debug_data);
+    return geometric_pull_out_->plan(start_pose, goal_pose, planner_data, planner_debug_data);
   }
 
 protected:
@@ -62,11 +63,11 @@ protected:
   }
   void TearDown() override { rclcpp::shutdown(); }
 
-  PlannerData make_planner_data(
+  std::shared_ptr<const PlannerData> make_planner_data(
     const Pose & start_pose, const int route_start_lane_id, const int route_goal_lane_id)
   {
-    PlannerData planner_data;
-    planner_data.init_parameters(*node_);
+    auto planner_data = std::make_shared<PlannerData>();
+    planner_data->init_parameters(*node_);
 
     // Load a sample lanelet map and create a route handler
     const auto shoulder_map_path = autoware::test_utils::get_absolute_path_to_lanelet_map(
@@ -78,7 +79,7 @@ protected:
     auto odometry = std::make_shared<nav_msgs::msg::Odometry>();
     odometry->pose.pose = start_pose;
     odometry->header.frame_id = "map";
-    planner_data.self_odometry = odometry;
+    planner_data->self_odometry = odometry;
 
     // Setup route
     const auto route = makeBehaviorRouteFromLaneId(
@@ -87,7 +88,7 @@ protected:
     route_handler->setRoute(route);
 
     // Update planner data with the route handler
-    planner_data.route_handler = route_handler;
+    planner_data->route_handler = route_handler;
 
     return planner_data;
   }
@@ -165,11 +166,9 @@ TEST_F(TestGeometricPullOut, GenerateValidGeometricPullOutPath)
 
   const auto planner_data = make_planner_data(start_pose, 4619, 4635);
 
-  geometric_pull_out_->setPlannerData(std::make_shared<PlannerData>(planner_data));
-
   // Plan the pull out path
   PlannerDebugData debug_data;
-  auto result = call_plan(start_pose, goal_pose, debug_data);
+  auto result = call_plan(start_pose, goal_pose, planner_data, debug_data);
 
   // Assert that a valid geometric pull out path is generated
   ASSERT_TRUE(result.has_value()) << "Geometric pull out path generation failed.";
