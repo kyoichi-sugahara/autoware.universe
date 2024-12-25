@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "start_planner_test_helper.hpp"
+
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <autoware/behavior_path_start_planner_module/freespace_pull_out.hpp>
 #include <autoware/behavior_path_start_planner_module/start_planner_module.hpp>
@@ -34,6 +36,7 @@ using autoware::lane_departure_checker::LaneDepartureChecker;
 using autoware::test_utils::get_absolute_path_to_config;
 using autoware_planning_msgs::msg::LaneletRoute;
 using RouteSections = std::vector<autoware_planning_msgs::msg::LaneletSegment>;
+using autoware::behavior_path_planner::testing::StartPlannerTestHelper;
 using autoware_planning_test_manager::utils::makeBehaviorRouteFromLaneId;
 
 namespace autoware::behavior_path_planner
@@ -53,9 +56,10 @@ protected:
   void SetUp() override
   {
     rclcpp::init(0, nullptr);
-    node_ = rclcpp::Node::make_shared("freespace_pull_out", make_node_options());
+    node_ =
+      rclcpp::Node::make_shared("freespace_pull_out", StartPlannerTestHelper::make_node_options());
 
-    initialize_lane_departure_checker();
+    lane_departure_checker_ = StartPlannerTestHelper::make_lane_departure_checker(*node_);
     freespace_pull_out_planner();
   }
 
@@ -106,44 +110,6 @@ protected:
   std::shared_ptr<LaneDepartureChecker> lane_departure_checker_;
 
 private:
-  rclcpp::NodeOptions make_node_options() const
-  {
-    // Load common configuration files
-    auto node_options = rclcpp::NodeOptions{};
-
-    const auto common_param_path =
-      get_absolute_path_to_config("autoware_test_utils", "test_common.param.yaml");
-    const auto nearest_search_param_path =
-      get_absolute_path_to_config("autoware_test_utils", "test_nearest_search.param.yaml");
-    const auto vehicle_info_param_path =
-      get_absolute_path_to_config("autoware_test_utils", "test_vehicle_info.param.yaml");
-    const auto behavior_path_planner_param_path = get_absolute_path_to_config(
-      "autoware_behavior_path_planner", "behavior_path_planner.param.yaml");
-    const auto drivable_area_expansion_param_path = get_absolute_path_to_config(
-      "autoware_behavior_path_planner", "drivable_area_expansion.param.yaml");
-    const auto scene_module_manager_param_path = get_absolute_path_to_config(
-      "autoware_behavior_path_planner", "scene_module_manager.param.yaml");
-    const auto start_planner_param_path = get_absolute_path_to_config(
-      "autoware_behavior_path_start_planner_module", "start_planner.param.yaml");
-
-    autoware::test_utils::updateNodeOptions(
-      node_options, {common_param_path, nearest_search_param_path, vehicle_info_param_path,
-                     behavior_path_planner_param_path, drivable_area_expansion_param_path,
-                     scene_module_manager_param_path, start_planner_param_path});
-
-    return node_options;
-  }
-
-  void initialize_lane_departure_checker()
-  {
-    const auto vehicle_info =
-      autoware::vehicle_info_utils::VehicleInfoUtils(*node_).getVehicleInfo();
-    lane_departure_checker_ = std::make_shared<LaneDepartureChecker>();
-    lane_departure_checker_->setVehicleInfo(vehicle_info);
-
-    autoware::lane_departure_checker::Param lane_departure_checker_params{};
-    lane_departure_checker_->setParam(lane_departure_checker_params);
-  }
   void freespace_pull_out_planner()
   {
     auto parameters = StartPlannerParameters::init(*node_);
