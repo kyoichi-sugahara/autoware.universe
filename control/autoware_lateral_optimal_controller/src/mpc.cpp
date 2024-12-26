@@ -74,12 +74,9 @@ ResultWithReason MPC::calculateMPC(
   Lateral & ctrl_cmd, Trajectory & predicted_trajectory, Float32MultiArrayStamped & diagnostic,
   LateralHorizon & ctrl_cmd_horizon, const std::string & qp_solver_type)
 {
-  // generate mpc matrix : predict equation Xec = Aex * x0 + Bex * Uex + Wex
-  const auto mpc_matrix = generateMPCMatrix(mpc_resampled_ref_trajectory, prediction_dt);
-
   // solve Optimization problem
   const auto [opt_result, Uex] = executeOptimization(
-    mpc_matrix, x0_delayed, prediction_dt, mpc_resampled_ref_trajectory,
+    x0_delayed, prediction_dt, mpc_resampled_ref_trajectory,
     current_kinematics.twist.twist.linear.x);
 
   if (!opt_result.result) {
@@ -89,7 +86,7 @@ ResultWithReason MPC::calculateMPC(
   // apply filters for the input limitation and low pass filter
   const double u_saturated = std::clamp(Uex(0), -m_steer_lim, m_steer_lim);
   const double u_filtered = m_lpf_steering_cmd.filter(u_saturated);
-
+  const auto mpc_matrix = generateMPCMatrix(mpc_resampled_ref_trajectory, prediction_dt);
   // set control command
   ctrl_cmd.steering_tire_angle = static_cast<float>(u_filtered);
   ctrl_cmd.steering_tire_rotation_rate = static_cast<float>(calcDesiredSteeringRate(
@@ -655,9 +652,11 @@ MPCMatrix MPC::generateMPCMatrix(
  * [    -au_lim * dt    ] < [uN-uN-1] < [     au_lim * dt    ] (*N... DIM_U)
  */
 std::pair<ResultWithReason, VectorXd> MPC::executeOptimization(
-  const MPCMatrix & m, const VectorXd & x0, const double prediction_dt, const MPCTrajectory & traj,
+  const VectorXd & x0, const double prediction_dt, const MPCTrajectory & traj,
   const double current_velocity)
 {
+  // generate mpc matrix : predict equation Xec = Aex * x0 + Bex * Uex + Wex
+  const auto m = generateMPCMatrix(traj, prediction_dt);
   VectorXd Uex;
 
   if (!isValid(m)) {

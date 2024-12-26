@@ -116,7 +116,6 @@ private:
   /**
    * @brief Execute the optimization using the provided MPC matrix, initial state, and prediction
    * time step.
-   * @param mpc_matrix The parameters matrix used for optimization.
    * @param x0 The initial state vector.
    * @param prediction_dt The prediction time step.
    * @param [in] trajectory mpc reference trajectory
@@ -124,8 +123,8 @@ private:
    * @return A pair of a boolean flag indicating success and the optimized input vector.
    */
   std::pair<ResultWithReason, VectorXd> executeOptimization(
-    const MPCMatrix & mpc_matrix, const VectorXd & x0, const double prediction_dt,
-    const MPCTrajectory & trajectory, const double current_velocity);
+    const VectorXd & x0, const double prediction_dt, const MPCTrajectory & trajectory,
+    const double current_velocity);
 
   /**
    * @brief Execute the optimization using the provided MPC matrix, initial state, and prediction
