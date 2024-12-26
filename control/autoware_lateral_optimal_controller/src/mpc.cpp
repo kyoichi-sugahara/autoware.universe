@@ -87,7 +87,6 @@ ResultWithReason MPC::calculateMPC(
 
   // generate mpc matrix : predict equation Xec = Aex * x0 + Bex * Uex + Wex
   const auto mpc_matrix = generateMPCMatrix(mpc_resampled_ref_trajectory, prediction_dt);
-  auto end_time_generate_matrix = std::chrono::high_resolution_clock::now();
 
   // solve Optimization problem
   const auto [opt_result, Uex] = executeOptimization(
@@ -122,49 +121,10 @@ ResultWithReason MPC::calculateMPC(
   predicted_trajectory = calculatePredictedTrajectory(
     mpc_matrix, x0_delayed, Uex, mpc_resampled_ref_trajectory, prediction_dt, "world");
 
-  predicted_trajectory_world = predicted_trajectory;
-
-  // Publish predicted trajectories in different coordinates for debugging purposes
-  if (m_publish_debug_trajectories) {
-    // Calculate and publish predicted trajectory in Frenet coordinate
-    predicted_trajectory_frenet = calculatePredictedTrajectory(
-      mpc_matrix, x0_delayed, Uex, mpc_resampled_ref_trajectory, prediction_dt, "frenet");
-    predicted_trajectory_frenet.header.stamp = m_clock->now();
-    predicted_trajectory_frenet.header.frame_id = "map";
-    m_debug_frenet_predicted_trajectory_pub->publish(predicted_trajectory_frenet);
-
-    // Calculate and publish predicted trajectory in world coordinate with delay
-    predicted_trajectory_world_with_delay = calculatePredictedTrajectory(
-      mpc_matrix, x0_delayed, Uex, mpc_resampled_ref_trajectory, prediction_dt, "world");
-    predicted_trajectory_world_with_delay.header.stamp = m_clock->now();
-    predicted_trajectory_world_with_delay.header.frame_id = "map";
-    m_debug_predicted_trajectory_with_delay_pub->publish(predicted_trajectory_world_with_delay);
-  }
-
-  predicted_trajectory = calculatePredictedTrajectory(
-    mpc_matrix, x0_delayed, Uex, mpc_resampled_ref_trajectory, prediction_dt, "world");
-
-  // Publish predicted trajectories in different coordinates for debugging purposes
-  if (m_publish_debug_trajectories) {
-    // Calculate and publish predicted trajectory in Frenet coordinate
-    auto predicted_trajectory_frenet = calculatePredictedTrajectory(
-      mpc_matrix, x0_delayed, Uex, mpc_resampled_ref_trajectory, prediction_dt, "frenet");
-    predicted_trajectory_frenet.header.stamp = m_clock->now();
-    predicted_trajectory_frenet.header.frame_id = "map";
-    m_debug_frenet_predicted_trajectory_pub->publish(predicted_trajectory_frenet);
-  }
-
   // prepare diagnostic message
   diagnostic = generateDiagData(
     m_reference_trajectory, mpc_data, mpc_matrix, ctrl_cmd, Uex, current_kinematics);
   // publish debug data
-  if (qp_solver_type == "cgmres") {
-    publish_debug_data(
-      mpc_resampled_ref_trajectory, predicted_trajectory_world, predicted_trajectory_frenet,
-      cgmres_predicted_trajectory_world, cgmres_predicted_trajectory_frenet, Uex, Ucgmres,
-      osqp_calculation_duration.count() / 1e6, cgmres_calculation_duration.count() / 1e6, opt_error,
-      opt_error_array, m_param.prediction_horizon);
-  }
 
   // create LateralHorizon command
   ctrl_cmd_horizon.time_step_ms = prediction_dt * 1000.0;
