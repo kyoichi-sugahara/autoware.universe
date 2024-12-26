@@ -19,7 +19,7 @@
 #include <string>
 #include <vector>
 
-namespace autoware::common
+namespace autoware::nlp_interface
 {
 void NLPInterface::initializeProblem(
   const std::function<double(const std::vector<double> &)> & objective,
@@ -57,4 +57,4 @@ std::vector<double> NLPInterface::optimize(
 
   return result;
 }
-}  // namespace autoware::common
+}  // namespace autoware::nlp_interface

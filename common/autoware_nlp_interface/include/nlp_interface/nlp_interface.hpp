@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-namespace autoware::common
+namespace autoware::nlp_interface
 {
 class NLPInterface
 {
@@ -68,6 +68,6 @@ protected:
   std::optional<size_t> variables_num_{std::nullopt};
   std::optional<size_t> constraints_num_{std::nullopt};
 };
-}  // namespace autoware::common
+}  // namespace autoware::nlp_interface
 
 #endif  // NLP_INTERFACE__NLP_INTERFACE_HPP_

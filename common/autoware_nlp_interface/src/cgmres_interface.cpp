@@ -19,7 +19,7 @@
 #include <string>
 #include <vector>
 
-namespace autoware::common
+namespace autoware::nlp_interface
 {
 
 CGMRESInterface::CGMRESInterface(const bool enable_warm_start)
@@ -146,4 +146,4 @@ bool CGMRESInterface::checkConvergence(const Eigen::VectorXd & solution)
   return change < 1e-6;  // 収束判定の閾値
 }
 
-}  // namespace autoware::common
+}  // namespace autoware::nlp_interface

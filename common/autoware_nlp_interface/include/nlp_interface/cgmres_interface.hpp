@@ -23,7 +23,7 @@
 #include <string>
 #include <vector>
 
-namespace autoware::common
+namespace autoware::nlp_interface
 {
 
 class CGMRESInterface : public NLPInterface
@@ -79,6 +79,6 @@ private:
   bool checkConvergence(const Eigen::VectorXd & solution);
 };
 
-}  // namespace autoware::common
+}  // namespace autoware::nlp_interface
 
 #endif  // NLP_INTERFACE__CGMRES_INTERFACE_HPP_
