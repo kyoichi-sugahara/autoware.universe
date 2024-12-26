@@ -85,49 +85,17 @@ ResultWithReason MPC::calculateMPC(
       false, fmt::format("trajectory resampling ({}).", resample_result.reason)};
   }
 
-  auto start_time_osqp = std::chrono::high_resolution_clock::now();
-
   // generate mpc matrix : predict equation Xec = Aex * x0 + Bex * Uex + Wex
   const auto mpc_matrix = generateMPCMatrix(mpc_resampled_ref_trajectory, prediction_dt);
   auto end_time_generate_matrix = std::chrono::high_resolution_clock::now();
-  auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(
-    end_time_generate_matrix - start_time_osqp);
-  RCLCPP_DEBUG(m_logger, "generateMPCMatrix time = %.3f [ms]", duration.count() / 1e6);
 
   // solve Optimization problem
   const auto [opt_result, Uex] = executeOptimization(
     mpc_matrix, x0_delayed, prediction_dt, mpc_resampled_ref_trajectory,
     current_kinematics.twist.twist.linear.x);
-  auto end_time_osqp = std::chrono::high_resolution_clock::now();
-  auto osqp_calculation_duration =
-    std::chrono::duration_cast<std::chrono::nanoseconds>(end_time_osqp - start_time_osqp);
-  RCLCPP_DEBUG(
-    m_logger, "executeOptimization time = %.3f [ms]", osqp_calculation_duration.count() / 1e6);
 
   if (!opt_result.result) {
     return ResultWithReason{false, fmt::format("optimization failure ({}).", opt_result.reason)};
-  }
-
-  Trajectory cgmres_predicted_trajectory_world;
-  Trajectory cgmres_predicted_trajectory_frenet;
-  Trajectory predicted_trajectory_world;
-  Trajectory predicted_trajectory_world_with_delay;
-  Trajectory predicted_trajectory_frenet;
-  std::chrono::nanoseconds cgmres_calculation_duration;
-  Eigen::MatrixXd Ucgmres;
-  double opt_error;
-  Eigen::VectorXd opt_error_array;
-  if (qp_solver_type == "cgmres") {
-    auto start_time_cgmres = std::chrono::high_resolution_clock::now();
-    bool success_opt;
-    std::tie(success_opt, Ucgmres) = executeOptimization(
-      x0_delayed, prediction_dt, mpc_resampled_ref_trajectory, opt_error, opt_error_array);
-    auto end_time_cgmres = std::chrono::high_resolution_clock::now();
-    cgmres_calculation_duration =
-      std::chrono::duration_cast<std::chrono::nanoseconds>(end_time_cgmres - start_time_cgmres);
-    RCLCPP_DEBUG(
-      m_logger, "executeOptimization (cgmres) time = %.3f [ms]",
-      cgmres_calculation_duration.count() / 1e6);
   }
 
   // apply filters for the input limitation and low pass filter
