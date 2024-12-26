@@ -28,7 +28,7 @@
 // #include <string>
 // #include <vector>
 
-namespace autoware::motion::control::mpc_lateral_controller
+namespace autoware::motion::control::lateral_optimal_controller
 {
 // using autoware::universe_utils::PoseDeviation;
 // using autoware_planning_msgs::msg::LaneletRoute;
@@ -177,6 +177,6 @@ struct MPCMatrix
 
   MPCMatrix() = default;
 };
-}  // namespace autoware::motion::control::mpc_lateral_controller
+}  // namespace autoware::motion::control::lateral_optimal_controller
 
 #endif  // AUTOWARE__MPC_LATERAL_CONTROLLER__PARAMETERS_HPP_

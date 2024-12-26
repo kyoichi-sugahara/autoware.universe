@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "autoware/mpc_lateral_controller/steering_predictor.hpp"
+#include "autoware/lateral_optimal_controller/steering_predictor.hpp"
 
-namespace autoware::motion::control::mpc_lateral_controller
+namespace autoware::motion::control::lateral_optimal_controller
 {
 
 SteeringPredictor::SteeringPredictor(const double steer_tau, const double steer_delay)
@@ -107,4 +107,4 @@ void SteeringPredictor::setPrevResult(const double & steering)
   m_steer_prediction_prev = steering;
 }
 
-}  // namespace autoware::motion::control::mpc_lateral_controller
+}  // namespace autoware::motion::control::lateral_optimal_controller

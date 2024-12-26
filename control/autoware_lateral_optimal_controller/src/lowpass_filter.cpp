@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "autoware/mpc_lateral_controller/lowpass_filter.hpp"
+#include "autoware/lateral_optimal_controller/lowpass_filter.hpp"
 
 #include <algorithm>
 #include <vector>
 
-namespace autoware::motion::control::mpc_lateral_controller
+namespace autoware::motion::control::lateral_optimal_controller
 {
 Butterworth2dFilter::Butterworth2dFilter(double dt, double f_cutoff_hz)
 {
@@ -138,4 +138,4 @@ bool filt_vector(const int num, std::vector<double> & u)
   return true;
 }
 }  // namespace MoveAverageFilter
-}  // namespace autoware::motion::control::mpc_lateral_controller
+}  // namespace autoware::motion::control::lateral_optimal_controller

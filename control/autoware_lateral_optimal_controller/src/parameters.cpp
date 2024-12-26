@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "autoware/mpc_lateral_controller/parameters.hpp"
+#include "autoware/lateral_optimal_controller/parameters.hpp"
 
 #include <autoware/universe_utils/ros/parameter.hpp>
 #include <rclcpp/node.hpp>
 
 #include <string>
 
-namespace autoware::motion::control::mpc_lateral_controller
+namespace autoware::motion::control::lateral_optimal_controller
 {
 using autoware::universe_utils::getOrDeclareParameter;
 
@@ -38,4 +38,4 @@ TrajectoryFilteringParam TrajectoryFilteringParam::init(rclcpp::Node & node)
   return p;
 }
 
-}  // namespace autoware::motion::control::mpc_lateral_controller
+}  // namespace autoware::motion::control::lateral_optimal_controller

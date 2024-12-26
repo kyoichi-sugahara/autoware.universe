@@ -22,7 +22,7 @@
 #include <memory>
 #include <vector>
 
-namespace autoware::motion::control::mpc_lateral_controller
+namespace autoware::motion::control::lateral_optimal_controller
 {
 using autoware_control_msgs::msg::Lateral;
 
@@ -79,6 +79,6 @@ private:
   void setPrevResult(const double & steering);
 };
 
-}  // namespace autoware::motion::control::mpc_lateral_controller
+}  // namespace autoware::motion::control::lateral_optimal_controller
 
 #endif  // AUTOWARE__MPC_LATERAL_CONTROLLER__STEERING_PREDICTOR_HPP_

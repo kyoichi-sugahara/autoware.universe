@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "autoware/mpc_lateral_controller/mpc.hpp"
+#include "autoware/lateral_optimal_controller/mpc.hpp"
 
 #include "autoware/interpolation/linear_interpolation.hpp"
+#include "autoware/lateral_optimal_controller/mpc_utils.hpp"
 #include "autoware/motion_utils/trajectory/trajectory.hpp"
-#include "autoware/mpc_lateral_controller/mpc_utils.hpp"
 #include "autoware/universe_utils/math/unit_conversion.hpp"
 #include "rclcpp/rclcpp.hpp"
 
@@ -36,7 +36,7 @@
 #include <utility>
 #include <vector>
 
-namespace autoware::motion::control::mpc_lateral_controller
+namespace autoware::motion::control::lateral_optimal_controller
 {
 using autoware::universe_utils::calcDistance2d;
 using autoware::universe_utils::normalizeRadian;
@@ -1159,4 +1159,4 @@ bool MPC::isValid(const MPCMatrix & m) const
 
   return true;
 }
-}  // namespace autoware::motion::control::mpc_lateral_controller
+}  // namespace autoware::motion::control::lateral_optimal_controller

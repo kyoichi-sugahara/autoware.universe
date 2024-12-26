@@ -47,14 +47,14 @@
 #ifndef AUTOWARE__MPC_LATERAL_CONTROLLER__VEHICLE_MODEL__VEHICLE_MODEL_BICYCLE_DYNAMICS_HPP_
 #define AUTOWARE__MPC_LATERAL_CONTROLLER__VEHICLE_MODEL__VEHICLE_MODEL_BICYCLE_DYNAMICS_HPP_
 
-#include "autoware/mpc_lateral_controller/vehicle_model/vehicle_model_interface.hpp"
+#include "autoware/lateral_optimal_controller/vehicle_model/vehicle_model_interface.hpp"
 
 #include <Eigen/Core>
 #include <Eigen/LU>
 
 #include <string>
 
-namespace autoware::motion::control::mpc_lateral_controller
+namespace autoware::motion::control::lateral_optimal_controller
 {
 
 /**
@@ -121,5 +121,5 @@ private:
   double m_cf;    //!< @brief front cornering power [N/rad]
   double m_cr;    //!< @brief rear cornering power [N/rad]
 };
-}  // namespace autoware::motion::control::mpc_lateral_controller
+}  // namespace autoware::motion::control::lateral_optimal_controller
 #endif  // AUTOWARE__MPC_LATERAL_CONTROLLER__VEHICLE_MODEL__VEHICLE_MODEL_BICYCLE_DYNAMICS_HPP_

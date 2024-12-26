@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "autoware/mpc_lateral_controller/qp_solver/qp_solver_osqp.hpp"
+#include "autoware/lateral_optimal_controller/qp_solver/qp_solver_osqp.hpp"
 
 #include <string>
 #include <vector>
 
-namespace autoware::motion::control::mpc_lateral_controller
+namespace autoware::motion::control::lateral_optimal_controller
 {
 QPSolverOSQP::QPSolverOSQP(const rclcpp::Logger & logger) : logger_{logger}
 {
@@ -80,4 +80,4 @@ bool QPSolverOSQP::solve(
   }
   return true;
 }
-}  // namespace autoware::motion::control::mpc_lateral_controller
+}  // namespace autoware::motion::control::lateral_optimal_controller

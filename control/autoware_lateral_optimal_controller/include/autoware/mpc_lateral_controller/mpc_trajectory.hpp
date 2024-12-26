@@ -22,7 +22,7 @@
 #include <iostream>
 #include <vector>
 
-namespace autoware::motion::control::mpc_lateral_controller
+namespace autoware::motion::control::lateral_optimal_controller
 {
 
 /**
@@ -124,5 +124,5 @@ public:
     return points;
   }
 };
-}  // namespace autoware::motion::control::mpc_lateral_controller
+}  // namespace autoware::motion::control::lateral_optimal_controller
 #endif  // AUTOWARE__MPC_LATERAL_CONTROLLER__MPC_TRAJECTORY_HPP_

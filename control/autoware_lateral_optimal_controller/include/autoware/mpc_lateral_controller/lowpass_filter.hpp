@@ -20,7 +20,7 @@
 #include <iostream>
 #include <vector>
 
-namespace autoware::motion::control::mpc_lateral_controller
+namespace autoware::motion::control::lateral_optimal_controller
 {
 /**
  * @brief 2nd-order Butterworth Filter
@@ -101,5 +101,5 @@ namespace MoveAverageFilter
  */
 bool filt_vector(const int num, std::vector<double> & u);
 }  // namespace MoveAverageFilter
-}  // namespace autoware::motion::control::mpc_lateral_controller
+}  // namespace autoware::motion::control::lateral_optimal_controller
 #endif  // AUTOWARE__MPC_LATERAL_CONTROLLER__LOWPASS_FILTER_HPP_

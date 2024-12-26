@@ -15,13 +15,13 @@
 #ifndef AUTOWARE__MPC_LATERAL_CONTROLLER__MPC_HPP_
 #define AUTOWARE__MPC_LATERAL_CONTROLLER__MPC_HPP_
 
-#include "autoware/mpc_lateral_controller/lowpass_filter.hpp"
-#include "autoware/mpc_lateral_controller/mpc_trajectory.hpp"
-#include "autoware/mpc_lateral_controller/qp_solver/qp_solver_interface.hpp"
-#include "autoware/mpc_lateral_controller/steering_predictor.hpp"
-#include "autoware/mpc_lateral_controller/vehicle_model/vehicle_model_interface.hpp"
+#include "autoware/lateral_optimal_controller/lowpass_filter.hpp"
+#include "autoware/lateral_optimal_controller/mpc_trajectory.hpp"
+#include "autoware/lateral_optimal_controller/qp_solver/qp_solver_interface.hpp"
+#include "autoware/lateral_optimal_controller/steering_predictor.hpp"
+#include "autoware/lateral_optimal_controller/vehicle_model/vehicle_model_interface.hpp"
 #include "autoware/trajectory_follower_base/control_horizon.hpp"
-#include "autoware_mpc_lateral_controller/msg/mpc_debug.hpp"
+#include "autoware_lateral_optimal_controller/msg/mpc_debug.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 #include "autoware_control_msgs/msg/lateral.hpp"
@@ -38,12 +38,12 @@
 #include <utility>
 #include <vector>
 
-namespace autoware::motion::control::mpc_lateral_controller
+namespace autoware::motion::control::lateral_optimal_controller
 {
 
 using autoware::motion::control::trajectory_follower::LateralHorizon;
 using autoware_control_msgs::msg::Lateral;
-using autoware_mpc_lateral_controller::msg::MpcDebug;
+using autoware_lateral_optimal_controller::msg::MpcDebug;
 using autoware_planning_msgs::msg::Trajectory;
 using autoware_vehicle_msgs::msg::SteeringReport;
 using geometry_msgs::msg::Pose;
@@ -437,6 +437,6 @@ public:
    */
   inline void setClock(rclcpp::Clock::SharedPtr clock) { m_clock = clock; }
 };  // class MPC
-}  // namespace autoware::motion::control::mpc_lateral_controller
+}  // namespace autoware::motion::control::lateral_optimal_controller
 
 #endif  // AUTOWARE__MPC_LATERAL_CONTROLLER__MPC_HPP_

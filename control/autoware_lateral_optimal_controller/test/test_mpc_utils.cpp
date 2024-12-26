@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "autoware/mpc_lateral_controller/mpc_trajectory.hpp"
-#include "autoware/mpc_lateral_controller/mpc_utils.hpp"
+#include "autoware/lateral_optimal_controller/mpc_trajectory.hpp"
+#include "autoware/lateral_optimal_controller/mpc_utils.hpp"
 #include "gtest/gtest.h"
 
 #include "autoware_planning_msgs/msg/trajectory.hpp"
@@ -24,7 +24,7 @@
 
 namespace
 {
-namespace MPCUtils = autoware::motion::control::mpc_lateral_controller::MPCUtils;
+namespace MPCUtils = autoware::motion::control::lateral_optimal_controller::MPCUtils;
 using autoware_planning_msgs::msg::Trajectory;
 using autoware_planning_msgs::msg::TrajectoryPoint;
 

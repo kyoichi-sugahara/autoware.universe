@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "autoware/mpc_lateral_controller/mpc_utils.hpp"
+#include "autoware/lateral_optimal_controller/mpc_utils.hpp"
 
 #include "autoware/interpolation/linear_interpolation.hpp"
 #include "autoware/interpolation/spline_interpolation.hpp"
@@ -27,7 +27,7 @@
 #include <utility>
 #include <vector>
 
-namespace autoware::motion::control::mpc_lateral_controller
+namespace autoware::motion::control::lateral_optimal_controller
 {
 namespace
 {
@@ -507,4 +507,4 @@ MPCTrajectory clipTrajectoryByLength(const MPCTrajectory & trajectory, const dou
 }
 
 }  // namespace MPCUtils
-}  // namespace autoware::motion::control::mpc_lateral_controller
+}  // namespace autoware::motion::control::lateral_optimal_controller

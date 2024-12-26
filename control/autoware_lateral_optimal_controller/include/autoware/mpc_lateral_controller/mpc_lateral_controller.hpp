@@ -15,10 +15,10 @@
 #ifndef AUTOWARE__MPC_LATERAL_CONTROLLER__MPC_LATERAL_CONTROLLER_HPP_
 #define AUTOWARE__MPC_LATERAL_CONTROLLER__MPC_LATERAL_CONTROLLER_HPP_
 
-#include "autoware/mpc_lateral_controller/mpc.hpp"
-#include "autoware/mpc_lateral_controller/mpc_trajectory.hpp"
-#include "autoware/mpc_lateral_controller/mpc_utils.hpp"
-#include "autoware/mpc_lateral_controller/steering_offset/steering_offset.hpp"
+#include "autoware/lateral_optimal_controller/mpc.hpp"
+#include "autoware/lateral_optimal_controller/mpc_trajectory.hpp"
+#include "autoware/lateral_optimal_controller/mpc_utils.hpp"
+#include "autoware/lateral_optimal_controller/steering_offset/steering_offset.hpp"
 #include "autoware/trajectory_follower_base/lateral_controller_base.hpp"
 #include "rclcpp/rclcpp.hpp"
 
@@ -40,7 +40,7 @@
 #include <utility>
 #include <vector>
 
-namespace autoware::motion::control::mpc_lateral_controller
+namespace autoware::motion::control::lateral_optimal_controller
 {
 
 namespace trajectory_follower = ::autoware::motion::control::trajectory_follower;
@@ -313,6 +313,6 @@ private:
     RCLCPP_WARN_THROTTLE(logger_, *clock_, 5000, "%s", args...);
   }
 };
-}  // namespace autoware::motion::control::mpc_lateral_controller
+}  // namespace autoware::motion::control::lateral_optimal_controller
 
 #endif  // AUTOWARE__MPC_LATERAL_CONTROLLER__MPC_LATERAL_CONTROLLER_HPP_

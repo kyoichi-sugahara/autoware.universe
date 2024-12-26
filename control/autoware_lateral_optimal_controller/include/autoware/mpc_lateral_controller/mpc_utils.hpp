@@ -26,7 +26,7 @@
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 #endif
 
-#include "autoware/mpc_lateral_controller/mpc_trajectory.hpp"
+#include "autoware/lateral_optimal_controller/mpc_trajectory.hpp"
 
 #include "autoware_planning_msgs/msg/trajectory.hpp"
 #include "autoware_planning_msgs/msg/trajectory_point.hpp"
@@ -38,7 +38,7 @@
 #include <utility>
 #include <vector>
 
-namespace autoware::motion::control::mpc_lateral_controller
+namespace autoware::motion::control::lateral_optimal_controller
 {
 namespace MPCUtils
 {
@@ -246,5 +246,5 @@ void update_param(
 }
 
 }  // namespace MPCUtils
-}  // namespace autoware::motion::control::mpc_lateral_controller
+}  // namespace autoware::motion::control::lateral_optimal_controller
 #endif  // AUTOWARE__MPC_LATERAL_CONTROLLER__MPC_UTILS_HPP_

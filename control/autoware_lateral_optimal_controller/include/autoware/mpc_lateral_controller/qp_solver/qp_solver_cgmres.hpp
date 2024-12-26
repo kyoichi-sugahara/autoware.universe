@@ -15,8 +15,8 @@
 #ifndef AUTOWARE__MPC_LATERAL_CONTROLLER__QP_SOLVER__QP_SOLVER_CGMRES_HPP_
 #define AUTOWARE__MPC_LATERAL_CONTROLLER__QP_SOLVER__QP_SOLVER_CGMRES_HPP_
 
-#include "autoware/mpc_lateral_controller/mpc_cgmres.hpp"
-#include "autoware/mpc_lateral_controller/qp_solver/qp_solver_interface.hpp"
+#include "autoware/lateral_optimal_controller/mpc_cgmres.hpp"
+#include "autoware/lateral_optimal_controller/qp_solver/qp_solver_interface.hpp"
 #include "autoware/osqp_interface/osqp_interface.hpp"
 #include "cgmres/horizon.hpp"
 #include "cgmres/logger.hpp"
@@ -28,7 +28,7 @@
 #include <memory>
 #include <string>
 
-namespace autoware::motion::control::mpc_lateral_controller
+namespace autoware::motion::control::lateral_optimal_controller
 {
 
 /// Solver for QP problems using the CGMRES library
@@ -81,5 +81,5 @@ private:
   rclcpp::Time initialized_time_{
     rclcpp::Time(0, 0, RCL_ROS_TIME)};  // First MPC solution timestamp.
 };
-}  // namespace autoware::motion::control::mpc_lateral_controller
+}  // namespace autoware::motion::control::lateral_optimal_controller
 #endif  // AUTOWARE__MPC_LATERAL_CONTROLLER__QP_SOLVER__QP_SOLVER_CGMRES_HPP_

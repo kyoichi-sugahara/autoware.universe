@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "autoware/mpc_lateral_controller/mpc.hpp"
-#include "autoware/mpc_lateral_controller/qp_solver/qp_solver_osqp.hpp"
-#include "autoware/mpc_lateral_controller/qp_solver/qp_solver_unconstraint_fast.hpp"
-#include "autoware/mpc_lateral_controller/vehicle_model/vehicle_model_bicycle_dynamics.hpp"
-#include "autoware/mpc_lateral_controller/vehicle_model/vehicle_model_bicycle_kinematics.hpp"
-#include "autoware/mpc_lateral_controller/vehicle_model/vehicle_model_bicycle_kinematics_no_delay.hpp"
+#include "autoware/lateral_optimal_controller/mpc.hpp"
+#include "autoware/lateral_optimal_controller/qp_solver/qp_solver_osqp.hpp"
+#include "autoware/lateral_optimal_controller/qp_solver/qp_solver_unconstraint_fast.hpp"
+#include "autoware/lateral_optimal_controller/vehicle_model/vehicle_model_bicycle_dynamics.hpp"
+#include "autoware/lateral_optimal_controller/vehicle_model/vehicle_model_bicycle_kinematics.hpp"
+#include "autoware/lateral_optimal_controller/vehicle_model/vehicle_model_bicycle_kinematics_no_delay.hpp"
 #include "gtest/gtest.h"
 #include "rclcpp/rclcpp.hpp"
 
@@ -43,7 +43,7 @@
 #include <string>
 #include <vector>
 
-namespace autoware::motion::control::mpc_lateral_controller
+namespace autoware::motion::control::lateral_optimal_controller
 {
 
 using autoware::motion::control::trajectory_follower::LateralHorizon;
@@ -117,7 +117,7 @@ protected:
     rclcpp::NodeOptions node_options;
 
     const auto share_dir =
-      ament_index_cpp::get_package_share_directory("autoware_mpc_lateral_controller");
+      ament_index_cpp::get_package_share_directory("autoware_lateral_optimal_controller");
 
     autoware::test_utils::updateNodeOptions(
       node_options, {share_dir + "/param/lateral_controller_defaults.param.yaml",
@@ -203,7 +203,7 @@ protected:
     pose_zero.position.y = 0.0;
   }
 
-  void initializeMPC(mpc_lateral_controller::MPC & mpc)
+  void initializeMPC(lateral_optimal_controller::MPC & mpc)
   {
     mpc.m_param = param;
     mpc.m_steer_lim = steer_lim;
@@ -536,4 +536,4 @@ TEST_F(MPCTest, MultiSolveWithBuffer)
   EXPECT_EQ(ctrl_cmd_horizon.controls.front().steering_tire_angle, 0.0f);
   EXPECT_EQ(ctrl_cmd_horizon.controls.front().steering_tire_rotation_rate, 0.0f);
 }
-}  // namespace autoware::motion::control::mpc_lateral_controller
+}  // namespace autoware::motion::control::lateral_optimal_controller

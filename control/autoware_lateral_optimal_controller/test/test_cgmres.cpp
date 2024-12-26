@@ -13,12 +13,12 @@
 // limitations under the License.
 
 #include "gtest/gtest.h"
-#include "mpc_lateral_controller/mpc.hpp"
-#include "mpc_lateral_controller/qp_solver/qp_solver_osqp.hpp"
-#include "mpc_lateral_controller/qp_solver/qp_solver_unconstraint_fast.hpp"
-#include "mpc_lateral_controller/vehicle_model/vehicle_model_bicycle_dynamics.hpp"
-#include "mpc_lateral_controller/vehicle_model/vehicle_model_bicycle_kinematics.hpp"
-#include "mpc_lateral_controller/vehicle_model/vehicle_model_bicycle_kinematics_no_delay.hpp"
+#include "lateral_optimal_controller/mpc.hpp"
+#include "lateral_optimal_controller/qp_solver/qp_solver_osqp.hpp"
+#include "lateral_optimal_controller/qp_solver/qp_solver_unconstraint_fast.hpp"
+#include "lateral_optimal_controller/vehicle_model/vehicle_model_bicycle_dynamics.hpp"
+#include "lateral_optimal_controller/vehicle_model/vehicle_model_bicycle_kinematics.hpp"
+#include "lateral_optimal_controller/vehicle_model/vehicle_model_bicycle_kinematics_no_delay.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
@@ -42,7 +42,7 @@
 #include <string>
 #include <vector>
 
-namespace autoware::motion::control::mpc_lateral_controller::cgmres
+namespace autoware::motion::control::lateral_optimal_controller::cgmres
 {
 
 using autoware_control_msgs::msg::AckermannLateralCommand;
@@ -56,7 +56,7 @@ using tier4_debug_msgs::msg::Float32MultiArrayStamped;
 rclcpp::NodeOptions makeNodeOptions()
 {
   // Pass default parameter file to the node
-  const auto share_dir = ament_index_cpp::get_package_share_directory("mpc_lateral_controller");
+  const auto share_dir = ament_index_cpp::get_package_share_directory("lateral_optimal_controller");
   rclcpp::NodeOptions node_options;
   node_options.arguments(
     {"--ros-args", "--params-file", share_dir + "/param/lateral_controller_defaults.param.yaml",
@@ -128,7 +128,8 @@ protected:
   {
     rclcpp::NodeOptions node_options;
 
-    const auto share_dir = ament_index_cpp::get_package_share_directory("mpc_lateral_controller");
+    const auto share_dir =
+      ament_index_cpp::get_package_share_directory("lateral_optimal_controller");
 
     autoware::test_utils::updateNodeOptions(
       node_options, {share_dir + "/param/lateral_controller_cgmres.param.yaml",
@@ -213,7 +214,7 @@ protected:
     pose_zero.position.y = 0.0;
   }
 
-  void initializeMPC(mpc_lateral_controller::MPC & mpc)
+  void initializeMPC(lateral_optimal_controller::MPC & mpc)
   {
     mpc.m_param = param;
     mpc.m_admissible_position_error = admissible_position_error;
@@ -483,4 +484,4 @@ TEST_F(CGMRESTest, InitializeAndCalculate)
 //   EXPECT_FALSE(mpc->calculateMPC(
 //     neutral_steer, makeOdometry(pose_far, default_velocity + 10.0), ctrl_cmd, pred_traj, diag));
 // }
-}  // namespace autoware::motion::control::mpc_lateral_controller::cgmres
+}  // namespace autoware::motion::control::lateral_optimal_controller::cgmres

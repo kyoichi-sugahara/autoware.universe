@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "autoware/mpc_lateral_controller/qp_solver/qp_solver_unconstraint_fast.hpp"
+#include "autoware/lateral_optimal_controller/qp_solver/qp_solver_unconstraint_fast.hpp"
 
 #include <Eigen/Dense>
 
-namespace autoware::motion::control::mpc_lateral_controller
+namespace autoware::motion::control::lateral_optimal_controller
 {
 QPSolverEigenLeastSquareLLT::QPSolverEigenLeastSquareLLT()
 {
@@ -34,4 +34,4 @@ bool QPSolverEigenLeastSquareLLT::solve(
 
   return true;
 }
-}  // namespace autoware::motion::control::mpc_lateral_controller
+}  // namespace autoware::motion::control::lateral_optimal_controller

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "autoware/mpc_lateral_controller/qp_solver/qp_solver_cgmres.hpp"
+#include "autoware/lateral_optimal_controller/qp_solver/qp_solver_cgmres.hpp"
 
 #include <Eigen/Dense>
 
@@ -20,7 +20,7 @@
 #include <string>
 #include <vector>
 
-namespace autoware::motion::control::mpc_lateral_controller
+namespace autoware::motion::control::lateral_optimal_controller
 {
 QPSolverCGMRES::QPSolverCGMRES(
   const rclcpp::Logger & logger, const std::string & log_dir,
@@ -201,4 +201,4 @@ bool QPSolverCGMRES::solve(
   }
   return true;
 }
-}  // namespace autoware::motion::control::mpc_lateral_controller
+}  // namespace autoware::motion::control::lateral_optimal_controller

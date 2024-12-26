@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(autoware_mpc_lateral_controller)
+project(autoware_lateral_optimal_controller)
 
 find_package(autoware_cmake REQUIRED)
 autoware_package()
@@ -14,7 +14,7 @@ ament_auto_add_library(steering_offset_lib SHARED
 
 set(MPC_LAT_CON_LIB ${PROJECT_NAME}_lib)
 ament_auto_add_library(${MPC_LAT_CON_LIB} SHARED
-  src/mpc_lateral_controller.cpp
+  src/lateral_optimal_controller.cpp
   src/lowpass_filter.cpp
   src/steering_predictor.cpp
   src/mpc.cpp

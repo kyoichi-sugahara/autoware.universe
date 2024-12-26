@@ -12,15 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "autoware/mpc_lateral_controller/mpc_lateral_controller.hpp"
-
+#include "autoware/lateral_optimal_controller/lateral_optimal_controller.hpp"
+#include "autoware/lateral_optimal_controller/qp_solver/qp_solver_cgmres.hpp"
+#include "autoware/lateral_optimal_controller/qp_solver/qp_solver_osqp.hpp"
+#include "autoware/lateral_optimal_controller/qp_solver/qp_solver_unconstraint_fast.hpp"
+#include "autoware/lateral_optimal_controller/vehicle_model/vehicle_model_bicycle_dynamics.hpp"
+#include "autoware/lateral_optimal_controller/vehicle_model/vehicle_model_bicycle_kinematics.hpp"
+#include "autoware/lateral_optimal_controller/vehicle_model/vehicle_model_bicycle_kinematics_no_delay.hpp"
 #include "autoware/motion_utils/trajectory/trajectory.hpp"
-#include "autoware/mpc_lateral_controller/qp_solver/qp_solver_cgmres.hpp"
-#include "autoware/mpc_lateral_controller/qp_solver/qp_solver_osqp.hpp"
-#include "autoware/mpc_lateral_controller/qp_solver/qp_solver_unconstraint_fast.hpp"
-#include "autoware/mpc_lateral_controller/vehicle_model/vehicle_model_bicycle_dynamics.hpp"
-#include "autoware/mpc_lateral_controller/vehicle_model/vehicle_model_bicycle_kinematics.hpp"
-#include "autoware/mpc_lateral_controller/vehicle_model/vehicle_model_bicycle_kinematics_no_delay.hpp"
 #include "autoware_vehicle_info_utils/vehicle_info_utils.hpp"
 #include "tf2/utils.h"
 #include "tf2_ros/create_timer_ros.h"
@@ -35,7 +34,7 @@
 #include <utility>
 #include <vector>
 
-namespace autoware::motion::control::mpc_lateral_controller
+namespace autoware::motion::control::lateral_optimal_controller
 {
 
 MpcLateralController::MpcLateralController(
@@ -731,4 +730,4 @@ bool MpcLateralController::isValidTrajectory(const Trajectory & traj) const
   return true;
 }
 
-}  // namespace autoware::motion::control::mpc_lateral_controller
+}  // namespace autoware::motion::control::lateral_optimal_controller

@@ -15,11 +15,11 @@
 #ifndef AUTOWARE__MPC_LATERAL_CONTROLLER__QP_SOLVER__QP_SOLVER_INTERFACE_HPP_
 #define AUTOWARE__MPC_LATERAL_CONTROLLER__QP_SOLVER__QP_SOLVER_INTERFACE_HPP_
 
-#include "autoware/mpc_lateral_controller/mpc_trajectory.hpp"
+#include "autoware/lateral_optimal_controller/mpc_trajectory.hpp"
 
 #include <Eigen/Core>
 
-namespace autoware::motion::control::mpc_lateral_controller
+namespace autoware::motion::control::lateral_optimal_controller
 {
 
 /// Interface for solvers of Quadratic Programming (QP) problems
@@ -61,5 +61,5 @@ public:
   virtual double getRunTime() const { return 0.0; }
   virtual double getObjVal() const { return 0.0; }
 };
-}  // namespace autoware::motion::control::mpc_lateral_controller
+}  // namespace autoware::motion::control::lateral_optimal_controller
 #endif  // AUTOWARE__MPC_LATERAL_CONTROLLER__QP_SOLVER__QP_SOLVER_INTERFACE_HPP_

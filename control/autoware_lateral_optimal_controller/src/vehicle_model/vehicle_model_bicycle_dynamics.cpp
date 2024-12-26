@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "autoware/mpc_lateral_controller/vehicle_model/vehicle_model_bicycle_dynamics.hpp"
+#include "autoware/lateral_optimal_controller/vehicle_model/vehicle_model_bicycle_dynamics.hpp"
 
 #include <algorithm>
 
-namespace autoware::motion::control::mpc_lateral_controller
+namespace autoware::motion::control::lateral_optimal_controller
 {
 DynamicsBicycleModel::DynamicsBicycleModel(
   const double wheelbase, const double mass_fl, const double mass_fr, const double mass_rl,
@@ -130,4 +130,4 @@ MPCTrajectory DynamicsBicycleModel::calculatePredictedTrajectoryInFrenetCoordina
   }
   return mpc_predicted_trajectory;
 }
-}  // namespace autoware::motion::control::mpc_lateral_controller
+}  // namespace autoware::motion::control::lateral_optimal_controller

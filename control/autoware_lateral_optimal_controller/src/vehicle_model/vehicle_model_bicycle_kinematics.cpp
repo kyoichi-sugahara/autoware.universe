@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "autoware/mpc_lateral_controller/vehicle_model/vehicle_model_bicycle_kinematics.hpp"
+#include "autoware/lateral_optimal_controller/vehicle_model/vehicle_model_bicycle_kinematics.hpp"
 
 #include <cmath>
 
-namespace autoware::motion::control::mpc_lateral_controller
+namespace autoware::motion::control::lateral_optimal_controller
 {
 KinematicsBicycleModel::KinematicsBicycleModel(
   const double wheelbase, const double steer_lim, const double steer_tau)
@@ -205,4 +205,4 @@ MPCTrajectory KinematicsBicycleModel::calculatePredictedTrajectoryInFrenetCoordi
 
 //   return mpc_predicted_trajectory;
 // }
-}  // namespace autoware::motion::control::mpc_lateral_controller
+}  // namespace autoware::motion::control::lateral_optimal_controller

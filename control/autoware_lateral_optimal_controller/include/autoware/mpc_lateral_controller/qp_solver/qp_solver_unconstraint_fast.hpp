@@ -15,9 +15,9 @@
 #ifndef AUTOWARE__MPC_LATERAL_CONTROLLER__QP_SOLVER__QP_SOLVER_UNCONSTRAINT_FAST_HPP_
 #define AUTOWARE__MPC_LATERAL_CONTROLLER__QP_SOLVER__QP_SOLVER_UNCONSTRAINT_FAST_HPP_
 
-#include "autoware/mpc_lateral_controller/qp_solver/qp_solver_interface.hpp"
+#include "autoware/lateral_optimal_controller/qp_solver/qp_solver_interface.hpp"
 
-namespace autoware::motion::control::mpc_lateral_controller
+namespace autoware::motion::control::lateral_optimal_controller
 {
 
 /**
@@ -61,5 +61,5 @@ public:
 
 private:
 };
-}  // namespace autoware::motion::control::mpc_lateral_controller
+}  // namespace autoware::motion::control::lateral_optimal_controller
 #endif  // AUTOWARE__MPC_LATERAL_CONTROLLER__QP_SOLVER__QP_SOLVER_UNCONSTRAINT_FAST_HPP_
