@@ -15,13 +15,6 @@
 #ifndef NLP_INTERFACE__BASE__SOLVER_INTERFACE_HPP_
 #define NLP_INTERFACE__BASE__SOLVER_INTERFACE_HPP_
 
-#include <Eigen/Core>
-
-#include <functional>
-#include <optional>
-#include <string>
-#include <vector>
-
 namespace autoware::nlp_interface::base
 {
 
@@ -33,61 +26,16 @@ public:
   {
     validate_parameters();
   }
+  virtual void optimize(OptimizationArgs &&... args) = 0;
 
 protected:
-  // 子クラスでの参照用
   const ParameterType & get_parameters() const { return params_; }
 
 private:
   virtual void validate_parameters() {}
-
   const ParameterType params_;
 };
 
-class NLPInterface
-{
-public:
-  explicit NLPInterface(const bool enable_warm_start) : enable_warm_start_(enable_warm_start) {}
-
-  virtual ~NLPInterface() = default;
-
-  std::vector<double> optimize(
-    const std::function<double(const std::vector<double> &)> & objective,
-    const std::function<std::vector<double>(const std::vector<double> &)> & constraints,
-    const std::vector<double> & x0, const std::vector<double> & lbx,
-    const std::vector<double> & ubx, const std::vector<double> & lbg,
-    const std::vector<double> & ubg);
-
-  virtual bool isSolved() const = 0;
-  virtual int getIterationNumber() const = 0;
-  virtual std::string getStatus() const = 0;
-
-  virtual void updateEpsAbs([[maybe_unused]] const double eps_abs) = 0;
-  virtual void updateEpsRel([[maybe_unused]] const double eps_rel) = 0;
-  virtual void updateVerbose([[maybe_unused]] const bool verbose) {}
-
-protected:
-  bool enable_warm_start_{false};
-
-  void initializeProblem(
-    const std::function<double(const std::vector<double> &)> & objective,
-    const std::function<std::vector<double>(const std::vector<double> &)> & constraints,
-    const std::vector<double> & x0, const std::vector<double> & lbx,
-    const std::vector<double> & ubx, const std::vector<double> & lbg,
-    const std::vector<double> & ubg);
-
-  virtual void initializeProblemImpl(
-    const std::function<double(const std::vector<double> &)> & objective,
-    const std::function<std::vector<double>(const std::vector<double> &)> & constraints,
-    const std::vector<double> & x0, const std::vector<double> & lbx,
-    const std::vector<double> & ubx, const std::vector<double> & lbg,
-    const std::vector<double> & ubg) = 0;
-
-  virtual std::vector<double> optimizeImpl() = 0;
-
-  std::optional<size_t> variables_num_{std::nullopt};
-  std::optional<size_t> constraints_num_{std::nullopt};
-};
 }  // namespace autoware::nlp_interface::base
 
 #endif  // NLP_INTERFACE__BASE__SOLVER_INTERFACE_HPP_
