@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>nlp_interface</name>
+  <name>autoware_nlp_interface</name>
   <version>1.0.0</version>
   <description>Interface for the NLP solvers</description>
   <maintainer email="kyoichi.sugahara@tier4.jp">Kyoichi Sugahara</maintainer>

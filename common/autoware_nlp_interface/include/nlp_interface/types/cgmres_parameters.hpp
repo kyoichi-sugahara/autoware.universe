@@ -15,25 +15,27 @@
 #ifndef NLP_INTERFACE__TYPES__CGMRES_PARAMETERS_HPP_
 #define NLP_INTERFACE__TYPES__CGMRES_PARAMETERS_HPP_
 
-#include <autoware/universe_utils/geometry/boost_geometry.hpp>
-#include <autoware/universe_utils/geometry/pose_deviation.hpp>
-#include <rclcpp/node.hpp>
+// #include <autoware/universe_utils/geometry/boost_geometry.hpp>
+// #include <autoware/universe_utils/geometry/pose_deviation.hpp>
+// #include <rclcpp/node.hpp>
 
-#include <autoware_planning_msgs/msg/lanelet_route.hpp>
-#include <autoware_planning_msgs/msg/trajectory.hpp>
-#include <autoware_planning_msgs/msg/trajectory_point.hpp>
-#include <nav_msgs/msg/odometry.hpp>
+// #include <autoware_planning_msgs/msg/lanelet_route.hpp>
+// #include <autoware_planning_msgs/msg/trajectory.hpp>
+// #include <autoware_planning_msgs/msg/trajectory_point.hpp>
+// #include <nav_msgs/msg/odometry.hpp>
 
-#include <lanelet2_core/LaneletMap.h>
+// #include <lanelet2_core/LaneletMap.h>
 
+#include <cmath>  // for std::exp
 #include <map>
+#include <stdexcept>  // for std::invalid_argument
 #include <string>
 #include <vector>
 
-namespace autoware::
+namespace autoware::nlp_interface::types
 {
 
-struct CgmresSolverSettings
+struct CGMRESSolverSettings
 {
   /// @brief Maximum number of iterations of the ZeroHorizonOCPSolver method.
   /// Has nothing to do with SingleShootingCGMRESSolver or MultipleShootingCGMRESSolver.
@@ -133,6 +135,6 @@ struct Horizon
   void reset(const double t0_new) { t0 = t0_new; }
 };
 
-}  // namespace autoware::
+}  // namespace autoware::nlp_interface::types
 
 #endif  // NLP_INTERFACE__TYPES__CGMRES_PARAMETERS_HPP_

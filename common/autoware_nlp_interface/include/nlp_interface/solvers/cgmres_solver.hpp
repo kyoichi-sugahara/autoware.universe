@@ -15,7 +15,8 @@
 #ifndef NLP_INTERFACE__SOLVERS__CGMRES_SOLVER_HPP_
 #define NLP_INTERFACE__SOLVERS__CGMRES_SOLVER_HPP_
 
-#include "nlp_interface/nlp_interface.hpp"
+#include "nlp_interface/base/solver_interface.hpp"
+#include "nlp_interface/types/cgmres_parameters.hpp"
 
 #include <Eigen/Dense>
 
@@ -25,58 +26,26 @@
 
 namespace autoware::nlp_interface::solvers
 {
-
-class CGMRESInterface : public NLPInterface
+class CGMRESSolver final : public base::SolverInterface<types::CGMRESSolverSettings>
 {
 public:
-  explicit CGMRESInterface(const bool enable_warm_start);
-  ~CGMRESInterface() override = default;
+  explicit CGMRESSolver(const types::CGMRESSolverSettings & params);
 
-  bool isSolved() const override;
-  int getIterationNumber() const override;
-  std::string getStatus() const override;
-
-  void updateEpsAbs(const double eps_abs) override;
-  void updateEpsRel(const double eps_rel) override;
-  void updateVerbose(const bool verbose) override;
-
-  // CGMRES specific parameters
-  void setHorizon(double horizon);
-  void setTimeStep(double dt);
-  void setMaxIterations(int max_iterations);
-
-protected:
-  void initializeProblemImpl(
-    const std::function<double(const std::vector<double> &)> & objective,
-    const std::function<std::vector<double>(const std::vector<double> &)> & constraints,
-    const std::vector<double> & x0, const std::vector<double> & lbx,
-    const std::vector<double> & ubx, const std::vector<double> & lbg,
-    const std::vector<double> & ubg) override;
-
-  std::vector<double> optimizeImpl() override;
+  // インターフェースの実装
+  void optimize() override;
 
 private:
-  // CGMRES specific members
-  double horizon_;
-  double dt_;
-  int max_iterations_;
-  bool is_solved_;
-  int iteration_count_;
-  std::string status_;
+  // パラメータバリデーション
+  void validate_parameters() override;
 
-  // Problem specific members
-  std::function<Eigen::VectorXd(const Eigen::VectorXd &, const Eigen::VectorXd &)> system_dynamics_;
-  std::function<double(const Eigen::VectorXd &, const Eigen::VectorXd &)> stage_cost_;
-  std::function<double(const Eigen::VectorXd &)> terminal_cost_;
-  Eigen::VectorXd initial_state_;
-  Eigen::VectorXd lower_bound_;
-  Eigen::VectorXd upper_bound_;
+  // 内部メソッド
 
-  // CGMRES algorithm implementation
-  Eigen::VectorXd solveCGMRES();
-
-  // Convergence check
-  bool checkConvergence(const Eigen::VectorXd & solution);
+  // 内部状態
+  std::vector<double> workspace_;
+  std::vector<double> gradient_;
+  std::vector<double> direction_;
+  double residual_norm_;
+  bool is_initialized_;
 };
 
 }  // namespace autoware::nlp_interface::solvers
