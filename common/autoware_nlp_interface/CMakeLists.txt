@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.14)
 project(autoware_nlp_interface)
 
-find_package(autoware_cmake REQUIRED)
-autoware_package()
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(Eigen3 REQUIRED)
-find_package(cgmres REQUIRED)
 
 set(NLP_INTERFACE_LIB_SRC
   src/solvers/cgmres_solver.cpp
@@ -20,7 +20,7 @@ set(NLP_INTERFACE_LIB_HEADERS
   include/nlp_interface/types/paramters.hpp
 )
 
-ament_auto_add_library(${PROJECT_NAME} SHARED
+add_library(${PROJECT_NAME} SHARED
   ${NLP_INTERFACE_LIB_SRC}
   ${NLP_INTERFACE_LIB_HEADERS}
 )
@@ -34,11 +34,31 @@ target_include_directories(${PROJECT_NAME}
   $<INSTALL_INTERFACE:include>
 )
 
-ament_target_dependencies(${PROJECT_NAME}
-  Eigen3
-  cgmres
+target_link_libraries(${PROJECT_NAME}
+  PUBLIC
+  Eigen3::Eigen
+)
+install(
+  TARGETS ${PROJECT_NAME}
+  EXPORT ${PROJECT_NAME}
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
+  RUNTIME DESTINATION bin
 )
 
-ament_auto_package(INSTALL_TO_SHARE
-  design
+install(
+  DIRECTORY include/
+  DESTINATION include
+)
+
+install(
+  DIRECTORY design
+  DESTINATION share/${PROJECT_NAME}
+)
+
+install(
+  EXPORT ${PROJECT_NAME}
+  FILE ${PROJECT_NAME}Targets.cmake
+  NAMESPACE ${PROJECT_NAME}::
+  DESTINATION lib/cmake/${PROJECT_NAME}
 )
