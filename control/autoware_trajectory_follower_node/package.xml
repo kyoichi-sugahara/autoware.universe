@@ -21,8 +21,10 @@
 
   <depend>autoware_adapi_v1_msgs</depend>
   <depend>autoware_control_msgs</depend>
+  <depend>autoware_lateral_optimal_controller</depend>
   <depend>autoware_motion_utils</depend>
   <depend>autoware_mpc_lateral_controller</depend>
+  <depend>autoware_nlp_interface</depend>
   <depend>autoware_pid_longitudinal_controller</depend>
   <depend>autoware_planning_msgs</depend>
   <depend>autoware_pure_pursuit</depend>

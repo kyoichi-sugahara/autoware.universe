@@ -8,7 +8,7 @@ find_package(cgmres REQUIRED)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 find_package(fmt REQUIRED)
 
-ament_auto_add_library(steering_offset_lib SHARED
+ament_auto_add_library(lateral_optimal_controller_steering_offset_lib SHARED
   src/steering_offset/steering_offset.cpp
 )
 
@@ -30,7 +30,7 @@ ament_auto_add_library(${MPC_LAT_CON_LIB} SHARED
   src/parameters.cpp
 )
 
-target_link_libraries(${MPC_LAT_CON_LIB} steering_offset_lib
+target_link_libraries(${MPC_LAT_CON_LIB} lateral_optimal_controller_steering_offset_lib
   ${cgmres_LIBRARIES}
 )
 
@@ -61,18 +61,17 @@ else()
 endif()
 
 # if(BUILD_TESTING)
-#   set(TEST_LAT_SOURCES
-#     test/test_mpc.cpp
-#     test/test_mpc_utils.cpp
-#     test/test_lowpass_filter.cpp
+# set(TEST_LAT_SOURCES
+# test/test_mpc.cpp
+# test/test_mpc_utils.cpp
+# test/test_lowpass_filter.cpp
 
-#     # test/test_cgmres.cpp
-#   )
-#   set(TEST_LATERAL_CONTROLLER_EXE test_lateral_controller)
-#   ament_add_ros_isolated_gtest(${TEST_LATERAL_CONTROLLER_EXE} ${TEST_LAT_SOURCES})
-#   target_link_libraries(${TEST_LATERAL_CONTROLLER_EXE} ${MPC_LAT_CON_LIB})
+# # test/test_cgmres.cpp
+# )
+# set(TEST_LATERAL_CONTROLLER_EXE test_lateral_controller)
+# ament_add_ros_isolated_gtest(${TEST_LATERAL_CONTROLLER_EXE} ${TEST_LAT_SOURCES})
+# target_link_libraries(${TEST_LATERAL_CONTROLLER_EXE} ${MPC_LAT_CON_LIB})
 # endif()
-
 ament_auto_package(INSTALL_TO_SHARE
   param
   test

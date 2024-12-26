@@ -22,6 +22,7 @@
 #include "autoware/lateral_optimal_controller/vehicle_model/vehicle_model_bicycle_kinematics_no_delay.hpp"
 #include "autoware/motion_utils/trajectory/trajectory.hpp"
 #include "autoware_vehicle_info_utils/vehicle_info_utils.hpp"
+#include "nlp_interface/types/cgmres_parameters.hpp"
 #include "tf2/utils.h"
 #include "tf2_ros/create_timer_ros.h"
 

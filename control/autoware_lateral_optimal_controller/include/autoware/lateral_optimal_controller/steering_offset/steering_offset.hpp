@@ -21,6 +21,8 @@
 #include <deque>
 #include <vector>
 
+namespace autoware::motion::control::lateral_optimal_controller
+{
 class SteeringOffsetEstimator
 {
 public:
@@ -44,5 +46,5 @@ private:
   std::deque<double> steering_offset_storage_;
   double steering_offset_ = 0.0;
 };
-
+}  // namespace autoware::motion::control::lateral_optimal_controller
 #endif  // AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__STEERING_OFFSET__STEERING_OFFSET_HPP_

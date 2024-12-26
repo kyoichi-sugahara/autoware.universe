@@ -14,10 +14,12 @@
 
 #include "autoware/trajectory_follower_node/controller_node.hpp"
 
+#include "autoware/lateral_optimal_controller/lateral_optimal_controller.hpp"
 #include "autoware/mpc_lateral_controller/mpc_lateral_controller.hpp"
 #include "autoware/pid_longitudinal_controller/pid_longitudinal_controller.hpp"
 #include "autoware/pure_pursuit/autoware_pure_pursuit_lateral_controller.hpp"
 #include "autoware/universe_utils/ros/marker_helper.hpp"
+#include "nlp_interface/types/cgmres_parameters.hpp"
 
 #include <autoware/trajectory_follower_base/lateral_controller_base.hpp>
 
@@ -70,6 +72,11 @@ Controller::Controller(const rclcpp::NodeOptions & node_options) : Node("control
     case LateralControllerMode::MPC: {
       lateral_controller_ =
         std::make_shared<mpc_lateral_controller::MpcLateralController>(*this, diag_updater_);
+      break;
+    }
+    case LateralControllerMode::NMPC: {
+      lateral_controller_ =
+        std::make_shared<lateral_optimal_controller::MpcLateralController>(*this, diag_updater_);
       break;
     }
     case LateralControllerMode::PURE_PURSUIT: {
@@ -127,6 +134,7 @@ Controller::LateralControllerMode Controller::getLateralControllerMode(
 {
   if (controller_mode == "mpc") return LateralControllerMode::MPC;
   if (controller_mode == "pure_pursuit") return LateralControllerMode::PURE_PURSUIT;
+  if (controller_mode == "nmpc") return LateralControllerMode::NMPC;
 
   return LateralControllerMode::INVALID;
 }

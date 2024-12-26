@@ -17,6 +17,8 @@
 #include <algorithm>
 #include <iostream>
 #include <numeric>
+namespace autoware::motion::control::lateral_optimal_controller
+{
 
 SteeringOffsetEstimator::SteeringOffsetEstimator(
   double wheelbase, double average_num, double vel_thres, double steer_thres, double offset_limit)
@@ -58,3 +60,4 @@ double SteeringOffsetEstimator::getOffset() const
 {
   return std::clamp(steering_offset_, -offset_limit_, offset_limit_);
 }
+}  // namespace autoware::motion::control::lateral_optimal_controller
