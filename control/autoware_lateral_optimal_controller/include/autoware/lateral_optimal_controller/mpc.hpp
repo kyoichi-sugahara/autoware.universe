@@ -17,6 +17,7 @@
 
 #include "autoware/lateral_optimal_controller/lowpass_filter.hpp"
 #include "autoware/lateral_optimal_controller/mpc_trajectory.hpp"
+#include "autoware/lateral_optimal_controller/parameters.hpp"
 #include "autoware/lateral_optimal_controller/qp_solver/qp_solver_interface.hpp"
 #include "autoware/lateral_optimal_controller/steering_predictor.hpp"
 #include "autoware/lateral_optimal_controller/vehicle_model/vehicle_model_interface.hpp"

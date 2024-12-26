@@ -14,13 +14,14 @@
 
 #ifndef AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__PARAMETERS_HPP_
 #define AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__PARAMETERS_HPP_
-
+#include <Eigen/Core>
 #include <rclcpp/node.hpp>
 
 // #include <autoware_planning_msgs/msg/lanelet_route.hpp>
 // #include <autoware_planning_msgs/msg/trajectory.hpp>
 // #include <autoware_planning_msgs/msg/trajectory_point.hpp>
 // #include <nav_msgs/msg/odometry.hpp>
+#include <geometry_msgs/msg/pose.hpp>
 
 // #include <lanelet2_core/LaneletMap.h>
 
@@ -30,6 +31,9 @@
 
 namespace autoware::motion::control::lateral_optimal_controller
 {
+using Eigen::MatrixXd;
+using geometry_msgs::msg::Pose;
+
 // using autoware::universe_utils::PoseDeviation;
 // using autoware_planning_msgs::msg::LaneletRoute;
 // using autoware_planning_msgs::msg::Trajectory;
