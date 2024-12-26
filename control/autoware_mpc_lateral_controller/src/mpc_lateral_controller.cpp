@@ -40,25 +40,19 @@ namespace autoware::motion::control::mpc_lateral_controller
 
 MpcLateralController::MpcLateralController(
   rclcpp::Node & node, std::shared_ptr<diagnostic_updater::Updater> diag_updater)
-: clock_(node.get_clock()), logger_(node.get_logger().get_child("lateral_controller"))
+: clock_(node.get_clock()),
+  logger_(node.get_logger().get_child("lateral_controller")),
+  diag_updater_(diag_updater)
 {
-  const auto dp_int = [&](const std::string & s) { return node.declare_parameter<int>(s); };
   const auto dp_bool = [&](const std::string & s) { return node.declare_parameter<bool>(s); };
   const auto dp_double = [&](const std::string & s) { return node.declare_parameter<double>(s); };
-
-  diag_updater_ = diag_updater;
 
   m_mpc = std::make_unique<MPC>(node);
 
   m_mpc->m_ctrl_period = node.get_parameter("ctrl_period").as_double();
 
   auto & p_filt = m_trajectory_filtering_param;
-  p_filt.enable_path_smoothing = dp_bool("enable_path_smoothing");
-  p_filt.path_filter_moving_ave_num = dp_int("path_filter_moving_ave_num");
-  p_filt.curvature_smoothing_num_traj = dp_int("curvature_smoothing_num_traj");
-  p_filt.curvature_smoothing_num_ref_steer = dp_int("curvature_smoothing_num_ref_steer");
-  p_filt.traj_resample_dist = dp_double("traj_resample_dist");
-  p_filt.extend_trajectory_for_end_yaw_control = dp_bool("extend_trajectory_for_end_yaw_control");
+  p_filt = TrajectoryFilteringParam::init(node);
 
   m_mpc->m_use_steer_prediction = dp_bool("use_steer_prediction");
   m_mpc->m_param.steer_tau = dp_double("vehicle_model_steer_tau");
@@ -216,42 +210,40 @@ std::shared_ptr<QPSolverInterface> MpcLateralController::createQPSolverInterface
 {
   std::shared_ptr<QPSolverInterface> qpsolver_ptr;
 
-  qp_solver_type_ = node.declare_parameter<std::string>("qp_solver_type");
+  const std::string qp_solver_type = node.declare_parameter<std::string>("qp_solver_type");
 
-  if (qp_solver_type_ == "unconstraint_fast") {
+  if (qp_solver_type == "unconstraint_fast") {
     qpsolver_ptr = std::make_shared<QPSolverEigenLeastSquareLLT>();
     return qpsolver_ptr;
   }
 
-  if (qp_solver_type_ == "osqp") {
+  if (qp_solver_type == "osqp") {
     qpsolver_ptr = std::make_shared<QPSolverOSQP>(logger_);
     return qpsolver_ptr;
   }
 
-  if (qp_solver_type_ == "cgmres") {
-    const char * home_dir = getenv("HOME");
-    if (!home_dir) {
-      throw std::runtime_error("Environment variable HOME not set.");
-    }
-    std::filesystem::path log_dir = std::filesystem::path(home_dir) / ".ros" / "log" / "";
-    cgmres::SolverSettings solver_settings{
-      m_max_iter_for_zero_horizon,    // maximum number of iterations of
-                                      // the ZeroHorizonOCPSolver method
-      m_opterr_tol_for_zero_horizon,  // termination criterion of the ZeroHorizonOCPSolver method.
-      m_finite_difference_epsilon,    // finite_difference_epsilon
-      m_mpc->m_ctrl_period,           // sampling_time
-      1 / m_mpc->m_ctrl_period,       // zeta
-      m_min_dummy,                    // min_dummy
-      m_verbose_level                 // verbose_level
-    };
-    cgmres::Horizon horizon{m_horizon, m_horizon_alpha};
-    qpsolver_ptr = std::make_shared<QPSolverCGMRES>(
-      logger_, log_dir, solver_settings, horizon, 2.74, m_mpc->m_param.steer_tau);
-    return qpsolver_ptr;
-  }
+  // if (qp_solver_type_ == "cgmres") {
+  //   const char * home_dir = getenv("HOME");
+  //   if (!home_dir) {
+  //     throw std::runtime_error("Environment variable HOME not set.");
+  //   }
+  //   std::filesystem::path log_dir = std::filesystem::path(home_dir) / ".ros" / "log" / "";
+  //   cgmres::SolverSettings solver_settings{
+  //     m_max_iter_for_zero_horizon,    // maximum number of iterations of
+  //                                     // the ZeroHorizonOCPSolver method
+  //     m_opterr_tol_for_zero_horizon,  // termination criterion of the ZeroHorizonOCPSolver
+  //     method. m_finite_difference_epsilon,    // finite_difference_epsilon m_mpc->m_ctrl_period,
+  //     // sampling_time 1 / m_mpc->m_ctrl_period,       // zeta m_min_dummy,                    //
+  //     min_dummy m_verbose_level                 // verbose_level
+  //   };
+  //   cgmres::Horizon horizon{m_horizon, m_horizon_alpha};
+  //   qpsolver_ptr = std::make_shared<QPSolverCGMRES>(
+  //     logger_, log_dir, solver_settings, horizon, 2.74, m_mpc->m_param.steer_tau);
+  //   return qpsolver_ptr;
+  // }
 
   RCLCPP_ERROR(logger_, "qp_solver_type is undefined");
-  return qpsolver_ptr;
+  return nullptr;
 }
 
 std::shared_ptr<SteeringOffsetEstimator> MpcLateralController::createSteerOffsetEstimator(
