@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef AUTOWARE__MPC_LATERAL_CONTROLLER__LOWPASS_FILTER_HPP_
-#define AUTOWARE__MPC_LATERAL_CONTROLLER__LOWPASS_FILTER_HPP_
+#ifndef AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_LATERAL_CONTROLLER__LOWPASS_FILTER_HPP_
+#define AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_LATERAL_CONTROLLER__LOWPASS_FILTER_HPP_
 
 #include <algorithm>
 #include <cmath>
@@ -102,4 +102,4 @@ namespace MoveAverageFilter
 bool filt_vector(const int num, std::vector<double> & u);
 }  // namespace MoveAverageFilter
 }  // namespace autoware::motion::control::lateral_optimal_controller
-#endif  // AUTOWARE__MPC_LATERAL_CONTROLLER__LOWPASS_FILTER_HPP_
+#endif  // AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_LATERAL_CONTROLLER__LOWPASS_FILTER_HPP_

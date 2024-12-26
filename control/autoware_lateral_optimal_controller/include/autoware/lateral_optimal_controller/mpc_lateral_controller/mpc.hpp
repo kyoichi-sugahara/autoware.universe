@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef AUTOWARE__MPC_LATERAL_CONTROLLER__MPC_HPP_
-#define AUTOWARE__MPC_LATERAL_CONTROLLER__MPC_HPP_
+#ifndef AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_LATERAL_CONTROLLER__MPC_HPP_
+#define AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_LATERAL_CONTROLLER__MPC_HPP_
 
 #include "autoware/lateral_optimal_controller/lowpass_filter.hpp"
 #include "autoware/lateral_optimal_controller/mpc_trajectory.hpp"
@@ -439,4 +439,4 @@ public:
 };  // class MPC
 }  // namespace autoware::motion::control::lateral_optimal_controller
 
-#endif  // AUTOWARE__MPC_LATERAL_CONTROLLER__MPC_HPP_
+#endif  // AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_LATERAL_CONTROLLER__MPC_HPP_

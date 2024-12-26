@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "autoware/lateral_optimal_controller/lateral_optimal_controller.hpp"
+
 #include "autoware/lateral_optimal_controller/qp_solver/qp_solver_cgmres.hpp"
 #include "autoware/lateral_optimal_controller/qp_solver/qp_solver_osqp.hpp"
 #include "autoware/lateral_optimal_controller/qp_solver/qp_solver_unconstraint_fast.hpp"

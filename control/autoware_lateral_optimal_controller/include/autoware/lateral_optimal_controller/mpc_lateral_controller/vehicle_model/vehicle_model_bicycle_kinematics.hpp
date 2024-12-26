@@ -1,4 +1,4 @@
-// Copyright 2018-2021 Autoware Foundation
+// Copyright 2018-2021 The Autoware Foundation
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,29 +14,35 @@
 
 /*
  *    Representation
+ * k      : reference curvature (input)
  * e      : lateral error
  * th     : heading angle error
- * steer  : steering angle (input)
+ * steer  : steering angle
+ * steer_d: desired steering angle (input)
  * v      : velocity
  * W      : wheelbase length
  * tau    : time constant for steering dynamics
  *
  *    State & Input
- * x = [e, th]^T
- * u = steer
+ * x = [e, th, steer]^T
+ * u = steer_d
  *
  *    Nonlinear model
  * dx1/dt = v * sin(x2)
- * dx2/dt = v * tan(u) / W
+ * dx2/dt = v * tan(x3) / W
+ * dx3/dt = -(x3 - u) / tau
  *
  *    Linearized model around reference point (v = v_r, th = th_r, steer = steer_r)
- *  dx/dt = [0, vr] * x + [                  0] * u + [                           0]
- *          [0,  0]       [vr/W/cos(steer_r)^2]       [-vr*steer_r/W/cos(steer_r)^2]
+ *         [0,  vr,       0]       [    0]       [                    0]
+ * dx/dt = [0,   0,       B] * x + [    0] * u + [-vr*k + A - B*steer_r]
+ *         [0,   0,  -1/tau]       [1/tau]       [                    0]
  *
+ * where A = vr*tan(steer_r)/W
+ *       B = vr/(W*cos(steer_r)^2) (partial derivative of A with respect to steer_r)
  */
 
-#ifndef AUTOWARE__MPC_LATERAL_CONTROLLER__VEHICLE_MODEL__VEHICLE_MODEL_BICYCLE_KINEMATICS_NO_DELAY_HPP_  // NOLINT
-#define AUTOWARE__MPC_LATERAL_CONTROLLER__VEHICLE_MODEL__VEHICLE_MODEL_BICYCLE_KINEMATICS_NO_DELAY_HPP_  // NOLINT
+#ifndef AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_LATERAL_CONTROLLER__VEHICLE_MODEL__VEHICLE_MODEL_BICYCLE_KINEMATICS_HPP_
+#define AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_LATERAL_CONTROLLER__VEHICLE_MODEL__VEHICLE_MODEL_BICYCLE_KINEMATICS_HPP_
 
 #include "autoware/lateral_optimal_controller/vehicle_model/vehicle_model_interface.hpp"
 
@@ -49,23 +55,24 @@ namespace autoware::motion::control::lateral_optimal_controller
 {
 
 /**
- * Vehicle model class of bicycle kinematics without steering delay
+ * Vehicle model class of bicycle kinematics
  * @brief calculate model-related values
  */
-class KinematicsBicycleModelNoDelay : public VehicleModelInterface
+class KinematicsBicycleModel : public VehicleModelInterface
 {
 public:
   /**
    * @brief constructor with parameter initialization
    * @param [in] wheelbase wheelbase length [m]
    * @param [in] steer_lim steering angle limit [rad]
+   * @param [in] steer_tau steering time constant for 1d-model [s]
    */
-  KinematicsBicycleModelNoDelay(const double wheelbase, const double steer_lim);
+  KinematicsBicycleModel(const double wheelbase, const double steer_lim, const double steer_tau);
 
   /**
    * @brief destructor
    */
-  ~KinematicsBicycleModelNoDelay() = default;
+  ~KinematicsBicycleModel() = default;
 
   /**
    * @brief calculate discrete model matrix of x_k+1 = a_d * xk + b_d * uk + w_d, yk = c_d * xk
@@ -85,7 +92,7 @@ public:
    */
   void calculateReferenceInput(Eigen::MatrixXd & u_ref) override;
 
-  std::string modelName() override { return "kinematics_no_delay"; };
+  std::string modelName() override { return "kinematics"; };
 
   MPCTrajectory calculatePredictedTrajectoryInWorldCoordinate(
     const Eigen::MatrixXd & a_d, const Eigen::MatrixXd & b_d, const Eigen::MatrixXd & c_d,
@@ -99,8 +106,7 @@ public:
 
 private:
   double m_steer_lim;  //!< @brief steering angle limit [rad]
+  double m_steer_tau;  //!< @brief steering time constant for 1d-model [s]
 };
 }  // namespace autoware::motion::control::lateral_optimal_controller
-// clang-format off
-#endif  // AUTOWARE__MPC_LATERAL_CONTROLLER__VEHICLE_MODEL__VEHICLE_MODEL_BICYCLE_KINEMATICS_NO_DELAY_HPP_  // NOLINT
-// clang-format on
+#endif  // AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_LATERAL_CONTROLLER__VEHICLE_MODEL__VEHICLE_MODEL_BICYCLE_KINEMATICS_HPP_

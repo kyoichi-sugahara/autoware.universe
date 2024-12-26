@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef AUTOWARE__MPC_LATERAL_CONTROLLER__STEERING_PREDICTOR_HPP_
-#define AUTOWARE__MPC_LATERAL_CONTROLLER__STEERING_PREDICTOR_HPP_
+#ifndef AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_LATERAL_CONTROLLER__STEERING_PREDICTOR_HPP_
+#define AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_LATERAL_CONTROLLER__STEERING_PREDICTOR_HPP_
 
 #include "rclcpp/rclcpp.hpp"
 
@@ -81,4 +81,4 @@ private:
 
 }  // namespace autoware::motion::control::lateral_optimal_controller
 
-#endif  // AUTOWARE__MPC_LATERAL_CONTROLLER__STEERING_PREDICTOR_HPP_
+#endif  // AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_LATERAL_CONTROLLER__STEERING_PREDICTOR_HPP_
