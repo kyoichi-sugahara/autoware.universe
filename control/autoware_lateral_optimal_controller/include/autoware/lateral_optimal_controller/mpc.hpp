@@ -141,16 +141,6 @@ private:
     double & opt_error, Eigen::VectorXd & opt_error_array);
 
   /**
-   * @brief Resample the trajectory with the MPC resampling time.
-   * @param start_time The start time for resampling.
-   * @param prediction_dt The prediction time step.
-   * @param input The input trajectory.
-   * @return A pair of a boolean flag indicating success and the resampled trajectory.
-   */
-  std::pair<ResultWithReason, MPCTrajectory> resampleMPCTrajectoryByTime(
-    const double start_time, const double prediction_dt, const MPCTrajectory & input) const;
-
-  /**
    * @brief Apply the velocity dynamics filter to the trajectory using the current kinematics.
    * @param trajectory The input trajectory.
    * @param current_kinematics The current vehicle kinematics.
@@ -158,18 +148,6 @@ private:
    */
   MPCTrajectory applyVelocityDynamicsFilter(
     const MPCTrajectory & trajectory, const Odometry & current_kinematics) const;
-
-  /**
-   * @brief Get the prediction time step for MPC. If the trajectory length is shorter than
-   * min_prediction_length, adjust the time step.
-   * @param start_time The start time of the trajectory.
-   * @param input The input trajectory.
-   * @param current_kinematics The current vehicle kinematics.
-   * @return The prediction time step.
-   */
-  double getPredictionDeltaTime(
-    const double start_time, const MPCTrajectory & input,
-    const Odometry & current_kinematics) const;
 
   /**
    * @brief Add weights related to lateral jerk, steering rate, and steering acceleration to the R
@@ -324,6 +302,8 @@ public:
    * @param current_steer Current steering report.
    * @param current_kinematics Current vehicle kinematics.
    * @param x0_delayed Initial state with delay compensation applied.
+   * @param mpc_resampled_ref_trajectory Resampled reference trajectory for MPC calculation.
+   * @param prediction_dt Time step for prediction horizon.
    * @param ctrl_cmd Output lateral control command.
    * @param predicted_trajectory Output predicted trajectory based on MPC result.
    * @param diagnostic Output diagnostic data for debugging purposes.
@@ -333,8 +313,9 @@ public:
    */
   ResultWithReason calculateMPC(
     const MPCData & mpc_data, const SteeringReport & current_steer,
-    const Odometry & current_kinematics, const VectorXd & x0_delayed, Lateral & ctrl_cmd,
-    Trajectory & predicted_trajectory, Float32MultiArrayStamped & diagnostic,
+    const Odometry & current_kinematics, const VectorXd & x0_delayed,
+    const MPCTrajectory & mpc_resampled_ref_trajectory, const double prediction_dt,
+    Lateral & ctrl_cmd, Trajectory & predicted_trajectory, Float32MultiArrayStamped & diagnostic,
     LateralHorizon & ctrl_cmd_horizon, const std::string & qp_solver_type);
 
   /**
@@ -364,6 +345,28 @@ public:
    */
   std::pair<bool, VectorXd> updateStateForDelayCompensation(
     const MPCTrajectory & traj, const double & start_time, const VectorXd & x0_orig);
+
+  /**
+   * @brief Get the prediction time step for MPC. If the trajectory length is shorter than
+   * min_prediction_length, adjust the time step.
+   * @param start_time The start time of the trajectory.
+   * @param input The input trajectory.
+   * @param current_kinematics The current vehicle kinematics.
+   * @return The prediction time step.
+   */
+  double getPredictionDeltaTime(
+    const double start_time, const MPCTrajectory & input,
+    const Odometry & current_kinematics) const;
+
+  /**
+   * @brief Resample the trajectory with the MPC resampling time.
+   * @param start_time The start time for resampling.
+   * @param prediction_dt The prediction time step.
+   * @param input The input trajectory.
+   * @return A pair of a boolean flag indicating success and the resampled trajectory.
+   */
+  std::pair<ResultWithReason, MPCTrajectory> resampleMPCTrajectoryByTime(
+    const double start_time, const double prediction_dt, const MPCTrajectory & input) const;
 
   /**
    * @brief Set the reference trajectory to be followed.

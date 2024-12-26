@@ -323,9 +323,24 @@ trajectory_follower::LateralOutput MpcLateralController::run(
     if (!success_delay) {
       mpc_solved_status = ResultWithReason{false, "delay compensation."};
     } else {
-      mpc_solved_status = m_mpc->calculateMPC(
-        mpc_data, m_current_steering, m_current_kinematic_state, x0_delayed, ctrl_cmd,
-        predicted_traj, debug_values, ctrl_cmd_horizon, qp_solver_type_);
+      // resample reference trajectory with mpc sampling time
+      const double mpc_start_time = mpc_data.nearest_time + m_mpc->m_param.input_delay;
+      const double prediction_dt = m_mpc->getPredictionDeltaTime(
+        mpc_start_time, m_mpc->m_reference_trajectory, m_current_kinematic_state);
+
+      const auto [resample_result, mpc_resampled_ref_trajectory] =
+        m_mpc->resampleMPCTrajectoryByTime(
+          mpc_start_time, prediction_dt, m_mpc->m_reference_trajectory);
+
+      if (!resample_result.result) {
+        mpc_solved_status = ResultWithReason{
+          false, fmt::format("trajectory resampling ({}).", resample_result.reason)};
+      } else {
+        mpc_solved_status = m_mpc->calculateMPC(
+          mpc_data, m_current_steering, m_current_kinematic_state, x0_delayed,
+          mpc_resampled_ref_trajectory, prediction_dt, ctrl_cmd, predicted_traj, debug_values,
+          ctrl_cmd_horizon, qp_solver_type_);
+      }
     }
   }
 
