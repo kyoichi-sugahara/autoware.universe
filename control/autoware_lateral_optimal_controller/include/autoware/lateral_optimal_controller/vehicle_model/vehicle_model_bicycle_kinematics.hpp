@@ -40,9 +40,10 @@
  * where A = vr*tan(steer_r)/W
  *       B = vr/(W*cos(steer_r)^2) (partial derivative of A with respect to steer_r)
  */
-
-#ifndef AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_LATERAL_CONTROLLER__VEHICLE_MODEL__VEHICLE_MODEL_BICYCLE_KINEMATICS_HPP_
-#define AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_LATERAL_CONTROLLER__VEHICLE_MODEL__VEHICLE_MODEL_BICYCLE_KINEMATICS_HPP_
+// NOLINTNEXTLINE(whitespace/line_length)
+#ifndef AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__VEHICLE_MODEL__VEHICLE_MODEL_BICYCLE_KINEMATICS_HPP_
+// NOLINTNEXTLINE(whitespace/line_length)
+#define AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__VEHICLE_MODEL__VEHICLE_MODEL_BICYCLE_KINEMATICS_HPP_
 
 #include "autoware/lateral_optimal_controller/vehicle_model/vehicle_model_interface.hpp"
 
@@ -109,4 +110,5 @@ private:
   double m_steer_tau;  //!< @brief steering time constant for 1d-model [s]
 };
 }  // namespace autoware::motion::control::lateral_optimal_controller
-#endif  // AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_LATERAL_CONTROLLER__VEHICLE_MODEL__VEHICLE_MODEL_BICYCLE_KINEMATICS_HPP_
+// NOLINTNEXTLINE(whitespace/line_length)
+#endif  // AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__VEHICLE_MODEL__VEHICLE_MODEL_BICYCLE_KINEMATICS_HPP_

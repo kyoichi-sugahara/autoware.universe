@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_LATERAL_CONTROLLER__MPC_UTILS_HPP_
-#define AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_LATERAL_CONTROLLER__MPC_UTILS_HPP_
+#ifndef AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_UTILS_HPP_
+#define AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_UTILS_HPP_
 
 #include "rclcpp/rclcpp.hpp"
 #include "tf2/utils.h"
@@ -247,4 +247,4 @@ void update_param(
 
 }  // namespace MPCUtils
 }  // namespace autoware::motion::control::lateral_optimal_controller
-#endif  // AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_LATERAL_CONTROLLER__MPC_UTILS_HPP_
+#endif  // AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_UTILS_HPP_

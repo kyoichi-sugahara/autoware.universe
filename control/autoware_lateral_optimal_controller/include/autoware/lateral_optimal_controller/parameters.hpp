@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_LATERAL_CONTROLLER__PARAMETERS_HPP_
-#define AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_LATERAL_CONTROLLER__PARAMETERS_HPP_
+#ifndef AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__PARAMETERS_HPP_
+#define AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__PARAMETERS_HPP_
 
 #include <rclcpp/node.hpp>
 
@@ -179,4 +179,4 @@ struct MPCMatrix
 };
 }  // namespace autoware::motion::control::lateral_optimal_controller
 
-#endif  // AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_LATERAL_CONTROLLER__PARAMETERS_HPP_
+#endif  // AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__PARAMETERS_HPP_

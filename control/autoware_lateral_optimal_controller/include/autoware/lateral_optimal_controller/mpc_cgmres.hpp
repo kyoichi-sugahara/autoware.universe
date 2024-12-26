@@ -16,8 +16,8 @@
 // (https://github.com/ohtsukalab/autogenu-jupyter). The autogenu-jupyter copyright holders make no
 // ownership claim of its contents.
 
-#ifndef AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_LATERAL_CONTROLLER__MPC_CGMRES_HPP_
-#define AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_LATERAL_CONTROLLER__MPC_CGMRES_HPP_
+#ifndef AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_CGMRES_HPP_
+#define AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_CGMRES_HPP_
 
 #define _USE_MATH_DEFINES
 #define CGMRES_EIGEN_CONST_CAST(TYPE, OBJ) const_cast<TYPE &>(OBJ.derived())
@@ -275,4 +275,4 @@ public:
 
 }  // namespace cgmres
 
-#endif  // AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_LATERAL_CONTROLLER__MPC_CGMRES_HPP_
+#endif  // AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_CGMRES_HPP_

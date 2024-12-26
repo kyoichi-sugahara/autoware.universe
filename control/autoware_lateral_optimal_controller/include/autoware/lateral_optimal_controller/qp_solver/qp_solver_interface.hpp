@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_LATERAL_CONTROLLER__QP_SOLVER__QP_SOLVER_INTERFACE_HPP_
-#define AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_LATERAL_CONTROLLER__QP_SOLVER__QP_SOLVER_INTERFACE_HPP_
+#ifndef AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__QP_SOLVER__QP_SOLVER_INTERFACE_HPP_
+#define AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__QP_SOLVER__QP_SOLVER_INTERFACE_HPP_
 
 #include "autoware/lateral_optimal_controller/mpc_trajectory.hpp"
 
@@ -62,4 +62,4 @@ public:
   virtual double getObjVal() const { return 0.0; }
 };
 }  // namespace autoware::motion::control::lateral_optimal_controller
-#endif  // AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__MPC_LATERAL_CONTROLLER__QP_SOLVER__QP_SOLVER_INTERFACE_HPP_
+#endif  // AUTOWARE__LATERAL_OPTIMAL_CONTROLLER__QP_SOLVER__QP_SOLVER_INTERFACE_HPP_
