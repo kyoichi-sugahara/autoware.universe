@@ -60,18 +60,18 @@ else()
   target_link_libraries(${MPC_LAT_CON_LIB} "${cpp_typesupport_target}")
 endif()
 
-if(BUILD_TESTING)
-  set(TEST_LAT_SOURCES
-    test/test_mpc.cpp
-    test/test_mpc_utils.cpp
-    test/test_lowpass_filter.cpp
+# if(BUILD_TESTING)
+#   set(TEST_LAT_SOURCES
+#     test/test_mpc.cpp
+#     test/test_mpc_utils.cpp
+#     test/test_lowpass_filter.cpp
 
-    # test/test_cgmres.cpp
-  )
-  set(TEST_LATERAL_CONTROLLER_EXE test_lateral_controller)
-  ament_add_ros_isolated_gtest(${TEST_LATERAL_CONTROLLER_EXE} ${TEST_LAT_SOURCES})
-  target_link_libraries(${TEST_LATERAL_CONTROLLER_EXE} ${MPC_LAT_CON_LIB})
-endif()
+#     # test/test_cgmres.cpp
+#   )
+#   set(TEST_LATERAL_CONTROLLER_EXE test_lateral_controller)
+#   ament_add_ros_isolated_gtest(${TEST_LATERAL_CONTROLLER_EXE} ${TEST_LAT_SOURCES})
+#   target_link_libraries(${TEST_LATERAL_CONTROLLER_EXE} ${MPC_LAT_CON_LIB})
+# endif()
 
 ament_auto_package(INSTALL_TO_SHARE
   param

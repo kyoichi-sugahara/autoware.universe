@@ -105,34 +105,6 @@ private:
   rclcpp::Publisher<MpcDebug>::SharedPtr m_debug_cgmres_debug_pub;
 
   /**
-   * @brief Get variables for MPC calculation.
-   * @param trajectory The reference trajectory.
-   * @param current_steer The current steering report.
-   * @param current_kinematics The current vehicle kinematics.
-   * @return A pair of a boolean flag indicating success and the MPC data.
-   */
-  std::pair<ResultWithReason, MPCData> getData(
-    const MPCTrajectory & trajectory, const SteeringReport & current_steer,
-    const Odometry & current_kinematics);
-
-  /**
-   * @brief Get the initial state for MPC.
-   * @param data The MPC data.
-   * @return The initial state as a vector.
-   */
-  VectorXd getInitialState(const MPCData & data);
-
-  /**
-   * @brief Update the state for delay compensation.
-   * @param traj The reference trajectory to follow.
-   * @param start_time The time where x0_orig is defined.
-   * @param x0_orig The original initial state vector.
-   * @return A pair of a boolean flag indicating success and the updated state at delayed_time.
-   */
-  std::pair<bool, VectorXd> updateStateForDelayCompensation(
-    const MPCTrajectory & traj, const double & start_time, const VectorXd & x0_orig);
-
-  /**
    * @brief Generate the MPC matrix using the reference trajectory and vehicle model.
    * @param reference_trajectory The reference trajectory used for linearization.
    * @param prediction_dt The prediction time step.
@@ -347,17 +319,51 @@ public:
 
   /**
    * @brief Calculate control command using the MPC algorithm.
+   * @param mpc_data Pre-calculated MPC data containing current vehicle state and nearest path
+   * information.
    * @param current_steer Current steering report.
    * @param current_kinematics Current vehicle kinematics.
-   * @param ctrl_cmd Computed lateral control command.
-   * @param predicted_trajectory Predicted trajectory based on MPC result.
-   * @param diagnostic Diagnostic data for debugging purposes.
-   * @return True if the MPC calculation is successful, false otherwise.
+   * @param x0_delayed Initial state with delay compensation applied.
+   * @param ctrl_cmd Output lateral control command.
+   * @param predicted_trajectory Output predicted trajectory based on MPC result.
+   * @param diagnostic Output diagnostic data for debugging purposes.
+   * @param ctrl_cmd_horizon Output control command horizon for predictive control.
+   * @param qp_solver_type Type of QP solver to use (default: "osqp").
+   * @return Result with reason indicating success or failure of MPC calculation.
    */
   ResultWithReason calculateMPC(
-    const SteeringReport & current_steer, const Odometry & current_kinematics, Lateral & ctrl_cmd,
+    const MPCData & mpc_data, const SteeringReport & current_steer,
+    const Odometry & current_kinematics, const VectorXd & x0_delayed, Lateral & ctrl_cmd,
     Trajectory & predicted_trajectory, Float32MultiArrayStamped & diagnostic,
-    LateralHorizon & ctrl_cmd_horizon, const std::string & qp_solver_type = "osqp");
+    LateralHorizon & ctrl_cmd_horizon, const std::string & qp_solver_type);
+
+  /**
+   * @brief Get variables for MPC calculation.
+   * @param trajectory The reference trajectory.
+   * @param current_steer The current steering report.
+   * @param current_kinematics The current vehicle kinematics.
+   * @return A pair of a boolean flag indicating success and the MPC data.
+   */
+  std::pair<ResultWithReason, MPCData> getData(
+    const MPCTrajectory & trajectory, const SteeringReport & current_steer,
+    const Odometry & current_kinematics);
+
+  /**
+   * @brief Get the initial state for MPC.
+   * @param data The MPC data.
+   * @return The initial state as a vector.
+   */
+  VectorXd getInitialState(const MPCData & data);
+
+  /**
+   * @brief Update the state for delay compensation.
+   * @param traj The reference trajectory to follow.
+   * @param start_time The time where x0_orig is defined.
+   * @param x0_orig The original initial state vector.
+   * @return A pair of a boolean flag indicating success and the updated state at delayed_time.
+   */
+  std::pair<bool, VectorXd> updateStateForDelayCompensation(
+    const MPCTrajectory & traj, const double & start_time, const VectorXd & x0_orig);
 
   /**
    * @brief Set the reference trajectory to be followed.

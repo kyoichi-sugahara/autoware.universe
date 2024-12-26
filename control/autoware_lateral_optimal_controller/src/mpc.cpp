@@ -68,44 +68,18 @@ MPC::MPC(rclcpp::Node & node)
 }
 
 ResultWithReason MPC::calculateMPC(
-  const SteeringReport & current_steer, const Odometry & current_kinematics, Lateral & ctrl_cmd,
+  const MPCData & mpc_data, const SteeringReport & current_steer,
+  const Odometry & current_kinematics, const VectorXd & x0_delayed, Lateral & ctrl_cmd,
   Trajectory & predicted_trajectory, Float32MultiArrayStamped & diagnostic,
   LateralHorizon & ctrl_cmd_horizon, const std::string & qp_solver_type)
 {
-  // since the reference trajectory does not take into account the current velocity of the ego
-  // vehicle, it needs to calculate the trajectory velocity considering the longitudinal dynamics.
-  const auto reference_trajectory =
-    applyVelocityDynamicsFilter(m_reference_trajectory, current_kinematics);
-
-  // get the necessary data
-  const auto [get_data_result, mpc_data] =
-    getData(reference_trajectory, current_steer, current_kinematics);
-  if (!get_data_result.result) {
-    return ResultWithReason{false, fmt::format("getting MPC Data ({}).", get_data_result.reason)};
-  }
-
-  // calculate initial state of the error dynamics
-  const auto x0 = getInitialState(mpc_data);
-
-  // apply time delay compensation to the initial state
-  const auto [success_delay, x0_delayed] =
-    updateStateForDelayCompensation(reference_trajectory, mpc_data.nearest_time, x0);
-  RCLCPP_DEBUG(
-    m_logger, "x0_delayed = %f, %f, %f, %f", x0_delayed(0), x0_delayed(1), x0_delayed(2),
-    x0_delayed(3));
-  RCLCPP_DEBUG(m_logger, "x0 = %f, %f, %f, %f", x0(0), x0(1), x0(2), x0(3));
-
-  if (!success_delay) {
-    return ResultWithReason{false, "delay compensation."};
-  }
-
   // resample reference trajectory with mpc sampling time
   const double mpc_start_time = mpc_data.nearest_time + m_param.input_delay;
   const double prediction_dt =
-    getPredictionDeltaTime(mpc_start_time, reference_trajectory, current_kinematics);
+    getPredictionDeltaTime(mpc_start_time, m_reference_trajectory, current_kinematics);
 
   const auto [resample_result, mpc_resampled_ref_trajectory] =
-    resampleMPCTrajectoryByTime(mpc_start_time, prediction_dt, reference_trajectory);
+    resampleMPCTrajectoryByTime(mpc_start_time, prediction_dt, m_reference_trajectory);
   if (!resample_result.result) {
     return ResultWithReason{
       false, fmt::format("trajectory resampling ({}).", resample_result.reason)};
@@ -154,21 +128,6 @@ ResultWithReason MPC::calculateMPC(
     RCLCPP_DEBUG(
       m_logger, "executeOptimization (cgmres) time = %.3f [ms]",
       cgmres_calculation_duration.count() / 1e6);
-
-    /* calculate predicted trajectory */
-    cgmres_predicted_trajectory_world = calculatePredictedTrajectory(
-      mpc_matrix, x0, Ucgmres, mpc_resampled_ref_trajectory, prediction_dt, "world");
-    cgmres_predicted_trajectory_frenet = calculatePredictedTrajectory(
-      mpc_matrix, x0_delayed, Ucgmres, mpc_resampled_ref_trajectory, prediction_dt, "frenet");
-    // cgmres_predicted_trajectory_f  renet = calculatePredictedTrajectory(
-    //   x0_delayed, Ucgmres, mpc_resampled_ref_trajectory, prediction_dt);
-    cgmres_predicted_trajectory_world.header.stamp = m_clock->now();
-    cgmres_predicted_trajectory_world.header.frame_id = "map";
-    cgmres_predicted_trajectory_frenet.header.stamp = m_clock->now();
-    cgmres_predicted_trajectory_frenet.header.frame_id = "map";
-
-    m_debug_cgmres_predicted_trajectory_pub->publish(cgmres_predicted_trajectory_world);
-    m_debug_cgmres_frenet_predicted_trajectory_pub->publish(cgmres_predicted_trajectory_frenet);
   }
 
   // apply filters for the input limitation and low pass filter
@@ -193,7 +152,7 @@ ResultWithReason MPC::calculateMPC(
 
   /* calculate predicted trajectory */
   predicted_trajectory = calculatePredictedTrajectory(
-    mpc_matrix, x0, Uex, mpc_resampled_ref_trajectory, prediction_dt, "world");
+    mpc_matrix, x0_delayed, Uex, mpc_resampled_ref_trajectory, prediction_dt, "world");
 
   predicted_trajectory_world = predicted_trajectory;
 
@@ -201,7 +160,7 @@ ResultWithReason MPC::calculateMPC(
   if (m_publish_debug_trajectories) {
     // Calculate and publish predicted trajectory in Frenet coordinate
     predicted_trajectory_frenet = calculatePredictedTrajectory(
-      mpc_matrix, x0, Uex, mpc_resampled_ref_trajectory, prediction_dt, "frenet");
+      mpc_matrix, x0_delayed, Uex, mpc_resampled_ref_trajectory, prediction_dt, "frenet");
     predicted_trajectory_frenet.header.stamp = m_clock->now();
     predicted_trajectory_frenet.header.frame_id = "map";
     m_debug_frenet_predicted_trajectory_pub->publish(predicted_trajectory_frenet);
@@ -214,23 +173,22 @@ ResultWithReason MPC::calculateMPC(
     m_debug_predicted_trajectory_with_delay_pub->publish(predicted_trajectory_world_with_delay);
   }
 
-  Eigen::VectorXd initial_state = m_use_delayed_initial_state ? x0_delayed : x0;
   predicted_trajectory = calculatePredictedTrajectory(
-    mpc_matrix, initial_state, Uex, mpc_resampled_ref_trajectory, prediction_dt, "world");
+    mpc_matrix, x0_delayed, Uex, mpc_resampled_ref_trajectory, prediction_dt, "world");
 
   // Publish predicted trajectories in different coordinates for debugging purposes
   if (m_publish_debug_trajectories) {
     // Calculate and publish predicted trajectory in Frenet coordinate
     auto predicted_trajectory_frenet = calculatePredictedTrajectory(
-      mpc_matrix, initial_state, Uex, mpc_resampled_ref_trajectory, prediction_dt, "frenet");
+      mpc_matrix, x0_delayed, Uex, mpc_resampled_ref_trajectory, prediction_dt, "frenet");
     predicted_trajectory_frenet.header.stamp = m_clock->now();
     predicted_trajectory_frenet.header.frame_id = "map";
     m_debug_frenet_predicted_trajectory_pub->publish(predicted_trajectory_frenet);
   }
 
   // prepare diagnostic message
-  diagnostic =
-    generateDiagData(reference_trajectory, mpc_data, mpc_matrix, ctrl_cmd, Uex, current_kinematics);
+  diagnostic = generateDiagData(
+    m_reference_trajectory, mpc_data, mpc_matrix, ctrl_cmd, Uex, current_kinematics);
   // publish debug data
   if (qp_solver_type == "cgmres") {
     publish_debug_data(
@@ -485,6 +443,10 @@ void MPC::setReferenceTrajectory(
     RCLCPP_DEBUG(m_logger, "path callback: trajectory size is undesired.");
     return;
   }
+  // since the reference trajectory does not take into account the current velocity of the ego
+  // vehicle, it needs to calculate the trajectory velocity considering the longitudinal dynamics.
+  const auto reference_trajectory =
+    applyVelocityDynamicsFilter(mpc_traj_smoothed, current_kinematics);
 
   m_reference_trajectory = mpc_traj_smoothed;
 }

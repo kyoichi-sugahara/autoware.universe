@@ -25,6 +25,8 @@
 #include "tf2/utils.h"
 #include "tf2_ros/create_timer_ros.h"
 
+#include <fmt/format.h>
+
 #include <algorithm>
 #include <cstdlib>
 #include <deque>
@@ -301,10 +303,31 @@ trajectory_follower::LateralOutput MpcLateralController::run(
     m_is_ctrl_cmd_prev_initialized = true;
   }
 
+  // get the necessary data
+  const auto [get_data_result, mpc_data] =
+    m_mpc->getData(m_mpc->m_reference_trajectory, m_current_steering, m_current_kinematic_state);
+
   trajectory_follower::LateralHorizon ctrl_cmd_horizon{};
-  const auto mpc_solved_status = m_mpc->calculateMPC(
-    m_current_steering, m_current_kinematic_state, ctrl_cmd, predicted_traj, debug_values,
-    ctrl_cmd_horizon, qp_solver_type_);
+  ResultWithReason mpc_solved_status;
+  if (!get_data_result.result) {
+    mpc_solved_status =
+      ResultWithReason{false, fmt::format("getting MPC Data ({}).", get_data_result.reason)};
+  } else {
+    // calculate initial state of the error dynamics
+    const auto x0 = m_mpc->getInitialState(mpc_data);
+
+    // apply time delay compensation to the initial state
+    const auto [success_delay, x0_delayed] = m_mpc->updateStateForDelayCompensation(
+      m_mpc->m_reference_trajectory, mpc_data.nearest_time, x0);
+
+    if (!success_delay) {
+      mpc_solved_status = ResultWithReason{false, "delay compensation."};
+    } else {
+      mpc_solved_status = m_mpc->calculateMPC(
+        mpc_data, m_current_steering, m_current_kinematic_state, x0_delayed, ctrl_cmd,
+        predicted_traj, debug_values, ctrl_cmd_horizon, qp_solver_type_);
+    }
+  }
 
   if (
     (m_mpc_solved_status.result == true && mpc_solved_status.result == false) ||
