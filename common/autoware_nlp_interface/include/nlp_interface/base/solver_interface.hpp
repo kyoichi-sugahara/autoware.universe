@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef NLP_INTERFACE__NLP_INTERFACE_HPP_
-#define NLP_INTERFACE__NLP_INTERFACE_HPP_
+#ifndef NLP_INTERFACE__BASE__SOLVER_INTERFACE_HPP_
+#define NLP_INTERFACE__BASE__SOLVER_INTERFACE_HPP_
 
 #include <Eigen/Core>
 
@@ -22,8 +22,28 @@
 #include <string>
 #include <vector>
 
-namespace autoware::nlp_interface
+namespace autoware::nlp_interface::base
 {
+
+template <typename ParameterType, typename... OptimizationArgs>
+class SolverInterface
+{
+public:
+  explicit SolverInterface(const ParameterType & params) : params_(params)
+  {
+    validate_parameters();
+  }
+
+protected:
+  // 子クラスでの参照用
+  const ParameterType & get_parameters() const { return params_; }
+
+private:
+  virtual void validate_parameters() {}
+
+  const ParameterType params_;
+};
+
 class NLPInterface
 {
 public:
@@ -68,6 +88,6 @@ protected:
   std::optional<size_t> variables_num_{std::nullopt};
   std::optional<size_t> constraints_num_{std::nullopt};
 };
-}  // namespace autoware::nlp_interface
+}  // namespace autoware::nlp_interface::base
 
-#endif  // NLP_INTERFACE__NLP_INTERFACE_HPP_
+#endif  // NLP_INTERFACE__BASE__SOLVER_INTERFACE_HPP_

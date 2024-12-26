@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef NLP_INTERFACE__CGMRES_INTERFACE_HPP_
-#define NLP_INTERFACE__CGMRES_INTERFACE_HPP_
+#ifndef NLP_INTERFACE__SOLVERS__CGMRES_SOLVER_HPP_
+#define NLP_INTERFACE__SOLVERS__CGMRES_SOLVER_HPP_
 
 #include "nlp_interface/nlp_interface.hpp"
 
@@ -23,7 +23,7 @@
 #include <string>
 #include <vector>
 
-namespace autoware::nlp_interface
+namespace autoware::nlp_interface::solvers
 {
 
 class CGMRESInterface : public NLPInterface
@@ -79,6 +79,6 @@ private:
   bool checkConvergence(const Eigen::VectorXd & solution);
 };
 
-}  // namespace autoware::nlp_interface
+}  // namespace autoware::nlp_interface::solvers
 
-#endif  // NLP_INTERFACE__CGMRES_INTERFACE_HPP_
+#endif  // NLP_INTERFACE__SOLVERS__CGMRES_SOLVER_HPP_
