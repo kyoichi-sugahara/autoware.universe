@@ -33,9 +33,7 @@ using autoware::lane_departure_checker::LaneDepartureChecker;
 class ShiftPullOut : public PullOutPlannerBase
 {
 public:
-  explicit ShiftPullOut(
-    rclcpp::Node & node, const StartPlannerParameters & parameters,
-    std::shared_ptr<LaneDepartureChecker> & lane_departure_checker);
+  explicit ShiftPullOut(rclcpp::Node & node, const StartPlannerParameters & parameters);
 
   PlannerType getPlannerType() const override { return PlannerType::SHIFT; };
   std::optional<PullOutPath> plan(

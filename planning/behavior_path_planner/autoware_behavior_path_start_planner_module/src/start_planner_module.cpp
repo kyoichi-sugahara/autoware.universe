@@ -67,10 +67,8 @@ StartPlannerModule::StartPlannerModule(
 : SceneModuleInterface{name, node, rtc_interface_ptr_map, objects_of_interest_marker_interface_ptr_map},  // NOLINT
   parameters_{parameters},
   vehicle_info_{autoware::vehicle_info_utils::VehicleInfoUtils(node).getVehicleInfo()},
-  is_freespace_planner_cb_running_{false},
-  lane_departure_checker_{std::make_shared<LaneDepartureChecker>(
-    autoware::lane_departure_checker::Param{parameters->lane_departure_check_expansion_margin},
-    vehicle_info_, time_keeper_)}
+  is_freespace_planner_cb_running_{false}
+
 {
   // autoware::lane_departure_checker::Param lane_departure_checker_params{};
   // lane_departure_checker_params.footprint_extra_margin =
@@ -80,14 +78,12 @@ StartPlannerModule::StartPlannerModule(
 
   // set enabled planner
   if (parameters_->enable_shift_pull_out) {
-    const auto shift_pull_out =
-      std::make_shared<ShiftPullOut>(node, *parameters, lane_departure_checker_);
+    const auto shift_pull_out = std::make_shared<ShiftPullOut>(node, *parameters);
     shift_pull_out->setTimeKeeper(time_keeper_);
     start_planners_.push_back(shift_pull_out);
   }
   if (parameters_->enable_geometric_pull_out) {
-    const auto geometric_pull_out =
-      std::make_shared<GeometricPullOut>(node, *parameters, lane_departure_checker_);
+    const auto geometric_pull_out = std::make_shared<GeometricPullOut>(node, *parameters);
     geometric_pull_out->setTimeKeeper(time_keeper_);
     start_planners_.push_back(geometric_pull_out);
   }

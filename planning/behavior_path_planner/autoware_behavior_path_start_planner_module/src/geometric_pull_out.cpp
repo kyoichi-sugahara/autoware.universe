@@ -34,16 +34,14 @@ namespace autoware::behavior_path_planner
 {
 using start_planner_utils::getPullOutLanes;
 
-GeometricPullOut::GeometricPullOut(
-  rclcpp::Node & node, const StartPlannerParameters & parameters,
-  const std::shared_ptr<autoware::lane_departure_checker::LaneDepartureChecker>
-    lane_departure_checker)
+GeometricPullOut::GeometricPullOut(rclcpp::Node & node, const StartPlannerParameters & parameters)
 : PullOutPlannerBase{node, parameters},
-  parallel_parking_parameters_{parameters.parallel_parking_parameters},
-  lane_departure_checker_(lane_departure_checker)
+  parallel_parking_parameters_{parameters.parallel_parking_parameters}
 {
-  // const auto
-  // lane_departure_checker_ =
+  lane_departure_checker_ =
+    std::make_shared<autoware::lane_departure_checker::LaneDepartureChecker>(
+      autoware::lane_departure_checker::Param{parameters.lane_departure_check_expansion_margin},
+      vehicle_info_);
   planner_.setParameters(parallel_parking_parameters_);
 }
 

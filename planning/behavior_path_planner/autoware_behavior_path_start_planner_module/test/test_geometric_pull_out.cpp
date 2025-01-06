@@ -63,7 +63,6 @@ protected:
     node_ =
       rclcpp::Node::make_shared("geometric_pull_out", StartPlannerTestHelper::make_node_options());
 
-    lane_departure_checker_ = StartPlannerTestHelper::make_lane_departure_checker(*node_);
     initialize_geometric_pull_out_planner();
   }
   void TearDown() override { rclcpp::shutdown(); }
@@ -78,8 +77,7 @@ private:
   {
     auto parameters = StartPlannerParameters::init(*node_);
 
-    geometric_pull_out_ =
-      std::make_shared<GeometricPullOut>(*node_, parameters, lane_departure_checker_);
+    geometric_pull_out_ = std::make_shared<GeometricPullOut>(*node_, parameters);
     const auto time_keeper = std::make_shared<autoware::universe_utils::TimeKeeper>();
     geometric_pull_out_->setTimeKeeper(time_keeper);
   }
