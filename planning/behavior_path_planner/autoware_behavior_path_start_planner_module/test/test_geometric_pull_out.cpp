@@ -78,9 +78,8 @@ private:
   {
     auto parameters = StartPlannerParameters::init(*node_);
 
-    auto time_keeper = std::make_shared<autoware::universe_utils::TimeKeeper>();
     geometric_pull_out_ =
-      std::make_shared<GeometricPullOut>(*node_, parameters, lane_departure_checker_, time_keeper);
+      std::make_shared<GeometricPullOut>(*node_, parameters, lane_departure_checker_);
   }
 };
 

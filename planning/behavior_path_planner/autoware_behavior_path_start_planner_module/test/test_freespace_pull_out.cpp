@@ -79,9 +79,7 @@ private:
     auto parameters = StartPlannerParameters::init(*node_);
     const auto vehicle_info =
       autoware::vehicle_info_utils::VehicleInfoUtils(*node_).getVehicleInfo();
-    auto time_keeper = std::make_shared<autoware::universe_utils::TimeKeeper>();
-    freespace_pull_out_ =
-      std::make_shared<FreespacePullOut>(*node_, parameters, vehicle_info, time_keeper);
+    freespace_pull_out_ = std::make_shared<FreespacePullOut>(*node_, parameters, vehicle_info);
   }
 };
 
