@@ -78,14 +78,10 @@ StartPlannerModule::StartPlannerModule(
 
   // set enabled planner
   if (parameters_->enable_shift_pull_out) {
-    const auto shift_pull_out = std::make_shared<ShiftPullOut>(node, *parameters);
-    shift_pull_out->setTimeKeeper(time_keeper_);
-    start_planners_.push_back(shift_pull_out);
+    start_planners_.push_back(std::make_shared<ShiftPullOut>(node, *parameters, time_keeper_));
   }
   if (parameters_->enable_geometric_pull_out) {
-    const auto geometric_pull_out = std::make_shared<GeometricPullOut>(node, *parameters);
-    geometric_pull_out->setTimeKeeper(time_keeper_);
-    start_planners_.push_back(geometric_pull_out);
+    start_planners_.push_back(std::make_shared<GeometricPullOut>(node, *parameters, time_keeper_));
   }
   if (start_planners_.empty()) {
     RCLCPP_ERROR(getLogger(), "Not found enabled planner");
