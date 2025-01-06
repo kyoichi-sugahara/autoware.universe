@@ -27,8 +27,6 @@ class StartPlannerTestHelper
 public:
   static rclcpp::NodeOptions make_node_options();
 
-  static std::shared_ptr<LaneDepartureChecker> make_lane_departure_checker(rclcpp::Node & node);
-
   static void set_odometry(
     std::shared_ptr<PlannerData> & planner_data, const geometry_msgs::msg::Pose & start_pose);
   static void set_route(

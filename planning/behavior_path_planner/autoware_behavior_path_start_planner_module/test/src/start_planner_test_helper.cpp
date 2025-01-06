@@ -53,17 +53,6 @@ rclcpp::NodeOptions StartPlannerTestHelper::make_node_options()
   return node_options;
 }
 
-std::shared_ptr<LaneDepartureChecker> StartPlannerTestHelper::make_lane_departure_checker(
-  rclcpp::Node & node)
-{
-  const auto vehicle_info = autoware::vehicle_info_utils::VehicleInfoUtils(node).getVehicleInfo();
-  autoware::lane_departure_checker::Param lane_departure_checker_params{};
-  auto lane_departure_checker =
-    std::make_shared<LaneDepartureChecker>(lane_departure_checker_params, vehicle_info);
-
-  return lane_departure_checker;
-}
-
 void StartPlannerTestHelper::set_odometry(
   std::shared_ptr<PlannerData> & planner_data, const geometry_msgs::msg::Pose & start_pose)
 {

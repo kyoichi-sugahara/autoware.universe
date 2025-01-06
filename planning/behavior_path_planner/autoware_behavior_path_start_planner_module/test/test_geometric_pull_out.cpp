@@ -70,7 +70,6 @@ protected:
   // Member variables
   std::shared_ptr<rclcpp::Node> node_;
   std::shared_ptr<GeometricPullOut> geometric_pull_out_;
-  std::shared_ptr<LaneDepartureChecker> lane_departure_checker_;
 
 private:
   void initialize_geometric_pull_out_planner()
@@ -78,8 +77,6 @@ private:
     auto parameters = StartPlannerParameters::init(*node_);
 
     geometric_pull_out_ = std::make_shared<GeometricPullOut>(*node_, parameters);
-    const auto time_keeper = std::make_shared<autoware::universe_utils::TimeKeeper>();
-    geometric_pull_out_->setTimeKeeper(time_keeper);
   }
 };
 

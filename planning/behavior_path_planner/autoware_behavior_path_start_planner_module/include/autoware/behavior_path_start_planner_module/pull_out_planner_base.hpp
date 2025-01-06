@@ -73,7 +73,8 @@ protected:
   LinearRing2d vehicle_footprint_;
   double collision_check_margin_;
 
-  mutable std::shared_ptr<universe_utils::TimeKeeper> time_keeper_;
+  mutable std::shared_ptr<universe_utils::TimeKeeper> time_keeper_ =
+    std::make_shared<autoware::universe_utils::TimeKeeper>();
 };
 }  // namespace autoware::behavior_path_planner
 

@@ -59,7 +59,6 @@ protected:
     node_ =
       rclcpp::Node::make_shared("shift_pull_out", StartPlannerTestHelper::make_node_options());
 
-    lane_departure_checker_ = StartPlannerTestHelper::make_lane_departure_checker(*node_);
     initialize_shift_pull_out_planner();
   }
 
@@ -68,7 +67,6 @@ protected:
   // Member variables
   std::shared_ptr<rclcpp::Node> node_;
   std::shared_ptr<ShiftPullOut> shift_pull_out_;
-  std::shared_ptr<LaneDepartureChecker> lane_departure_checker_;
 
 private:
   void initialize_shift_pull_out_planner()
@@ -76,8 +74,6 @@ private:
     auto parameters = StartPlannerParameters::init(*node_);
 
     shift_pull_out_ = std::make_shared<ShiftPullOut>(*node_, parameters);
-    const auto time_keeper = std::make_shared<autoware::universe_utils::TimeKeeper>();
-    shift_pull_out_->setTimeKeeper(time_keeper);
   }
 };
 
