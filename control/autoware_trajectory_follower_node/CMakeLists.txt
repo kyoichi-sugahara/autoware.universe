@@ -5,7 +5,7 @@ find_package(autoware_cmake REQUIRED)
 autoware_package()
 
 find_package(autoware_mpc_lateral_controller REQUIRED)
-find_package(autoware_lateral_optimal_controller REQUIRED)
+# find_package(autoware_lateral_optimal_controller REQUIRED)
 
 set(CONTROLLER_NODE controller_node)
 ament_auto_add_library(${CONTROLLER_NODE} SHARED
@@ -16,12 +16,12 @@ ament_auto_add_library(${CONTROLLER_NODE} SHARED
 target_include_directories(${CONTROLLER_NODE}
   PRIVATE
   ${autoware_mpc_lateral_controller_INCLUDE_DIRS}
-  ${autoware_lateral_optimal_controller_INCLUDE_DIRS}
+  # ${autoware_lateral_optimal_controller_INCLUDE_DIRS}
 )
 
 target_link_libraries(${CONTROLLER_NODE}
   ${autoware_mpc_lateral_controller_LIBRARIES}
-  ${autoware_lateral_optimal_controller_LIBRARIES}
+  # ${autoware_lateral_optimal_controller_LIBRARIES}
 )
 
 rclcpp_components_register_node(${CONTROLLER_NODE}

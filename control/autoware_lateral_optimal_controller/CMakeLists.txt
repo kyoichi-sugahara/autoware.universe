@@ -7,6 +7,8 @@ autoware_package()
 find_package(cgmres REQUIRED)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 find_package(fmt REQUIRED)
+find_package(autoware_nlp_interface REQUIRED)
+
 
 ament_auto_add_library(lateral_optimal_controller_steering_offset_lib SHARED
   src/steering_offset/steering_offset.cpp

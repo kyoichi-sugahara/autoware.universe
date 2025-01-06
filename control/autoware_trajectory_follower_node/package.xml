@@ -21,7 +21,6 @@
 
   <depend>autoware_adapi_v1_msgs</depend>
   <depend>autoware_control_msgs</depend>
-  <depend>autoware_lateral_optimal_controller</depend>
   <depend>autoware_motion_utils</depend>
   <depend>autoware_mpc_lateral_controller</depend>
   <depend>autoware_nlp_interface</depend>
@@ -36,6 +35,7 @@
   <depend>rclcpp_components</depend>
   <depend>rosbag2_cpp</depend>
   <depend>visualization_msgs</depend>
+  <!-- <depend>autoware_lateral_optimal_controller</depend> -->
 
   <exec_depend>ros2launch</exec_depend>
 
