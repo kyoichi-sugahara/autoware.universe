@@ -29,11 +29,10 @@
 
 namespace autoware::behavior_path_planner
 {
-FreespacePullOut::FreespacePullOut(
-  rclcpp::Node & node, const StartPlannerParameters & parameters,
-  const autoware::vehicle_info_utils::VehicleInfo & vehicle_info)
+FreespacePullOut::FreespacePullOut(rclcpp::Node & node, const StartPlannerParameters & parameters)
 : PullOutPlannerBase{node, parameters}, velocity_{parameters.freespace_planner_velocity}
 {
+  const auto vehicle_info = autoware::vehicle_info_utils::VehicleInfoUtils(node).getVehicleInfo();
   autoware::freespace_planning_algorithms::VehicleShape vehicle_shape(
     vehicle_info, parameters.vehicle_shape_margin);
   if (parameters.freespace_planner_algorithm == "astar") {

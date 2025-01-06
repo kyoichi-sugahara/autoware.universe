@@ -80,6 +80,8 @@ private:
 
     geometric_pull_out_ =
       std::make_shared<GeometricPullOut>(*node_, parameters, lane_departure_checker_);
+    const auto time_keeper = std::make_shared<autoware::universe_utils::TimeKeeper>();
+    geometric_pull_out_->setTimeKeeper(time_keeper);
   }
 };
 
@@ -98,6 +100,7 @@ TEST_F(TestGeometricPullOut, GenerateValidGeometricPullOutPath)
       .orientation(
         geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(0.705897).w(
           0.708314));
+
   auto planner_data = std::make_shared<PlannerData>();
   planner_data->init_parameters(*node_);
   StartPlannerTestHelper::set_odometry(planner_data, start_pose);

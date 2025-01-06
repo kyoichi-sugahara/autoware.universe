@@ -63,7 +63,7 @@ protected:
     planner_data_ = std::make_shared<PlannerData>();
     planner_data_->init_parameters(*node_);
 
-    freespace_pull_out_planner();
+    initialize_freespace_pull_out_planner();
   }
 
   void TearDown() override { rclcpp::shutdown(); }
@@ -74,12 +74,10 @@ protected:
   std::shared_ptr<PlannerData> planner_data_;
 
 private:
-  void freespace_pull_out_planner()
+  void initialize_freespace_pull_out_planner()
   {
     auto parameters = StartPlannerParameters::init(*node_);
-    const auto vehicle_info =
-      autoware::vehicle_info_utils::VehicleInfoUtils(*node_).getVehicleInfo();
-    freespace_pull_out_ = std::make_shared<FreespacePullOut>(*node_, parameters, vehicle_info);
+    freespace_pull_out_ = std::make_shared<FreespacePullOut>(*node_, parameters);
   }
 };
 

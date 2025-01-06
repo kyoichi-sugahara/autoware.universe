@@ -42,6 +42,8 @@ GeometricPullOut::GeometricPullOut(
   parallel_parking_parameters_{parameters.parallel_parking_parameters},
   lane_departure_checker_(lane_departure_checker)
 {
+  // const auto
+  // lane_departure_checker_ =
   planner_.setParameters(parallel_parking_parameters_);
 }
 
