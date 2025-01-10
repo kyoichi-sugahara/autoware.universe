@@ -68,14 +68,7 @@ StartPlannerModule::StartPlannerModule(
   parameters_{parameters},
   vehicle_info_{autoware::vehicle_info_utils::VehicleInfoUtils(node).getVehicleInfo()},
   is_freespace_planner_cb_running_{false}
-
 {
-  // autoware::lane_departure_checker::Param lane_departure_checker_params{};
-  // lane_departure_checker_params.footprint_extra_margin =
-  //   parameters->lane_departure_check_expansion_margin;
-  // lane_departure_checker_ = std::make_shared<LaneDepartureChecker>(
-  //   lane_departure_checker_params, vehicle_info_, time_keeper_);
-
   // set enabled planner
   if (parameters_->enable_shift_pull_out) {
     start_planners_.push_back(std::make_shared<ShiftPullOut>(node, *parameters, time_keeper_));
@@ -1675,6 +1668,9 @@ std::optional<PullOutStatus> StartPlannerModule::planFreespacePath(
     auto freespace_path =
       freespace_planner_->plan(current_pose, end_pose, planner_data, debug_data);
     DEBUG_PRINT(debug_data.str().c_str());
+    DEBUG_PRINT(
+      "\nFreespace Pull out path search results\n%s%s", debug_data.header_str().c_str(),
+      debug_data.str().c_str());
     if (!freespace_path) {
       continue;
     }

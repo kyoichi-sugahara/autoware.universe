@@ -14,7 +14,6 @@
 #pragma once
 
 #include <autoware/behavior_path_start_planner_module/start_planner_module.hpp>
-#include <autoware/lane_departure_checker/lane_departure_checker.hpp>
 #include <rclcpp/rclcpp.hpp>
 
 #include <memory>
@@ -32,7 +31,6 @@ public:
   static void set_route(
     std::shared_ptr<PlannerData> & planner_data, const int route_start_lane_id,
     const int route_goal_lane_id);
-
   static void set_costmap(
     std::shared_ptr<PlannerData> & planner_data, const geometry_msgs::msg::Pose & start_pose,
     const double grid_resolution, const double grid_length_x, const double grid_length_y);

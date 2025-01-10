@@ -39,13 +39,15 @@ namespace autoware::behavior_path_planner
 {
 using start_planner_utils::getPullOutLanes;
 
-ShiftPullOut::ShiftPullOut(rclcpp::Node & node, const StartPlannerParameters & parameters)
-: PullOutPlannerBase{node, parameters}
+ShiftPullOut::ShiftPullOut(
+  rclcpp::Node & node, const StartPlannerParameters & parameters,
+  std::shared_ptr<universe_utils::TimeKeeper> time_keeper)
+: PullOutPlannerBase{node, parameters, time_keeper}
 {
   lane_departure_checker_ =
     std::make_shared<autoware::lane_departure_checker::LaneDepartureChecker>(
       autoware::lane_departure_checker::Param{parameters.lane_departure_check_expansion_margin},
-      vehicle_info_);
+      vehicle_info_, time_keeper_);
 }
 
 std::optional<PullOutPath> ShiftPullOut::plan(

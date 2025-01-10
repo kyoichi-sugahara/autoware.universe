@@ -18,7 +18,6 @@
 #include <autoware/behavior_path_start_planner_module/shift_pull_out.hpp>
 #include <autoware/behavior_path_start_planner_module/start_planner_module.hpp>
 #include <autoware/behavior_path_start_planner_module/util.hpp>
-#include <autoware/lane_departure_checker/lane_departure_checker.hpp>
 #include <autoware/route_handler/route_handler.hpp>
 #include <autoware_lanelet2_extension/utility/query.hpp>
 #include <autoware_planning_test_manager/autoware_planning_test_manager_utils.hpp>
@@ -27,12 +26,12 @@
 #include <gtest/gtest.h>
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
 using autoware::behavior_path_planner::ShiftPullOut;
 using autoware::behavior_path_planner::StartPlannerParameters;
-using autoware::lane_departure_checker::LaneDepartureChecker;
 using autoware::test_utils::get_absolute_path_to_config;
 using autoware_planning_msgs::msg::LaneletRoute;
 using RouteSections = std::vector<autoware_planning_msgs::msg::LaneletSegment>;
@@ -73,7 +72,7 @@ private:
   {
     auto parameters = StartPlannerParameters::init(*node_);
 
-    shift_pull_out_ = std::make_shared<ShiftPullOut>(*node_, parameters, lane_departure_checker_);
+    shift_pull_out_ = std::make_shared<ShiftPullOut>(*node_, parameters);
   }
 };
 

@@ -52,6 +52,13 @@ typedef boost::geometry::index::rtree<Segment2d, boost::geometry::index::rstar<1
 class LaneDepartureChecker
 {
 public:
+  explicit LaneDepartureChecker(
+    std::shared_ptr<universe_utils::TimeKeeper> time_keeper =
+      std::make_shared<universe_utils::TimeKeeper>())
+  : time_keeper_(time_keeper)
+  {
+  }
+
   LaneDepartureChecker(
     const Param & param, const autoware::vehicle_info_utils::VehicleInfo & vehicle_info,
     std::shared_ptr<universe_utils::TimeKeeper> time_keeper =
