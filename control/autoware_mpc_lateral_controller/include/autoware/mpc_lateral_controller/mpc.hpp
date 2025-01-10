@@ -26,12 +26,12 @@
 #include "rclcpp/rclcpp.hpp"
 
 #include "autoware_control_msgs/msg/lateral.hpp"
+#include "autoware_internal_debug_msgs/msg/float32_multi_array_stamped.hpp"
 #include "autoware_planning_msgs/msg/trajectory.hpp"
 #include "autoware_vehicle_msgs/msg/steering_report.hpp"
 #include "geometry_msgs/msg/pose.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "std_msgs/msg/float64_multi_array.hpp"
-#include "tier4_debug_msgs/msg/float32_multi_array_stamped.hpp"
 
 #include <deque>
 #include <memory>
@@ -44,13 +44,13 @@ namespace autoware::motion::control::mpc_lateral_controller
 
 using autoware::motion::control::trajectory_follower::LateralHorizon;
 using autoware_control_msgs::msg::Lateral;
+using autoware_internal_debug_msgs::msg::Float32MultiArrayStamped;
 using autoware_mpc_lateral_controller::msg::MpcDebug;
 using autoware_planning_msgs::msg::Trajectory;
 using autoware_vehicle_msgs::msg::SteeringReport;
 using geometry_msgs::msg::Pose;
 using nav_msgs::msg::Odometry;
 using std_msgs::msg::Float64MultiArray;
-using tier4_debug_msgs::msg::Float32MultiArrayStamped;
 
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
