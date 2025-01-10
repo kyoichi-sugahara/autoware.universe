@@ -37,8 +37,6 @@ using RouteSections = std::vector<autoware_planning_msgs::msg::LaneletSegment>;
 using autoware::behavior_path_planner::testing::StartPlannerTestHelper;
 using autoware_planning_test_manager::utils::makeBehaviorRouteFromLaneId;
 
-using geometry_msgs::msg::Pose;
-
 namespace autoware::behavior_path_planner
 {
 

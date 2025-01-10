@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "include/start_planner_test_helper.hpp"
 #include "start_planner_test_helper.hpp"
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
