@@ -52,6 +52,7 @@ bool QPSolverOSQP::solve(
   osqpA << Identity, a;
 
   /* execute optimization */
+  // QUESTION: what is the U_osqp?
   auto result = osqpsolver_.optimize(h_mat, osqpA, f, lower_bound, upper_bound);
 
   std::vector<double> U_osqp = std::get<0>(result);

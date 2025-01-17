@@ -235,9 +235,9 @@ ResultWithReason MPC::calculateMPC(
   if (qp_solver_type == "cgmres") {
     publish_debug_data(
       mpc_resampled_ref_trajectory, predicted_trajectory_world, predicted_trajectory_frenet,
-      cgmres_predicted_trajectory_world, cgmres_predicted_trajectory_frenet, Uex, Ucgmres,
-      osqp_calculation_duration.count() / 1e6, cgmres_calculation_duration.count() / 1e6, opt_error,
-      opt_error_array, m_param.prediction_horizon);
+      cgmres_predicted_trajectory_world, cgmres_predicted_trajectory_frenet, initial_state, Uex,
+      Ucgmres, osqp_calculation_duration.count() / 1e6, cgmres_calculation_duration.count() / 1e6,
+      opt_error, opt_error_array, m_param.prediction_horizon, prediction_dt);
   }
 
   // create LateralHorizon command
@@ -261,10 +261,10 @@ void MPC::publish_debug_data(
   const Trajectory & osqp_predicted_trajectory_world,
   const Trajectory & osqp_predicted_trajectory_frenet,
   const Trajectory & cgmres_predicted_trajectory_world,
-  const Trajectory & cgmres_predicted_trajectory_frenet, const VectorXd & Uosqp,
-  const VectorXd & Ucgmres, const double osqp_calculation_time,
+  const Trajectory & cgmres_predicted_trajectory_frenet, const VectorXd current_state,
+  const VectorXd & Uosqp, const VectorXd & Ucgmres, const double osqp_calculation_time,
   const double cgmres_calculation_time, const double cgmres_opt_error,
-  const VectorXd & opt_error_array, const int num_step) const
+  const VectorXd & opt_error_array, const int num_step, const double prediction_dt) const
 {
   MpcDebug debug_data;
 
@@ -344,8 +344,55 @@ void MPC::publish_debug_data(
     debug_data.hmu_i_updated.data.insert(debug_data.hmu_i_updated.data.end(), it, it + nub);
     it += nub;
   }
+  [[maybe_unused]] const auto internal_model_osqp =
+    predict_internal_model(current_state, Uosqp, mpc_resampled_ref_trajectory, prediction_dt);
+  [[maybe_unused]] const auto internal_model_cgmres =
+    predict_internal_model(current_state, Ucgmres, mpc_resampled_ref_trajectory, prediction_dt);
+  // const auto cost_osqp = calculate_cost(Uosqp, internal_model_osqp);
+  // const auto internal_model_cgmres =
+  //   predict_internal_model(current_state, Ucgmres, mpc_resampled_ref_trajectory);
 
   m_debug_cgmres_debug_pub->publish(debug_data);
+}
+
+MatrixXd MPC::predict_internal_model(
+  const VectorXd & x0, const VectorXd & Uex, const MPCTrajectory & reference_trajectory,
+  const double prediction_dt) const
+{
+  // Calculate predicted state in frenet coordinate
+  // Relative coordinate x0 = [lat_err, yaw_err, steer]
+
+  const int N = m_param.prediction_horizon;
+  const int DIM_X = m_vehicle_model_ptr->getDimX();
+  const int DIM_U = m_vehicle_model_ptr->getDimU();
+
+  MatrixXd predicted_states(DIM_X, N + 1);
+  predicted_states.col(0) = x0;
+
+  VectorXd current_state = x0;  // (y, theta, delta)
+  for (int i = 0; i < N; i++) {
+    const double vx_i = reference_trajectory.vx.at(i);
+    const double k_i = reference_trajectory.k.at(i);
+    const double steer_cmd_i = Uex(i * DIM_U);
+    const double y_k = current_state(0);
+    const double theta_k = current_state(1);
+    const double delta_k = current_state(2);
+    double y_next = y_k + vx_i * std::sin(theta_k) * prediction_dt;
+
+    double theta_next =
+      theta_k + (vx_i / m_vehicle_model_ptr->getWheelbase()) * std::tan(delta_k) * prediction_dt -
+      k_i * vx_i * std::cos(theta_k) * prediction_dt;
+
+    double delta_next =
+      delta_k + (1.0 / m_param.steer_tau) * (steer_cmd_i - delta_k) * prediction_dt;
+
+    current_state(0) = y_next;
+    current_state(1) = theta_next;
+    current_state(2) = delta_next;
+    predicted_states.col(i + 1) = current_state;
+  }
+
+  return predicted_states;
 }
 
 Float32MultiArrayStamped MPC::generateDiagData(

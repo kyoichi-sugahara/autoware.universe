@@ -273,11 +273,14 @@ private:
     const Trajectory & osqp_predicted_trajectory_world,
     const Trajectory & osqp_predicted_trajectory_frenet,
     const Trajectory & cgmres_predicted_trajectory_world,
-    const Trajectory & cgmres_predicted_trajectory_frenet, const VectorXd & Uosqp,
-    const VectorXd & Ucgmres, const double osqp_calculation_time,
+    const Trajectory & cgmres_predicted_trajectory_frenet, const VectorXd current_state,
+    const VectorXd & Uosqp, const VectorXd & Ucgmres, const double osqp_calculation_time,
     const double cgmres_calculation_time, const double cgmres_opt_error,
-    const VectorXd & opt_error_array, const int num_step) const;
+    const VectorXd & opt_error_array, const int num_step, const double prediction_dt) const;
 
+  MatrixXd predict_internal_model(
+    const VectorXd & x0, const VectorXd & Uex, const MPCTrajectory & reference_trajectory,
+    const double prediction_dt) const;
   /**
    * @brief Generate diagnostic data for debugging purposes.
    * @param reference_trajectory The reference trajectory.
