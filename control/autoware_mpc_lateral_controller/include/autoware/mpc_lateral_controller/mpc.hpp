@@ -269,7 +269,7 @@ private:
   }
 
   void publish_debug_data(
-    const MPCTrajectory & mpc_resampled_ref_trajectory,
+    const MPCMatrix & mpc_matrix, const MPCTrajectory & mpc_resampled_ref_trajectory,
     const Trajectory & osqp_predicted_trajectory_world,
     const Trajectory & osqp_predicted_trajectory_frenet,
     const Trajectory & cgmres_predicted_trajectory_world,
@@ -281,6 +281,14 @@ private:
   MatrixXd predict_internal_model(
     const VectorXd & x0, const VectorXd & Uex, const MPCTrajectory & reference_trajectory,
     const double prediction_dt) const;
+  double calculate_linearized_cost(
+    const VectorXd & x0,          // 初期状態
+    const VectorXd & Uex,         // 最適化ソルバーが得た入力ベクトル (予測ホライズン N 個分)
+    const MPCMatrix & mpc_matrix  // generateMPCMatrix(...) で生成した行列一式
+  ) const;
+  double calculate_cost(
+    const MatrixXd & predicted_states, const MPCTrajectory & reference_trajectory,
+    const VectorXd & Uex, const MPCMatrix & mpc_matrix) const;
   /**
    * @brief Generate diagnostic data for debugging purposes.
    * @param reference_trajectory The reference trajectory.

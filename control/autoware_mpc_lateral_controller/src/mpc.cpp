@@ -234,10 +234,11 @@ ResultWithReason MPC::calculateMPC(
   // publish debug data
   if (qp_solver_type == "cgmres") {
     publish_debug_data(
-      mpc_resampled_ref_trajectory, predicted_trajectory_world, predicted_trajectory_frenet,
-      cgmres_predicted_trajectory_world, cgmres_predicted_trajectory_frenet, initial_state, Uex,
-      Ucgmres, osqp_calculation_duration.count() / 1e6, cgmres_calculation_duration.count() / 1e6,
-      opt_error, opt_error_array, m_param.prediction_horizon, prediction_dt);
+      mpc_matrix, mpc_resampled_ref_trajectory, predicted_trajectory_world,
+      predicted_trajectory_frenet, cgmres_predicted_trajectory_world,
+      cgmres_predicted_trajectory_frenet, initial_state, Uex, Ucgmres,
+      osqp_calculation_duration.count() / 1e6, cgmres_calculation_duration.count() / 1e6, opt_error,
+      opt_error_array, m_param.prediction_horizon, prediction_dt);
   }
 
   // create LateralHorizon command
@@ -257,7 +258,7 @@ ResultWithReason MPC::calculateMPC(
 }
 
 void MPC::publish_debug_data(
-  const MPCTrajectory & mpc_resampled_ref_trajectory,
+  const MPCMatrix & mpc_matrix, const MPCTrajectory & mpc_resampled_ref_trajectory,
   const Trajectory & osqp_predicted_trajectory_world,
   const Trajectory & osqp_predicted_trajectory_frenet,
   const Trajectory & cgmres_predicted_trajectory_world,
@@ -344,10 +345,16 @@ void MPC::publish_debug_data(
     debug_data.hmu_i_updated.data.insert(debug_data.hmu_i_updated.data.end(), it, it + nub);
     it += nub;
   }
-  [[maybe_unused]] const auto internal_model_osqp =
+  const auto internal_model_osqp =
     predict_internal_model(current_state, Uosqp, mpc_resampled_ref_trajectory, prediction_dt);
-  [[maybe_unused]] const auto internal_model_cgmres =
+  [[maybe_unused]] const auto linealized_cost_osqp =
+    calculate_linearized_cost(current_state, Uosqp, mpc_matrix);
+  [[maybe_unused]] const auto cost_osqp =
+    calculate_cost(internal_model_osqp, mpc_resampled_ref_trajectory, Uosqp, mpc_matrix);
+  const auto internal_model_cgmres =
     predict_internal_model(current_state, Ucgmres, mpc_resampled_ref_trajectory, prediction_dt);
+  [[maybe_unused]] const auto cost_cgmres =
+    calculate_cost(internal_model_cgmres, mpc_resampled_ref_trajectory, Ucgmres, mpc_matrix);
   // const auto cost_osqp = calculate_cost(Uosqp, internal_model_osqp);
   // const auto internal_model_cgmres =
   //   predict_internal_model(current_state, Ucgmres, mpc_resampled_ref_trajectory);
@@ -393,6 +400,165 @@ MatrixXd MPC::predict_internal_model(
   }
 
   return predicted_states;
+}
+double MPC::calculate_linearized_cost(
+  const VectorXd & x0,          // 初期状態
+  const VectorXd & Uex,         // 最適化ソルバーが得た入力ベクトル (予測ホライズン N 個分)
+  const MPCMatrix & mpc_matrix  // generateMPCMatrix(...) で生成した行列一式
+) const
+{
+  // 1. 次元チェック
+  const int N = m_param.prediction_horizon;
+  const int DIM_X = m_vehicle_model_ptr->getDimX();  // 状態次元 (例: 3)
+  const int DIM_U = m_vehicle_model_ptr->getDimU();  // 入力次元 (例: 1)
+  const int DIM_Y = m_vehicle_model_ptr->getDimY();  // 出力(評価対象)次元
+
+  // Uex は予測ホライズン N ステップ分 => サイズは N*DIM_U
+  if (Uex.size() != N * DIM_U) {
+    RCLCPP_WARN(
+      m_logger, "[calculate_linealized_cost] Uex dimension mismatch. Expected %d, got %d",
+      N * DIM_U, (int)Uex.size());
+    return 1e10;  // 大きい値を返してペナルティにする
+  }
+
+  // 2. 線形モデルでの予測状態 Xex を計算
+  //    Xex はサイズ (N*DIM_X, 1) で、 [ x1, x2, ..., xN ]^T を縦に積んだ形
+  //    ここで Xex = Aex*x0 + Bex*Uex + Wex
+  //    ただし Aex : (N*DIM_X, DIM_X), Bex : (N*DIM_X, N*DIM_U), Wex : (N*DIM_X, 1)
+  const VectorXd Xex = mpc_matrix.Aex * x0 + mpc_matrix.Bex * Uex + mpc_matrix.Wex;
+  if (Xex.size() != N * DIM_X) {
+    RCLCPP_WARN(
+      m_logger, "[calculate_linealized_cost] Xex dimension mismatch after multiplication.");
+    return 1e10;
+  }
+
+  // 3. 線形モデルでの予測出力 Yex を計算
+  //    Yex はサイズ (N*DIM_Y, 1) で、 [ y1, y2, ..., yN ]^T を縦に積んだ形
+  //    Yex = Cex * Xex
+  //    ただし Cex : (N*DIM_Y, N*DIM_X)
+  const VectorXd Yex = mpc_matrix.Cex * Xex;
+  if (Yex.size() != N * DIM_Y) {
+    RCLCPP_WARN(
+      m_logger, "[calculate_linealized_cost] Yex dimension mismatch after multiplication.");
+    return 1e10;
+  }
+
+  // 4. コスト(状態/出力偏差項) の計算
+  //    => (Yex - Yref_ex)^T * Qex * (Yex - Yref_ex)
+  //    ここではサンプルとして「Yref_ex = 0」を仮定し、 (Yex)^T Qex (Yex) のみを計算
+  //    必要に応じて Yref_ex を別途生成して (Yex - Yref_ex) とする
+  double cost_state = 0.0;
+  if (mpc_matrix.Qex.rows() == N * DIM_Y && mpc_matrix.Qex.cols() == N * DIM_Y) {
+    // Yref_ex を 0 ベクトルと仮定
+    cost_state = Yex.transpose() * mpc_matrix.Qex * Yex;
+  }
+
+  // 5. コスト(入力偏差項) の計算
+  //    => (Uex - Uref_ex)^T * R1ex * (Uex - Uref_ex)
+  //    ここで Uref_ex : (N*DIM_U, 1)
+  const VectorXd U_diff = Uex - mpc_matrix.Uref_ex;  // 例: フィードフォワード舵角との差
+  double cost_input = 0.0;
+  if (mpc_matrix.R1ex.rows() == N * DIM_U && mpc_matrix.R1ex.cols() == N * DIM_U) {
+    cost_input = U_diff.transpose() * mpc_matrix.R1ex * U_diff;
+  }
+
+  // 6. コスト(入力レートやジャーク項など) の計算
+  //    => Uex^T * R2ex * Uex
+  double cost_input2 = 0.0;
+  // if (mpc_matrix.R2ex.rows() == N * DIM_U && mpc_matrix.R2ex.cols() == N * DIM_U) {
+  //   cost_input2 = Uex.transpose() * mpc_matrix.R2ex * Uex;
+  // }
+
+  // 7. 総コスト
+  double cost_total = cost_state + cost_input + cost_input2;
+
+  // デバッグ用ログ (任意)
+  RCLCPP_ERROR_STREAM(
+    m_logger, "[calculate_linealized_cost]" << " state=" << cost_state << ", input=" << cost_input
+                                            << ", input2=" << cost_input2
+                                            << ", total=" << cost_total);
+
+  return cost_total;
+}
+
+double MPC::calculate_cost(
+  const MatrixXd & predicted_states, const MPCTrajectory & reference_trajectory,
+  const VectorXd & Uex, const MPCMatrix & mpc_matrix) const
+{
+  // 1. Check dimensions
+  const int N = m_param.prediction_horizon;
+  const int DIM_X = m_vehicle_model_ptr->getDimX();
+  const int DIM_U = m_vehicle_model_ptr->getDimU();
+  const int DIM_Y = m_vehicle_model_ptr->getDimY();
+
+  if (predicted_states.rows() != DIM_X || predicted_states.cols() != N + 1) {
+    RCLCPP_WARN(m_logger, "[calculateCost] predicted_states dimension mismatch.");
+    return 1e10;  // Return a large value as penalty
+  }
+  if (Uex.size() != N * DIM_U) {
+    RCLCPP_WARN(m_logger, "[calculateCost] Uex dimension mismatch.");
+    return 1e10;
+  }
+
+  // 2. Convert output (or state) vectors into stacked form
+  //    Goal: Calculate cost term (Y - Yref)^T * Qex * (Y - Yref)
+  //    Note: While Y = Cex * [Aex*x0 + Bex*Uex + Wex] in linear model,
+  //    here we use simulated predicted_states instead.
+  //    So we compute Ypred[k] = C * predicted_states(:,k)
+
+  // Create Y_pred stack (vector with DIM_Y*N rows)
+  //   predicted_states(:,1..N) =>
+  //   Stack outputs from time step 1 to N using Cex (typically excluding time step 0)
+  VectorXd Y_stack = VectorXd::Zero(DIM_Y * N);
+  for (int k = 0; k < N; ++k) {
+    // To match with Cex.block(k*DIM_Y, ???)
+    // Single step C : m.Cex.block(k*DIM_Y, k*DIM_X, DIM_Y, DIM_X)
+    // Multiply with predicted_states.col(k+1) to get output
+    const auto C_k = mpc_matrix.Cex.block(k * DIM_Y, k * DIM_X, DIM_Y, DIM_X);
+    VectorXd y_k = C_k * predicted_states.col(k + 1);  // Calculate from k+1 step state
+
+    // Copy y_k to Y_stack[k*DIM_Y .. (k+1)*DIM_Y - 1]
+    Y_stack.segment(k * DIM_Y, DIM_Y) = y_k;
+  }
+
+  // Assume "Yref = 0" here (in practice, often create separate reference vector)
+  VectorXd Y_ref_stack = VectorXd::Zero(DIM_Y * N);  // Example
+
+  // 3. Cost = State/Output deviation term
+  //    => (Y_stack - Y_ref_stack)^T * Qex * (Y_stack - Y_ref_stack)
+  //       where Qex is [DIM_Y*N x DIM_Y*N]
+  VectorXd Y_diff = Y_stack - Y_ref_stack;
+  double cost_state = 0.0;
+  if (mpc_matrix.Qex.rows() == DIM_Y * N && mpc_matrix.Qex.cols() == DIM_Y * N) {
+    cost_state = Y_diff.transpose() * mpc_matrix.Qex * Y_diff;
+  }
+
+  // 4. Cost = Input deviation term
+  //    => (Uex - Uref_ex)^T * R1ex * (Uex - Uref_ex)
+  //       where Uex, Uref_ex are [N*DIM_U x 1]
+  VectorXd U_diff = Uex - mpc_matrix.Uref_ex;
+  double cost_input = 0.0;
+  if (mpc_matrix.R1ex.rows() == N * DIM_U && mpc_matrix.R1ex.cols() == N * DIM_U) {
+    cost_input = U_diff.transpose() * mpc_matrix.R1ex * U_diff;
+  }
+
+  // 5. Cost = Input rate of change term etc.
+  //    => Uex^T * R2ex * Uex
+  double cost_input2 = 0.0;
+  // if (mpc_matrix.R2ex.rows() == N * DIM_U && mpc_matrix.R2ex.cols() == N * DIM_U) {
+  //   cost_input2 = Uex.transpose() * mpc_matrix.R2ex * Uex;
+  // }
+
+  // 6. Total cost
+  double cost_total = cost_state + cost_input + cost_input2;
+
+  // Log output (optional)
+  RCLCPP_ERROR_STREAM(
+    m_logger, "[calculateCost] cost_state=" << cost_state << ", cost_input=" << cost_input
+                                            << ", cost_input2=" << cost_input2
+                                            << ", total=" << cost_total);
+
+  return cost_total;
 }
 
 Float32MultiArrayStamped MPC::generateDiagData(
@@ -555,9 +721,10 @@ std::pair<ResultWithReason, MPCData> MPC::getData(
   data.predicted_steer = m_steering_predictor->calcSteerPrediction();
 
   // check trajectory time length
-  const double max_prediction_time =
+  const double mapredicted_statesiction_time =
     m_param.min_prediction_length / static_cast<double>(m_param.prediction_horizon - 1);
-  auto end_time = data.nearest_time + m_param.input_delay + m_ctrl_period + max_prediction_time;
+  auto end_time =
+    data.nearest_time + m_param.input_delay + m_ctrl_period + mapredicted_statesiction_time;
   if (end_time > traj.relative_time.back()) {
     return {ResultWithReason{false, "path is too short for prediction."}, MPCData{}};
   }
@@ -728,7 +895,7 @@ MPCMatrix MPC::generateMPCMatrix(
   // predict dynamics for N times
   for (int i = 0; i < N; ++i) {
     const double ref_vx = reference_trajectory.vx.at(i);
-    const double ref_vx_squared = ref_vx * ref_vx;
+    [[maybe_unused]] const double ref_vx_squared = ref_vx * ref_vx;
 
     // NOTE: When driving backward, the curvature's sign should be reversed.
     const double ref_k = reference_trajectory.k.at(i) * sign_vx;
@@ -752,8 +919,11 @@ MPCMatrix MPC::generateMPCMatrix(
       Q_adaptive(0, 0) = m_param.nominal_weight.terminal_lat_error;
       Q_adaptive(1, 1) = m_param.nominal_weight.terminal_heading_error;
     }
-    Q_adaptive(1, 1) += ref_vx_squared * mpc_weight.heading_error_squared_vel;
-    R_adaptive(0, 0) += ref_vx_squared * mpc_weight.steering_input_squared_vel;
+    // QUESTION: Why is the weight for velocity squared?
+    Q_adaptive(1, 1) += mpc_weight.heading_error_squared_vel;
+    // Q_adaptive(1, 1) += ref_vx_squared * mpc_weight.heading_error_squared_vel;
+    R_adaptive(0, 0) += mpc_weight.steering_input_squared_vel;
+    // R_adaptive(0, 0) += ref_vx_squared * mpc_weight.steering_input_squared_vel;
 
     // update mpc matrix
     int idx_x_i = i * DIM_X;
