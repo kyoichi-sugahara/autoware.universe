@@ -193,7 +193,7 @@ inline void updateOdom(
     return next_state;
   };
   const double velocity = odom.twist.twist.linear.x;
-  const double steer_tau = 0.5;
+  const double steer_tau = 0.1;
 
   state_w = updateState(state_w, input_steering_angle, delta_time, velocity, steer_tau);
   odom.pose.pose.position.x = state_w(0);

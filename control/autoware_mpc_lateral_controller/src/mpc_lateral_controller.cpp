@@ -29,6 +29,7 @@
 #include <cstdlib>
 #include <deque>
 #include <filesystem>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <string>
@@ -106,7 +107,8 @@ MpcLateralController::MpcLateralController(
     node.declare_parameter<double>("finite_difference_epsilon", 1.0e-08);
   m_min_dummy = node.declare_parameter<double>("min_dummy", 1.0e-03);
   m_verbose_level = node.declare_parameter<int64_t>("verbose_level", 0);
-  m_horizon = node.declare_parameter<double>("mpc_prediction_dt", 0.0);
+  m_prediction_horizon = node.declare_parameter<int64_t>("mpc_prediction_horizon", 10);
+  m_prediction_dt = node.declare_parameter<double>("mpc_prediction_dt", 0.0);
   m_horizon_alpha = node.declare_parameter<double>("horizon_alpha", 0.0);
 
   /* QP solver setup */
@@ -238,7 +240,9 @@ std::shared_ptr<QPSolverInterface> MpcLateralController::createQPSolverInterface
       m_min_dummy,                    // min_dummy
       m_verbose_level                 // verbose_level
     };
-    cgmres::Horizon horizon{m_horizon, m_horizon_alpha};
+    const double horizon_length = m_prediction_dt * m_prediction_horizon;
+    cgmres::Horizon horizon{horizon_length};
+    horizon.disp(std::cerr);
     qpsolver_ptr = std::make_shared<QPSolverCGMRES>(
       logger_, log_dir, solver_settings, horizon, 2.74, m_mpc->m_param.steer_tau);
     return qpsolver_ptr;
@@ -593,7 +597,7 @@ bool MpcLateralController::isMpcConverged()
 
 void MpcLateralController::declareMPCparameters(rclcpp::Node & node)
 {
-  m_mpc->m_param.prediction_horizon = node.declare_parameter<int>("mpc_prediction_horizon");
+  m_mpc->m_param.prediction_horizon = m_prediction_horizon;
   double mpc_prediction_dt;
   if (node.get_parameter("mpc_prediction_dt", mpc_prediction_dt)) {
     m_mpc->m_param.prediction_dt = mpc_prediction_dt;

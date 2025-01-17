@@ -432,7 +432,7 @@ TEST_F(FakeNodeFixture, clothoid_right_turn)
   Trajectory ref_trajectory;
 
   const double velocity = 5.0;
-  const double trajectory_arc_length = 50.0;
+  const double trajectory_arc_length = 100.0;
   const double start_curvature_sign = 0.0;
   const double end_curvature_sign = -0.1;
   const double step_length = 1.0;

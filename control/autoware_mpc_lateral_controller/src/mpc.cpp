@@ -402,10 +402,7 @@ MatrixXd MPC::predict_internal_model(
   return predicted_states;
 }
 double MPC::calculate_linearized_cost(
-  const VectorXd & x0,          // 初期状態
-  const VectorXd & Uex,         // 最適化ソルバーが得た入力ベクトル (予測ホライズン N 個分)
-  const MPCMatrix & mpc_matrix  // generateMPCMatrix(...) で生成した行列一式
-) const
+  const VectorXd & x0, const VectorXd & Uex, const MPCMatrix & mpc_matrix) const
 {
   // 1. 次元チェック
   const int N = m_param.prediction_horizon;
@@ -547,6 +544,7 @@ double MPC::calculate_cost(
   double cost_input2 = 0.0;
   // if (mpc_matrix.R2ex.rows() == N * DIM_U && mpc_matrix.R2ex.cols() == N * DIM_U) {
   //   cost_input2 = Uex.transpose() * mpc_matrix.R2ex * Uex;
+  //   std::cerr << "[DEBUG] cost_input2 = " << cost_input2 << std::endl;
   // }
 
   // 6. Total cost
@@ -920,9 +918,9 @@ MPCMatrix MPC::generateMPCMatrix(
       Q_adaptive(1, 1) = m_param.nominal_weight.terminal_heading_error;
     }
     // QUESTION: Why is the weight for velocity squared?
-    Q_adaptive(1, 1) += mpc_weight.heading_error_squared_vel;
+    // Q_adaptive(1, 1) += mpc_weight.heading_error_squared_vel;
     // Q_adaptive(1, 1) += ref_vx_squared * mpc_weight.heading_error_squared_vel;
-    R_adaptive(0, 0) += mpc_weight.steering_input_squared_vel;
+    // R_adaptive(0, 0) += mpc_weight.steering_input_squared_vel;
     // R_adaptive(0, 0) += ref_vx_squared * mpc_weight.steering_input_squared_vel;
 
     // update mpc matrix
