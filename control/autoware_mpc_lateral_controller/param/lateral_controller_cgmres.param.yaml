@@ -50,7 +50,7 @@
     finite_difference_epsilon: 1.0e-08
     min_dummy: 1.0e-03
     verbose_level: 0
-    horizon_alpha: 0.0
+    horizon_alpha: 0.1
 
     # -- vehicle model --
     vehicle_model_type: "kinematics" # vehicle model type for mpc prediction. option is kinematics, kinematics_no_delay, and dynamics

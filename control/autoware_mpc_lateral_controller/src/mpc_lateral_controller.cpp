@@ -241,7 +241,7 @@ std::shared_ptr<QPSolverInterface> MpcLateralController::createQPSolverInterface
       m_verbose_level                 // verbose_level
     };
     const double horizon_length = m_prediction_dt * m_prediction_horizon;
-    cgmres::Horizon horizon{horizon_length};
+    cgmres::Horizon horizon{horizon_length, m_horizon_alpha};
     horizon.disp(std::cerr);
     qpsolver_ptr = std::make_shared<QPSolverCGMRES>(
       logger_, log_dir, solver_settings, horizon, 2.74, m_mpc->m_param.steer_tau);
