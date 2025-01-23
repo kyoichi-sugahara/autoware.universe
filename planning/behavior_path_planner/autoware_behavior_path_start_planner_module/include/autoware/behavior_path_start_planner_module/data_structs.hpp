@@ -24,9 +24,10 @@
 #include <autoware/freespace_planning_algorithms/rrtstar.hpp>
 #include <magic_enum.hpp>
 
+#include <algorithm>
+#include <iomanip>
 #include <string>
 #include <vector>
-
 namespace autoware::behavior_path_planner
 {
 
@@ -58,8 +59,27 @@ public:
   auto header_str() const
   {
     std::stringstream ss;
-    ss << std::left << std::setw(20) << "| Planner type " << std::setw(20) << "| Required margin "
-       << std::setw(20) << "| Backward distance " << std::setw(25) << "| Condition evaluation |"
+
+    // 最大文字列長の計算
+    size_t planner_type_width = std::string("Planner type").length();
+    size_t required_margin_width = std::string("Required margin").length();
+    size_t backward_distance_width = std::string("Backward distance").length();
+    size_t condition_evaluation_width = std::string("Condition evaluation").length();
+
+    // 各フィールドの最大幅を計算
+    planner_type_width = std::max(planner_type_width, magic_enum::enum_name(planner_type).length());
+    required_margin_width =
+      std::max(required_margin_width, std::to_string(required_margin).length());
+    backward_distance_width =
+      std::max(backward_distance_width, std::to_string(backward_distance).length());
+    for (const auto & result : conditions_evaluation) {
+      condition_evaluation_width = std::max(condition_evaluation_width, result.length());
+    }
+
+    ss << std::left << std::setw(planner_type_width) << "| Planner type "
+       << std::setw(required_margin_width) << "| Required margin "
+       << std::setw(backward_distance_width) << "| Backward distance "
+       << std::setw(condition_evaluation_width) << "| Condition evaluation |"
        << "\n";
     return ss.str();
   }
@@ -67,12 +87,25 @@ public:
   auto str() const
   {
     std::stringstream ss;
+
+    size_t planner_type_width =
+      std::max(magic_enum::enum_name(planner_type).length(), std::string("Planner type").length());
+    size_t required_margin_width =
+      std::max(std::to_string(required_margin).length(), std::string("Required margin").length());
+    size_t backward_distance_width = std::max(
+      std::to_string(backward_distance).length(), std::string("Backward distance").length());
+    size_t condition_evaluation_width = std::max(
+      std::string("Condition evaluation").length(), std::string("Condition evaluation").length());
+
+    ss << std::fixed << std::setprecision(6);
+
     for (const auto & result : conditions_evaluation) {
-      ss << std::left << std::setw(23) << magic_enum::enum_name(planner_type) << std::setw(23)
-         << (std::to_string(required_margin) + "[m]") << std::setw(23)
-         << (std::to_string(backward_distance) + "[m]") << std::setw(25) << result << "\n";
+      ss << std::left << std::setw(planner_type_width) << magic_enum::enum_name(planner_type)
+         << std::setw(required_margin_width) << (std::to_string(required_margin) + "[m]")
+         << std::setw(backward_distance_width) << (std::to_string(backward_distance) + "[m]")
+         << std::setw(condition_evaluation_width) << result << "\n";
     }
-    ss << std::setw(40);
+
     return ss.str();
   }
 };

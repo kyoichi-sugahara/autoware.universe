@@ -900,16 +900,6 @@ void StartPlannerModule::planWithPriority(
 
   if (start_pose_candidates.empty()) return;
 
-  auto get_accumulated_debug_stream = [](const std::vector<PlannerDebugData> & debug_data_vector) {
-    std::stringstream ss;
-    if (debug_data_vector.empty()) return ss;
-    ss << debug_data_vector.front().header_str();
-    for (const auto & debug_data : debug_data_vector) {
-      ss << debug_data.str();
-    }
-    return ss;
-  };
-
   const PriorityOrder order_priority =
     determinePriorityOrder(search_priority, start_pose_candidates.size());
 
@@ -924,10 +914,7 @@ void StartPlannerModule::planWithPriority(
               collision_check_margin, debug_data_vector)) {
           debug_data_.selected_start_pose_candidate_index = index;
           debug_data_.margin_for_start_pose_candidate = collision_check_margin;
-          if (parameters_->print_debug_info) {
-            const auto ss = get_accumulated_debug_stream(debug_data_vector);
-            DEBUG_PRINT("\nPull out path search results:\n%s", ss.str().c_str());
-          }
+          set_conditions_evaluation(debug_data_vector);
           return;
         }
       }
@@ -936,8 +923,7 @@ void StartPlannerModule::planWithPriority(
   // no path
 
   if (parameters_->print_debug_info) {
-    const auto ss = get_accumulated_debug_stream(debug_data_vector);
-    DEBUG_PRINT("\nPull out path search results:\n%s", ss.str().c_str());
+    set_conditions_evaluation(debug_data_vector);
   }
   updateStatusIfNoSafePathFound();
 }
@@ -1708,6 +1694,49 @@ void StartPlannerModule::setDrivableAreaInfo(BehaviorModuleOutput & output) cons
       return;
     }
   }
+}
+
+void StartPlannerModule::set_conditions_evaluation(
+  const std::vector<PlannerDebugData> & debug_data_vector)
+{
+  planner_debug_data_.conditions_evaluation.clear();
+
+  if (debug_data_vector.empty()) {
+    return;
+  }
+
+  std::stringstream ss;
+  ss << debug_data_vector.front().header_str();
+  for (const auto & debug_data : debug_data_vector) {
+    ss << debug_data.str();
+  }
+  planner_debug_data_.conditions_evaluation.push_back(ss.str());
+}
+
+void StartPlannerModule::acceptVisitor(const std::shared_ptr<SceneModuleVisitor> & visitor) const
+{
+  if (visitor) {
+    visitor->visitStartPlannerModule(this);
+  }
+}
+
+void SceneModuleVisitor::visitStartPlannerModule(const StartPlannerModule * module) const
+{
+  if (!module) return;
+  auto debug_msg = std::make_shared<autoware_internal_debug_msgs::msg::StringStamped>();
+  auto debug_info = module->get_condition_evaluation();
+  if (debug_info.empty()) return;
+  std::stringstream ss;
+  for (const auto & info : debug_info) {
+    ss << info << "\n";
+  }
+
+  debug_msg->stamp = rclcpp::Clock{RCL_ROS_TIME}.now();
+  debug_msg->data = ss.str();
+
+  start_planner_visitor_ = debug_msg;
+
+  start_planner_visitor_ = debug_msg;
 }
 
 void StartPlannerModule::setDebugData()
