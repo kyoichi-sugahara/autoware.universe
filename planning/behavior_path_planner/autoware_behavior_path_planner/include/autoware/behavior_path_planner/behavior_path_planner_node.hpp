@@ -188,7 +188,7 @@ private:
   // debug
   rclcpp::Publisher<AvoidanceDebugMsgArray>::SharedPtr debug_avoidance_msg_array_publisher_;
   rclcpp::Publisher<MarkerArray>::SharedPtr debug_turn_signal_info_publisher_;
-  std::unique_ptr<DebugPublisher> debug_start_planner_trajectory_info_publisher_ptr_;
+  std::unique_ptr<DebugPublisher> debug_start_planner_evaluation_table_publisher_ptr_;
 
   /**
    * @brief publish reroute availability

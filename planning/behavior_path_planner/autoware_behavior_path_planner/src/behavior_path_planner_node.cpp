@@ -58,11 +58,11 @@ BehaviorPathPlannerNode::BehaviorPathPlannerNode(const rclcpp::NodeOptions & nod
   reroute_availability_publisher_ =
     create_publisher<RerouteAvailability>("~/output/is_reroute_available", 1);
 
-  debug_start_planner_trajectory_info_publisher_ptr_ =
-    std::make_unique<DebugPublisher>(this, "~/debug/start_planner_trajectory_info");
-
   debug_avoidance_msg_array_publisher_ =
     create_publisher<AvoidanceDebugMsgArray>("~/debug/avoidance_debug_message_array", 1);
+
+  debug_start_planner_evaluation_table_publisher_ptr_ =
+    std::make_unique<DebugPublisher>(this, "~/debug/start_planner_evaluation_table");
 
   debug_turn_signal_info_publisher_ = create_publisher<MarkerArray>("~/debug/turn_signal_info", 1);
 
@@ -616,8 +616,8 @@ void BehaviorPathPlannerNode::publishSceneModuleDebugMsg(
   }
   const auto start_planner_debug_message = debug_messages_data_ptr->getStartPlannerModuleDebugMsg();
   if (start_planner_debug_message) {
-    debug_start_planner_trajectory_info_publisher_ptr_->publish<DebugStringMsg>(
-      "trajectory_info", *(start_planner_debug_message));
+    debug_start_planner_evaluation_table_publisher_ptr_->publish<DebugStringMsg>(
+      "start_planner_evaluation_table", *(start_planner_debug_message));
   }
 }
 

@@ -155,10 +155,7 @@ public:
   bool isDrivingForward() const { return status_.driving_forward; }
   bool isFreespacePlanning() const { return status_.planner_type == PlannerType::FREESPACE; }
 
-  std::vector<std::string> get_condition_evaluation() const
-  {
-    return planner_debug_data_.conditions_evaluation;
-  }
+  std::string get_planner_evaluation_table() const { return planner_evaluation_table_; }
 
 private:
   friend class SceneModuleVisitor;
@@ -289,7 +286,7 @@ ego pose.
   std::vector<std::shared_ptr<PullOutPlannerBase>> start_planners_;
   PullOutStatus status_;
   mutable StartPlannerDebugData debug_data_;
-  PlannerDebugData planner_debug_data_;
+  std::string planner_evaluation_table_;
 
   // Keeps track of lanelets that should be ignored when calculating the turnSignalInfo for this
   // module's output. If the ego vehicle is in this lanelet, the calculation is skipped.
@@ -361,6 +358,10 @@ ego pose.
   // std_msgs::msg::String set_conditions_evaluation(
   //   const std::vector<PlannerDebugData> & debug_data_vector) const;
   void set_conditions_evaluation(const std::vector<PlannerDebugData> & debug_data_vector);
+
+  std::string create_planner_evaluation_table(
+    const std::vector<PlannerDebugData> & planner_debug_data_vector) const;
+  void set_planner_evaluation_table(const std::vector<PlannerDebugData> & debug_data_vector);
 
   void setDebugData();
   void logPullOutStatus(rclcpp::Logger::Level log_level = rclcpp::Logger::Level::Info) const;
