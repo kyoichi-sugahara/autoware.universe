@@ -750,7 +750,8 @@ BehaviorModuleOutput StartPlannerModule::plan()
     updateRTCStatus(start_distance, finish_distance);
     planning_factor_interface_->add(
       start_distance, finish_distance, status_.pull_out_path.start_pose,
-      status_.pull_out_path.end_pose, planning_factor_direction, SafetyFactorArray{});
+      status_.pull_out_path.end_pose, planning_factor_direction,
+      utils::path_safety_checker::to_safety_factor_array(debug_data_.collision_check));
     setDebugData();
     return output;
   }
@@ -760,7 +761,8 @@ BehaviorModuleOutput StartPlannerModule::plan()
   updateRTCStatus(0.0, distance);
   planning_factor_interface_->add(
     0.0, distance, status_.pull_out_path.start_pose, status_.pull_out_path.end_pose,
-    planning_factor_direction, SafetyFactorArray{});
+    planning_factor_direction,
+    utils::path_safety_checker::to_safety_factor_array(debug_data_.collision_check));
 
   setDebugData();
 
@@ -855,7 +857,8 @@ BehaviorModuleOutput StartPlannerModule::planWaitingApproval()
     updateRTCStatus(start_distance, finish_distance);
     planning_factor_interface_->add(
       start_distance, finish_distance, status_.pull_out_path.start_pose,
-      status_.pull_out_path.end_pose, planning_factor_direction, SafetyFactorArray{});
+      status_.pull_out_path.end_pose, planning_factor_direction,
+      utils::path_safety_checker::to_safety_factor_array(debug_data_.collision_check));
     setDebugData();
 
     return output;
@@ -866,7 +869,8 @@ BehaviorModuleOutput StartPlannerModule::planWaitingApproval()
   updateRTCStatus(0.0, distance);
   planning_factor_interface_->add(
     0.0, distance, status_.pull_out_path.start_pose, status_.pull_out_path.end_pose,
-    planning_factor_direction, SafetyFactorArray{});
+    planning_factor_direction,
+    utils::path_safety_checker::to_safety_factor_array(debug_data_.collision_check));
 
   setDebugData();
 
