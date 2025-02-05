@@ -1,0 +1,19 @@
+/**:
+  ros__parameters:
+    # 1) 監視対象から除外したいノード名 (正確には "[node_name-#]" 形式の場合は注意)
+    #    例: rviz2 がクラッシュしても警告を出さないなど。
+    ignore_node_names:
+      - rviz2
+      - teleop_twist_joy
+
+    # 2) 監視対象から除外したい exit code (Ctrl+C など)
+    #    例: 0, 130 はユーザによる終了など、異常と見なさない
+    ignore_exit_codes:
+      - 0
+      - 130
+
+    # 3) 定期的に状態を出力する周期 (秒)
+    status_publish_interval: 1.0
+
+    # 4) ログメッセージに使うレベル ("INFO", "WARN", "ERROR" など)
+    log_level: "WARN"

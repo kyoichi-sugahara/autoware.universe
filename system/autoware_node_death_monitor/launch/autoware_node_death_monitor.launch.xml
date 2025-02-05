@@ -1,0 +1,6 @@
+<launch>
+  <arg name="container_executable" default="component_container"/>
+  <arg name="param_path" default="$(find-pkg-share autoware_node_death_monitor)/config/node_death_monitor.param.yaml"/>
+
+  <node pkg="autoware_node_death_monitor" exec="autoware_node_death_monitor_node" name="node_death_monitor" output="screen"/>
+</launch>
