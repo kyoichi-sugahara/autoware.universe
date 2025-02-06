@@ -99,19 +99,23 @@ NodeDeathMonitor::NodeDeathMonitor(const rclcpp::NodeOptions & options)
   if (launch_log_path_.empty()) {
     RCLCPP_WARN(get_logger(), "Could not find latest launch.log. Monitoring disabled.");
   } else {
-    RCLCPP_INFO(get_logger(), "Monitoring launch.log at: %s", launch_log_path_.c_str());
+    RCLCPP_WARN(get_logger(), "Monitoring launch.log at: %s", launch_log_path_.c_str());
   }
 
   // この時点でファイルサイズを取得して、そこから読み始めるようにする(差分読み)
   last_file_pos_ = 0;
   if (!launch_log_path_.empty() && fs::exists(launch_log_path_)) {
-    last_file_pos_ = fs::file_size(launch_log_path_);
+    auto raw_size = fs::file_size(launch_log_path_);
+    last_file_pos_ = raw_size;
+
     if (enable_debug_) {
-      RCLCPP_INFO(get_logger(), "[DEBUG] Initial file pos set to %zu", last_file_pos_);
+      RCLCPP_WARN(
+        get_logger(),
+        "File size details - Raw size (uintmax_t): %ju, Stored position (size_t): %zu", raw_size,
+        last_file_pos_);
     }
   }
 
-  // ------ /rosout 購読は削除 or コメントアウト ----
   // sub_rosout_ = create_subscription<rcl_interfaces::msg::Log>(
   //   "/rosout", 100, std::bind(&NodeDeathMonitor::on_log, this, std::placeholders::_1));
 
@@ -134,7 +138,7 @@ void NodeDeathMonitor::readLaunchLogDiff()
     return;  // ログファイルが見つからない場合は何もしない
   }
 
-  std::ifstream ifs(launch_log_path_);
+  std::ifstream ifs(launch_log_path_, std::ios::binary);
   if (!ifs.good()) {
     RCLCPP_WARN(get_logger(), "Failed to open launch.log: %s", launch_log_path_.c_str());
     return;
@@ -145,8 +149,12 @@ void NodeDeathMonitor::readLaunchLogDiff()
   const std::streampos file_end = ifs.tellg();
 
   // 前回の読み取り位置がファイルサイズを超えていたら(ログローテ等) 先頭から読む
-  if (last_file_pos_ > (size_t)file_end) {
-    RCLCPP_WARN(get_logger(), "File size is reset. Possibly new session? Reading from top.");
+  if (last_file_pos_ > static_cast<size_t>(file_end)) {
+    RCLCPP_WARN(
+      get_logger(),
+      "File size is reset. Possibly new session? Reading from top. last_file_pos_: %zu, file_end: "
+      "%zu",
+      last_file_pos_, static_cast<size_t>(file_end));
     last_file_pos_ = 0;
   }
 
@@ -154,19 +162,83 @@ void NodeDeathMonitor::readLaunchLogDiff()
   ifs.seekg(last_file_pos_, std::ios::beg);
 
   if (enable_debug_) {
-    RCLCPP_INFO(
+    RCLCPP_WARN(
       get_logger(), "[DEBUG] Reading launch.log from pos=%zu to end=%zu",
       static_cast<size_t>(last_file_pos_), static_cast<size_t>(file_end));
   }
 
-  // 1行ずつ読み込み
-  std::string line;
-  while (std::getline(ifs, line)) {
+  std::streampos last_valid_pos = static_cast<std::streampos>(last_file_pos_);
+
+  size_t iteration = 0;
+  while (true) {
+    // 1) 現在位置チェック
+    std::streampos current_pos_start = ifs.tellg();
+    if (current_pos_start == std::streampos(-1)) {
+      // すでにEOF or エラーかもしれない
+      if (ifs.eof()) {
+        RCLCPP_DEBUG(get_logger(), "EOF reached at iteration=%zu", iteration);
+      } else {
+        RCLCPP_WARN(
+          get_logger(), "tellg() failed at iteration=%zu. Possibly file closed?", iteration);
+      }
+      break;  // ループ抜ける
+    }
+
+    // 2) 一行読み込み
+    std::string line;
+    if (!std::getline(ifs, line)) {
+      if (ifs.eof()) {
+        RCLCPP_DEBUG(get_logger(), "Reached EOF at iteration=%zu", iteration);
+      } else {
+        RCLCPP_WARN(get_logger(), "Error reading line at iteration=%zu", iteration);
+      }
+      break;
+    }
+
+    // 3) 行をパース
     parseLogLine(line);
+
+    // 4) 行読み込み後にファイル位置を取得
+    std::streampos current_pos_end = ifs.tellg();
+    if (current_pos_end == std::streampos(-1)) {
+      // EOFかもしれないし、エラーかもしれない
+      if (ifs.eof()) {
+        // 「最後の行は読めたが、次の読み込みでEOFになった」ケースが多い
+        RCLCPP_DEBUG(get_logger(), "EOF after iteration=%zu", iteration);
+      } else {
+        RCLCPP_WARN(get_logger(), "tellg() failed after reading line at iteration=%zu", iteration);
+      }
+      // ただし、「最後の行」はすでに読み込めているので、ここでブレークする
+      break;
+    }
+
+    // ここに到達したということは「行の読み込み成功」+「tellg() != -1」で有効
+    last_valid_pos = current_pos_end;
+    ++iteration;
   }
 
-  // 読み込み後のストリーム位置を記録
-  last_file_pos_ = ifs.tellg();
+  // ループが終了したら、last_valid_pos が「直近の有効位置」
+  if (last_valid_pos != std::streampos(-1)) {
+    last_file_pos_ = static_cast<size_t>(last_valid_pos);
+    RCLCPP_DEBUG(get_logger(), "Set last_file_pos_=%zu after reading", last_file_pos_);
+  } else {
+    RCLCPP_WARN(get_logger(), "No valid position found at the end");
+  }
+
+  // std::streampos pos = ifs.tellg();
+  // if (pos == std::streampos(-1)) {
+  //   // エラー処理
+  //   RCLCPP_WARN(get_logger(), "tellg() failed after reading. Possibly reached EOF");
+  //   return;
+  // }
+
+  // if (enable_debug_) {
+  //   RCLCPP_WARN(
+  //     get_logger(), "[DEBUG] Final position after reading: %jd, Total iterations: %zu",
+  //     static_cast<intmax_t>(pos), iteration);
+  // }
+
+  // last_file_pos_ = static_cast<size_t>(pos);
 }
 
 //---------------------------------------------------------------------------

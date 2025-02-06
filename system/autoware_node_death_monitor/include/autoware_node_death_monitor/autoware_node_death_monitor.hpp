@@ -47,7 +47,7 @@ private:
 
   // launch.logファイルのパスと読み取り位置
   std::filesystem::path launch_log_path_;
-  size_t last_file_pos_{0};
+  size_t last_file_pos_{static_cast<size_t>(-1)};
 
   // --- パラメータ ---
   // 監視から除外したいノード名
