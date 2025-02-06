@@ -25,8 +25,10 @@ namespace fs = std::filesystem;
 namespace autoware::node_death_monitor
 {
 
-// Helper function to find the latest launch.log file
-// Searches in either ROS_LOG_DIR or ~/.ros/log directory
+/**
+ * @brief Find the latest launch.log file
+ * @return Path to latest launch.log file, empty path if not found
+ */
 static fs::path find_latest_launch_log()
 {
   // Check ROS_LOG_DIR environment variable first
@@ -110,7 +112,6 @@ NodeDeathMonitor::NodeDeathMonitor(const rclcpp::NodeOptions & options)
   timer_ = create_wall_timer(interval_ns, std::bind(&NodeDeathMonitor::on_timer, this));
 }
 
-// Read and process new content from launch.log
 void NodeDeathMonitor::read_launch_log_diff()
 {
   if (launch_log_path_.empty()) {
@@ -123,11 +124,11 @@ void NodeDeathMonitor::read_launch_log_diff()
     return;
   }
 
-  // ファイル全体をシークしてサイズを取得
+  // Get file size
   ifs.seekg(0, std::ios::end);
   const std::streampos file_end = ifs.tellg();
 
-  // 前回の読み取り位置がファイルサイズを超えていたら(ログローテ等) 先頭から読む
+  // Reset position to start if previous position exceeds file size (log rotation)
   if (last_file_pos_ > static_cast<size_t>(file_end)) {
     RCLCPP_WARN(
       get_logger(),
@@ -137,7 +138,7 @@ void NodeDeathMonitor::read_launch_log_diff()
     last_file_pos_ = 0;
   }
 
-  // 前回の位置までシーク
+  // Seek to last position
   ifs.seekg(last_file_pos_, std::ios::beg);
 
   if (enable_debug_) {
@@ -150,20 +151,19 @@ void NodeDeathMonitor::read_launch_log_diff()
 
   size_t iteration = 0;
   while (true) {
-    // 1) 現在位置チェック
+    // Check current position
     std::streampos current_pos_start = ifs.tellg();
     if (current_pos_start == std::streampos(-1)) {
-      // すでにEOF or エラーかもしれない
       if (ifs.eof()) {
         RCLCPP_DEBUG(get_logger(), "EOF reached at iteration=%zu", iteration);
       } else {
         RCLCPP_WARN(
           get_logger(), "tellg() failed at iteration=%zu. Possibly file closed?", iteration);
       }
-      break;  // ループ抜ける
+      break;
     }
 
-    // 2) 一行読み込み
+    // Read one line
     std::string line;
     if (!std::getline(ifs, line)) {
       if (ifs.eof()) {
@@ -174,29 +174,24 @@ void NodeDeathMonitor::read_launch_log_diff()
       break;
     }
 
-    // 3) 行をパース
     parse_log_line(line);
 
-    // 4) 行読み込み後にファイル位置を取得
+    // Check position after reading
     std::streampos current_pos_end = ifs.tellg();
     if (current_pos_end == std::streampos(-1)) {
-      // EOFかもしれないし、エラーかもしれない
       if (ifs.eof()) {
-        // 「最後の行は読めたが、次の読み込みでEOFになった」ケースが多い
         RCLCPP_DEBUG(get_logger(), "EOF after iteration=%zu", iteration);
       } else {
         RCLCPP_WARN(get_logger(), "tellg() failed after reading line at iteration=%zu", iteration);
       }
-      // ただし、「最後の行」はすでに読み込めているので、ここでブレークする
       break;
     }
 
-    // ここに到達したということは「行の読み込み成功」+「tellg() != -1」で有効
     last_valid_pos = current_pos_end;
     ++iteration;
   }
 
-  // ループが終了したら、last_valid_pos が「直近の有効位置」
+  // Update last valid position
   if (last_valid_pos != std::streampos(-1)) {
     last_file_pos_ = static_cast<size_t>(last_valid_pos);
     RCLCPP_DEBUG(get_logger(), "Set last_file_pos_=%zu after reading", last_file_pos_);
@@ -205,7 +200,6 @@ void NodeDeathMonitor::read_launch_log_diff()
   }
 }
 
-// Parse a single log line for process death information
 void NodeDeathMonitor::parse_log_line(const std::string & line)
 {
   const std::string target_str = "process has died";
@@ -218,7 +212,7 @@ void NodeDeathMonitor::parse_log_line(const std::string & line)
     return;
   }
 
-  // exit code のパース
+  // Parse exit code
   int exit_code = -1;
   {
     static const std::regex exit_code_pattern("exit code\\s+(-?[0-9]+)");
@@ -244,7 +238,7 @@ void NodeDeathMonitor::parse_log_line(const std::string & line)
     }
   }
 
-  // exit_code フィルタ
+  // Filter by exit code
   if (
     std::find(ignore_exit_codes_.begin(), ignore_exit_codes_.end(), exit_code) !=
     ignore_exit_codes_.end()) {
@@ -255,7 +249,7 @@ void NodeDeathMonitor::parse_log_line(const std::string & line)
     return;
   }
 
-  // "[component_container_mt-56]: process has died" 部分を抽出
+  // Extract node name from log line
   static const std::regex node_name_pattern("\\[([^\\]]+)\\]\\:\\s*process has died");
   std::smatch match_node;
   if (std::regex_search(line, match_node, node_name_pattern)) {
@@ -264,7 +258,7 @@ void NodeDeathMonitor::parse_log_line(const std::string & line)
       RCLCPP_WARN(get_logger(), "[DEBUG] Extracted node_id='%s'", node_id.c_str());
     }
 
-    // ignore_node_names_ に含まれるなら無視
+    // Filter by node name
     for (const auto & ignore : ignore_node_names_) {
       if (node_id.find(ignore) != std::string::npos) {
         if (enable_debug_) {
@@ -276,10 +270,9 @@ void NodeDeathMonitor::parse_log_line(const std::string & line)
       }
     }
 
-    // dead_nodes_ に登録
+    // Register dead node
     dead_nodes_[node_id] = true;
 
-    // ログ出力
     RCLCPP_WARN(
       get_logger(), "Detected node death from launch.log: node_id='%s' (exit_code=%d)\n  line='%s'",
       node_id.c_str(), exit_code, line.c_str());
@@ -293,13 +286,11 @@ void NodeDeathMonitor::parse_log_line(const std::string & line)
   }
 }
 
-// Timer callback to check for dead nodes
 void NodeDeathMonitor::on_timer()
 {
-  // 1) launch.log の差分を読み取り
   read_launch_log_diff();
 
-  // 2) 死んだノード一覧を出力
+  // Report dead nodes
   if (!dead_nodes_.empty()) {
     std::string report = "Dead nodes detected: ";
     for (const auto & kv : dead_nodes_) {
