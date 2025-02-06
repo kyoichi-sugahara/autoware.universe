@@ -1,18 +1,18 @@
 /**:
   ros__parameters:
-    # 1) 監視対象から除外したいノード名 (正確には "[node_name-#]" 形式の場合は注意)
-    #    例: rviz2 がクラッシュしても警告を出さないなど。
+    # Node names to exclude from monitoring (Note: be careful with the "[node_name-#]" format)
+    # Example: Do not issue a warning if rviz2 crashes.
     ignore_node_names:
       - rviz2
 
-    # 2) 監視対象から除外したい exit code (Ctrl+C など)
-    #    例: 0, 130 はユーザによる終了など、異常と見なさない
+    # Exit codes to exclude from monitoring (e.g., Ctrl+C)
+    # Example: 0, 130 are considered normal exits and not treated as errors.
     ignore_exit_codes:
       - 0
       - 130
 
-    # 3) チェック間隔 (秒)
+    # Check interval (seconds)
     check_interval: 1.0
 
-    # 4) デバッグ出力の有効/無効
+    # Enable/disable debug output
     enable_debug: false
