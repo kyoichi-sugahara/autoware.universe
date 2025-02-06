@@ -205,7 +205,7 @@ void NodeDeathMonitor::parseLogLine(const std::string & line)
     }
   }
 
-  // 除外exit code
+  // exit_code フィルタ
   if (
     std::find(ignore_exit_codes_.begin(), ignore_exit_codes_.end(), exit_code) !=
     ignore_exit_codes_.end()) {
@@ -218,8 +218,8 @@ void NodeDeathMonitor::parseLogLine(const std::string & line)
     return;
   }
 
-  // "[node_name-#]" を抽出
-  static const std::regex node_name_pattern("\\[([^\\]]+)\\] process has died");
+  // "[component_container_mt-56]: process has died" 部分を抽出
+  static const std::regex node_name_pattern("\\[([^\\]]+)\\]\\:\\s*process has died");
   std::smatch match_node;
   if (std::regex_search(line, match_node, node_name_pattern)) {
     const std::string node_id = match_node[1];
@@ -227,7 +227,7 @@ void NodeDeathMonitor::parseLogLine(const std::string & line)
       RCLCPP_INFO(get_logger(), "[DEBUG] Extracted node_id='%s'", node_id.c_str());
     }
 
-    // ignore_node_names_ に含まれていれば無視
+    // ignore_node_names_ に含まれるなら無視
     for (const auto & ignore : ignore_node_names_) {
       if (node_id.find(ignore) != std::string::npos) {
         if (enable_debug_) {
@@ -239,17 +239,19 @@ void NodeDeathMonitor::parseLogLine(const std::string & line)
       }
     }
 
-    // 死亡ノードとして登録
+    // dead_nodes_ に登録
     dead_nodes_[node_id] = true;
 
-    // 報告
+    // ログ出力
     RCLCPP_WARN(
       get_logger(), "Detected node death from launch.log: node_id='%s' (exit_code=%d)\n  line='%s'",
       node_id.c_str(), exit_code, line.c_str());
   } else {
     if (enable_debug_) {
       RCLCPP_INFO(
-        get_logger(), "[DEBUG] Could not extract [node_name-#] from log line='%s'", line.c_str());
+        get_logger(),
+        "[DEBUG] Could not extract [node_name-#] (with ': process has died') from log line='%s'",
+        line.c_str());
     }
   }
 }
