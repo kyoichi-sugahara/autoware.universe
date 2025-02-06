@@ -244,7 +244,7 @@ void NodeDeathMonitor::parse_log_line(const std::string & line)
   // exit code のパース
   int exit_code = -1;
   {
-    static const std::regex exit_code_pattern("exit code\\s+([0-9]+)");
+    static const std::regex exit_code_pattern("exit code\\s+(-?[0-9]+)");
     std::smatch match_exit;
     if (std::regex_search(line, match_exit, exit_code_pattern)) {
       try {
@@ -252,10 +252,16 @@ void NodeDeathMonitor::parse_log_line(const std::string & line)
       } catch (...) {
         exit_code = -1;
       }
+      RCLCPP_WARN(
+        get_logger(), "[DEBUG] Parsed exit_code=%d from log line, with the line='%s'", exit_code,
+        line.c_str());
       if (enable_debug_) {
         RCLCPP_INFO(get_logger(), "[DEBUG] Parsed exit_code=%d from log line.", exit_code);
       }
     } else {
+      RCLCPP_WARN(
+        get_logger(), "[DEBUG] Could not parse exit_code from log line, with the line='%s'",
+        line.c_str());
       if (enable_debug_) {
         RCLCPP_INFO(get_logger(), "[DEBUG] Could not parse exit_code from log line.");
       }
