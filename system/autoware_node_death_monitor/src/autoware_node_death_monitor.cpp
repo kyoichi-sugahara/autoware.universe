@@ -89,11 +89,6 @@ NodeDeathMonitor::NodeDeathMonitor(const rclcpp::NodeOptions & options)
   check_interval_ = declare_parameter<double>("check_interval");
   enable_debug_ = declare_parameter<bool>("enable_debug");
 
-  RCLCPP_INFO(get_logger(), "ignore_node_names: %zu entries", ignore_node_names_.size());
-  RCLCPP_INFO(get_logger(), "ignore_exit_codes: %zu entries", ignore_exit_codes_.size());
-  RCLCPP_INFO(get_logger(), "check_interval: %.2f", check_interval_);
-  RCLCPP_INFO(get_logger(), "enable_debug: %s", enable_debug_ ? "true" : "false");
-
   // ---- ここで最新の launch.log を特定 ----
   launch_log_path_ = find_latest_launch_log();
   if (launch_log_path_.empty()) {
@@ -252,18 +247,17 @@ void NodeDeathMonitor::parse_log_line(const std::string & line)
       } catch (...) {
         exit_code = -1;
       }
-      RCLCPP_WARN(
-        get_logger(), "[DEBUG] Parsed exit_code=%d from log line, with the line='%s'", exit_code,
-        line.c_str());
+
       if (enable_debug_) {
-        RCLCPP_INFO(get_logger(), "[DEBUG] Parsed exit_code=%d from log line.", exit_code);
+        RCLCPP_WARN(
+          get_logger(), "[DEBUG] Parsed exit_code=%d from log line (line='%s')", exit_code,
+          line.c_str());
       }
     } else {
-      RCLCPP_WARN(
-        get_logger(), "[DEBUG] Could not parse exit_code from log line, with the line='%s'",
-        line.c_str());
       if (enable_debug_) {
-        RCLCPP_INFO(get_logger(), "[DEBUG] Could not parse exit_code from log line.");
+        RCLCPP_WARN(
+          get_logger(), "[DEBUG] Could not parse exit_code from log line (line='%s')",
+          line.c_str());
       }
     }
   }
@@ -272,12 +266,10 @@ void NodeDeathMonitor::parse_log_line(const std::string & line)
   if (
     std::find(ignore_exit_codes_.begin(), ignore_exit_codes_.end(), exit_code) !=
     ignore_exit_codes_.end()) {
-    if (enable_debug_) {
-      RCLCPP_INFO(
-        get_logger(),
-        "[DEBUG] Ignoring process died log (exit_code=%d is in ignore_exit_codes_). line='%s'",
-        exit_code, line.c_str());
-    }
+    RCLCPP_WARN(
+      get_logger(),
+      "[DEBUG] Ignoring process died log (exit_code=%d is in ignore_exit_codes_). line='%s'",
+      exit_code, line.c_str());
     return;
   }
 
