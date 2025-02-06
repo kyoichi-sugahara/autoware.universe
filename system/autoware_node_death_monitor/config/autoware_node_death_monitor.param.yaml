@@ -12,8 +12,8 @@
       - 0
       - 130
 
-    # 3) 定期的に状態を出力する周期 (秒)
-    status_publish_interval: 1.0
+    # 3) チェック間隔 (秒)
+    check_interval: 1.0
 
-    # 4) ログメッセージに使うレベル ("INFO", "WARN", "ERROR" など)
-    log_level: "WARN"
+    # 4) デバッグ出力の有効/無効
+    enable_debug:
