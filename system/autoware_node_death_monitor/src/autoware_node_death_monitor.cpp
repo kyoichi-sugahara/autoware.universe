@@ -14,9 +14,6 @@
 
 #include "autoware_node_death_monitor/autoware_node_death_monitor.hpp"
 
-#include <algorithm>
-#include <chrono>
-#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <regex>
@@ -28,20 +25,19 @@ namespace fs = std::filesystem;
 namespace autoware::node_death_monitor
 {
 
-// ヘルパー関数: ~/.ros/log または ROS_LOG_DIR を探し、
-// その中で最新のセッションディレクトリを特定し、launch.log のパスを返す
+// Helper function to find the latest launch.log file
+// Searches in either ROS_LOG_DIR or ~/.ros/log directory
 static fs::path find_latest_launch_log()
 {
-  // 1) ROS_LOG_DIR 環境変数を確認
+  // Check ROS_LOG_DIR environment variable first
   const char * ros_log_dir_env = std::getenv("ROS_LOG_DIR");
   fs::path base_path;
   if (ros_log_dir_env) {
     base_path = fs::path(ros_log_dir_env);
   } else {
-    // なければ ~/.ros/log にする
+    // Fallback to ~/.ros/log
     const char * home_env = std::getenv("HOME");
     if (!home_env) {
-      // HOME が取れなければ仕方ないのでカレントディレクトリを使う例
       base_path = fs::current_path();
     } else {
       base_path = fs::path(home_env) / ".ros" / "log";
@@ -49,17 +45,15 @@ static fs::path find_latest_launch_log()
   }
 
   if (!fs::exists(base_path) || !fs::is_directory(base_path)) {
-    // ログディレクトリが存在しない場合は空パス返す
     return fs::path();
   }
 
-  // 2) base_path 以下を走査し、最新(更新時刻が最大)のディレクトリを探す
+  // Find the latest directory by last write time
   fs::path latest_dir;
   auto latest_time = fs::file_time_type::min();
 
   for (auto & entry : fs::directory_iterator(base_path)) {
     if (entry.is_directory()) {
-      // ディレクトリの更新時刻を取得
       auto ftime = fs::last_write_time(entry.path());
       if (ftime > latest_time) {
         latest_time = ftime;
@@ -69,15 +63,15 @@ static fs::path find_latest_launch_log()
   }
 
   if (latest_dir.empty()) {
-    return fs::path();  // ディレクトリが無い場合
+    return fs::path();
   }
 
-  // 3) latest_dir/launch.log
+  // Check for launch.log in the latest directory
   fs::path log_file = latest_dir / "launch.log";
   if (fs::exists(log_file) && fs::is_regular_file(log_file)) {
     return log_file;
   }
-  return fs::path();  // launch.log が無い場合
+  return fs::path();
 }
 
 NodeDeathMonitor::NodeDeathMonitor(const rclcpp::NodeOptions & options)
@@ -89,7 +83,7 @@ NodeDeathMonitor::NodeDeathMonitor(const rclcpp::NodeOptions & options)
   check_interval_ = declare_parameter<double>("check_interval");
   enable_debug_ = declare_parameter<bool>("enable_debug");
 
-  // ---- ここで最新の launch.log を特定 ----
+  // Initialize launch.log monitoring
   launch_log_path_ = find_latest_launch_log();
   if (launch_log_path_.empty()) {
     RCLCPP_WARN(get_logger(), "Could not find latest launch.log. Monitoring disabled.");
@@ -97,7 +91,7 @@ NodeDeathMonitor::NodeDeathMonitor(const rclcpp::NodeOptions & options)
     RCLCPP_WARN(get_logger(), "Monitoring launch.log at: %s", launch_log_path_.c_str());
   }
 
-  // この時点でファイルサイズを取得して、そこから読み始めるようにする(差分読み)
+  // Set initial file position for differential reading
   last_file_pos_ = 0;
   if (!launch_log_path_.empty() && fs::exists(launch_log_path_)) {
     auto raw_size = fs::file_size(launch_log_path_);
@@ -111,22 +105,12 @@ NodeDeathMonitor::NodeDeathMonitor(const rclcpp::NodeOptions & options)
     }
   }
 
-  // sub_rosout_ = create_subscription<rcl_interfaces::msg::Log>(
-  //   "/rosout", 100, std::bind(&NodeDeathMonitor::on_log, this, std::placeholders::_1));
-
-  // ------ タイマー ----
   auto interval_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
     std::chrono::duration<double>(check_interval_));
   timer_ = create_wall_timer(interval_ns, std::bind(&NodeDeathMonitor::on_timer, this));
 }
 
-// on_log() は不要になったので削除してもOK
-// (下記の parseLine() 的な関数にする方法も)
-
-//---------------------------------------------------------------------------
-// launch.log から新規追記分を読み込み、
-// "process has died" を含む行を解析して処理する
-//---------------------------------------------------------------------------
+// Read and process new content from launch.log
 void NodeDeathMonitor::read_launch_log_diff()
 {
   if (launch_log_path_.empty()) {
@@ -221,9 +205,7 @@ void NodeDeathMonitor::read_launch_log_diff()
   }
 }
 
-//---------------------------------------------------------------------------
-// 1行分の "process has died" ログ解析
-//---------------------------------------------------------------------------
+// Parse a single log line for process death information
 void NodeDeathMonitor::parse_log_line(const std::string & line)
 {
   const std::string target_str = "process has died";
@@ -311,9 +293,7 @@ void NodeDeathMonitor::parse_log_line(const std::string & line)
   }
 }
 
-//---------------------------------------------------------------------------
-// タイマーコールバック
-//---------------------------------------------------------------------------
+// Timer callback to check for dead nodes
 void NodeDeathMonitor::on_timer()
 {
   // 1) launch.log の差分を読み取り

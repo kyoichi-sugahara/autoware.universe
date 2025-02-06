@@ -29,35 +29,43 @@ namespace autoware::node_death_monitor
 class NodeDeathMonitor : public rclcpp::Node
 {
 public:
+  /**
+   * @brief Constructor for NodeDeathMonitor
+   * @param options Node options for configuration
+   */
   explicit NodeDeathMonitor(const rclcpp::NodeOptions & options);
 
 private:
-  // launch.logファイルから新規追記分を読み込む
+  /**
+   * @brief Read and process new content appended to launch.log
+   */
   void read_launch_log_diff();
-  // 1行分のログを解析
+
+  /**
+   * @brief Parse a single line from the log for process death information
+   * @param line The log line to parse
+   */
   void parse_log_line(const std::string & line);
-  // 定期処理（死んだノード一覧の報告やクリアなど）
+
+  /**
+   * @brief Timer callback to report and manage dead node list
+   */
   void on_timer();
 
-  // 死んだノードを記録: [node_name-#] -> true
+  // Map to track dead nodes: [node_name-#] -> true
   std::unordered_map<std::string, bool> dead_nodes_;
 
-  // タイマー
   rclcpp::TimerBase::SharedPtr timer_;
 
-  // launch.logファイルのパスと読み取り位置
+  // Launch log file path and read position
   std::filesystem::path launch_log_path_;
   size_t last_file_pos_{static_cast<size_t>(-1)};
 
-  // --- パラメータ ---
-  // 監視から除外したいノード名
-  std::vector<std::string> ignore_node_names_;
-  // 監視から除外したい終了コード (正常終了など)
-  std::vector<int64_t> ignore_exit_codes_;
-  // 定期チェック周期 (秒)
-  double check_interval_{1.0};
-  // デバッグ出力を有効にするか
-  bool enable_debug_{false};
+  // Parameters
+  std::vector<std::string> ignore_node_names_;  // Node names to exclude from monitoring
+  std::vector<int64_t> ignore_exit_codes_;      // Exit codes to ignore (e.g., normal termination)
+  double check_interval_{1.0};                  // Check interval in seconds
+  bool enable_debug_{false};                    // Enable debug output
 };
 
 }  // namespace autoware::node_death_monitor
