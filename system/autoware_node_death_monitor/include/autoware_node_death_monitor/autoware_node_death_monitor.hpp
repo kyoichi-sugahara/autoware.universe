@@ -18,6 +18,7 @@
 #include "rcl_interfaces/msg/log.hpp"
 #include "rclcpp/rclcpp.hpp"
 
+#include <filesystem>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -31,19 +32,24 @@ public:
   explicit NodeDeathMonitor(const rclcpp::NodeOptions & options);
 
 private:
-  // ログ購読コールバック
-  void on_log(const rcl_interfaces::msg::Log::SharedPtr msg);
+  // launch.logファイルから新規追記分を読み込む
+  void readLaunchLogDiff();
+  // 1行分のログを解析
+  void parseLogLine(const std::string & line);
   // 定期処理（死んだノード一覧の報告やクリアなど）
   void on_timer();
 
   // 死んだノードを記録: [node_name-#] -> true
   std::unordered_map<std::string, bool> dead_nodes_;
 
-  // ROS通信 (購読/タイマー)
-  rclcpp::Subscription<rcl_interfaces::msg::Log>::SharedPtr sub_rosout_;
+  // タイマー
   rclcpp::TimerBase::SharedPtr timer_;
 
-  // --- 以下、declare_parameter で取得するパラメータ例 ---
+  // launch.logファイルのパスと読み取り位置
+  std::filesystem::path launch_log_path_;
+  size_t last_file_pos_{0};
+
+  // --- パラメータ ---
   // 監視から除外したいノード名
   std::vector<std::string> ignore_node_names_;
   // 監視から除外したい終了コード (正常終了など)

@@ -14,12 +14,71 @@
 
 #include "autoware_node_death_monitor/autoware_node_death_monitor.hpp"
 
+#include <algorithm>
+#include <chrono>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <regex>
 #include <string>
 #include <vector>
 
+namespace fs = std::filesystem;
+
 namespace autoware::node_death_monitor
 {
+
+// ヘルパー関数: ~/.ros/log または ROS_LOG_DIR を探し、
+// その中で最新のセッションディレクトリを特定し、launch.log のパスを返す
+static fs::path find_latest_launch_log()
+{
+  // 1) ROS_LOG_DIR 環境変数を確認
+  const char * ros_log_dir_env = std::getenv("ROS_LOG_DIR");
+  fs::path base_path;
+  if (ros_log_dir_env) {
+    base_path = fs::path(ros_log_dir_env);
+  } else {
+    // なければ ~/.ros/log にする
+    const char * home_env = std::getenv("HOME");
+    if (!home_env) {
+      // HOME が取れなければ仕方ないのでカレントディレクトリを使う例
+      base_path = fs::current_path();
+    } else {
+      base_path = fs::path(home_env) / ".ros" / "log";
+    }
+  }
+
+  if (!fs::exists(base_path) || !fs::is_directory(base_path)) {
+    // ログディレクトリが存在しない場合は空パス返す
+    return fs::path();
+  }
+
+  // 2) base_path 以下を走査し、最新(更新時刻が最大)のディレクトリを探す
+  fs::path latest_dir;
+  auto latest_time = fs::file_time_type::min();
+
+  for (auto & entry : fs::directory_iterator(base_path)) {
+    if (entry.is_directory()) {
+      // ディレクトリの更新時刻を取得
+      auto ftime = fs::last_write_time(entry.path());
+      if (ftime > latest_time) {
+        latest_time = ftime;
+        latest_dir = entry.path();
+      }
+    }
+  }
+
+  if (latest_dir.empty()) {
+    return fs::path();  // ディレクトリが無い場合
+  }
+
+  // 3) latest_dir/launch.log
+  fs::path log_file = latest_dir / "launch.log";
+  if (fs::exists(log_file) && fs::is_regular_file(log_file)) {
+    return log_file;
+  }
+  return fs::path();  // launch.log が無い場合
+}
 
 NodeDeathMonitor::NodeDeathMonitor(const rclcpp::NodeOptions & options)
 : Node("autoware_node_death_monitor", options)
@@ -35,90 +94,140 @@ NodeDeathMonitor::NodeDeathMonitor(const rclcpp::NodeOptions & options)
   RCLCPP_INFO(get_logger(), "check_interval: %.2f", check_interval_);
   RCLCPP_INFO(get_logger(), "enable_debug: %s", enable_debug_ ? "true" : "false");
 
-  sub_rosout_ = create_subscription<rcl_interfaces::msg::Log>(
-    "/rosout", 100, std::bind(&NodeDeathMonitor::on_log, this, std::placeholders::_1));
+  // ---- ここで最新の launch.log を特定 ----
+  launch_log_path_ = find_latest_launch_log();
+  if (launch_log_path_.empty()) {
+    RCLCPP_WARN(get_logger(), "Could not find latest launch.log. Monitoring disabled.");
+  } else {
+    RCLCPP_INFO(get_logger(), "Monitoring launch.log at: %s", launch_log_path_.c_str());
+  }
 
+  // この時点でファイルサイズを取得して、そこから読み始めるようにする(差分読み)
+  last_file_pos_ = 0;
+  if (!launch_log_path_.empty() && fs::exists(launch_log_path_)) {
+    last_file_pos_ = fs::file_size(launch_log_path_);
+    if (enable_debug_) {
+      RCLCPP_INFO(get_logger(), "[DEBUG] Initial file pos set to %zu", last_file_pos_);
+    }
+  }
+
+  // ------ /rosout 購読は削除 or コメントアウト ----
+  // sub_rosout_ = create_subscription<rcl_interfaces::msg::Log>(
+  //   "/rosout", 100, std::bind(&NodeDeathMonitor::on_log, this, std::placeholders::_1));
+
+  // ------ タイマー ----
   auto interval_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
     std::chrono::duration<double>(check_interval_));
   timer_ = create_wall_timer(interval_ns, std::bind(&NodeDeathMonitor::on_timer, this));
-
-  if (enable_debug_) {
-    RCLCPP_INFO(get_logger(), "[DEBUG] NodeDeathMonitor initialized, now subscribing to /rosout.");
-  }
 }
 
-void NodeDeathMonitor::on_log(const rcl_interfaces::msg::Log::SharedPtr msg)
+// on_log() は不要になったので削除してもOK
+// (下記の parseLine() 的な関数にする方法も)
+
+//---------------------------------------------------------------------------
+// launch.log から新規追記分を読み込み、
+// "process has died" を含む行を解析して処理する
+//---------------------------------------------------------------------------
+void NodeDeathMonitor::readLaunchLogDiff()
 {
-  if (enable_debug_) {
-    RCLCPP_INFO(
-      get_logger(), "[DEBUG] Received /rosout log: level=%d name=%s msg=%s", msg->level,
-      msg->name.c_str(), msg->msg.c_str());
+  if (launch_log_path_.empty()) {
+    return;  // ログファイルが見つからない場合は何もしない
   }
 
-  const std::string & text = msg->msg;
-  const std::string target_str = "process has died";
+  std::ifstream ifs(launch_log_path_);
+  if (!ifs.good()) {
+    RCLCPP_WARN(get_logger(), "Failed to open launch.log: %s", launch_log_path_.c_str());
+    return;
+  }
 
-  // "process has died" を含むかチェック
-  if (text.find(target_str) == std::string::npos) {
+  // ファイル全体をシークしてサイズを取得
+  ifs.seekg(0, std::ios::end);
+  const std::streampos file_end = ifs.tellg();
+
+  // 前回の読み取り位置がファイルサイズを超えていたら(ログローテ等) 先頭から読む
+  if (last_file_pos_ > (size_t)file_end) {
+    RCLCPP_WARN(get_logger(), "File size is reset. Possibly new session? Reading from top.");
+    last_file_pos_ = 0;
+  }
+
+  // 前回の位置までシーク
+  ifs.seekg(last_file_pos_, std::ios::beg);
+
+  if (enable_debug_) {
+    RCLCPP_INFO(
+      get_logger(), "[DEBUG] Reading launch.log from pos=%zu to end=%zu",
+      static_cast<size_t>(last_file_pos_), static_cast<size_t>(file_end));
+  }
+
+  // 1行ずつ読み込み
+  std::string line;
+  while (std::getline(ifs, line)) {
+    parseLogLine(line);
+  }
+
+  // 読み込み後のストリーム位置を記録
+  last_file_pos_ = ifs.tellg();
+}
+
+//---------------------------------------------------------------------------
+// 1行分の "process has died" ログ解析
+//---------------------------------------------------------------------------
+void NodeDeathMonitor::parseLogLine(const std::string & line)
+{
+  const std::string target_str = "process has died";
+  if (line.find(target_str) == std::string::npos) {
     if (enable_debug_) {
-      RCLCPP_INFO(get_logger(), "[DEBUG] The log does not contain '%s': skip", target_str.c_str());
+      RCLCPP_INFO(
+        get_logger(), "[DEBUG] The log line does not contain '%s': skip\nline='%s'",
+        target_str.c_str(), line.c_str());
     }
     return;
   }
 
-  // exit code のパース (例: "exit code 139" を取得)
-  // 参考: "[my_node-1] process has died [pid 12345, exit code 139, cmd '...']"
+  // exit code のパース
   int exit_code = -1;
   {
     static const std::regex exit_code_pattern("exit code\\s+([0-9]+)");
     std::smatch match_exit;
-    if (std::regex_search(text, match_exit, exit_code_pattern)) {
+    if (std::regex_search(line, match_exit, exit_code_pattern)) {
       try {
         exit_code = std::stoi(match_exit[1]);
       } catch (...) {
         exit_code = -1;
       }
       if (enable_debug_) {
-        RCLCPP_INFO(get_logger(), "[DEBUG] Parsed exit_code=%d from the log.", exit_code);
+        RCLCPP_INFO(get_logger(), "[DEBUG] Parsed exit_code=%d from log line.", exit_code);
       }
     } else {
       if (enable_debug_) {
-        RCLCPP_INFO(get_logger(), "[DEBUG] Could not parse exit_code from the log.");
+        RCLCPP_INFO(get_logger(), "[DEBUG] Could not parse exit_code from log line.");
       }
     }
   }
 
-  // ---------------------------
-  // 除外するexit codeの場合は無視
-  // ---------------------------
+  // 除外exit code
   if (
     std::find(ignore_exit_codes_.begin(), ignore_exit_codes_.end(), exit_code) !=
     ignore_exit_codes_.end()) {
     if (enable_debug_) {
       RCLCPP_INFO(
         get_logger(),
-        "[DEBUG] Ignoring process died log (exit_code=%d is in ignore_exit_codes_). Original: %s",
-        exit_code, text.c_str());
+        "[DEBUG] Ignoring process died log (exit_code=%d is in ignore_exit_codes_). line='%s'",
+        exit_code, line.c_str());
     }
     return;
   }
 
-  // ---------------------------
   // "[node_name-#]" を抽出
-  // ---------------------------
   static const std::regex node_name_pattern("\\[([^\\]]+)\\] process has died");
   std::smatch match_node;
-  if (std::regex_search(text, match_node, node_name_pattern)) {
-    const std::string node_id = match_node[1];  // 例: "my_node-1"
-
-    // (任意) ノードIDのデバッグ
+  if (std::regex_search(line, match_node, node_name_pattern)) {
+    const std::string node_id = match_node[1];
     if (enable_debug_) {
       RCLCPP_INFO(get_logger(), "[DEBUG] Extracted node_id='%s'", node_id.c_str());
     }
 
-    // -------------------------
-    // ignore_node_names_ に含まれるなら無視
-    // -------------------------
+    // ignore_node_names_ に含まれていれば無視
     for (const auto & ignore : ignore_node_names_) {
       if (node_id.find(ignore) != std::string::npos) {
         if (enable_debug_) {
@@ -130,27 +239,30 @@ void NodeDeathMonitor::on_log(const rcl_interfaces::msg::Log::SharedPtr msg)
       }
     }
 
-    // -------------------------
-    // 死亡ノードとして記録
-    // -------------------------
+    // 死亡ノードとして登録
     dead_nodes_[node_id] = true;
 
+    // 報告
     RCLCPP_WARN(
-      get_logger(), "Detected node death: %s (exit_code=%d, full_log='%s')", node_id.c_str(),
-      exit_code, text.c_str());
+      get_logger(), "Detected node death from launch.log: node_id='%s' (exit_code=%d)\n  line='%s'",
+      node_id.c_str(), exit_code, line.c_str());
   } else {
-    // 正規表現で node_id を抽出できなかった場合
     if (enable_debug_) {
       RCLCPP_INFO(
-        get_logger(), "[DEBUG] Could not extract [node_name-#] from the log, text='%s'",
-        text.c_str());
+        get_logger(), "[DEBUG] Could not extract [node_name-#] from log line='%s'", line.c_str());
     }
   }
 }
 
+//---------------------------------------------------------------------------
+// タイマーコールバック
+//---------------------------------------------------------------------------
 void NodeDeathMonitor::on_timer()
 {
-  // 死んだノードがあれば定期的に一覧を出力
+  // 1) launch.log の差分を読み取り
+  readLaunchLogDiff();
+
+  // 2) 死んだノード一覧を出力
   if (!dead_nodes_.empty()) {
     std::string report = "Dead nodes detected: ";
     for (const auto & kv : dead_nodes_) {
@@ -160,7 +272,6 @@ void NodeDeathMonitor::on_timer()
     }
     RCLCPP_INFO(get_logger(), "%s", report.c_str());
   } else if (enable_debug_) {
-    // デバッグ時に "no dead nodes" を報告
     RCLCPP_INFO(get_logger(), "[DEBUG] on_timer: No dead nodes so far.");
   }
 }

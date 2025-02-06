@@ -16,4 +16,4 @@
     check_interval: 1.0
 
     # 4) デバッグ出力の有効/無効
-    enable_debug:
+    enable_debug: false
