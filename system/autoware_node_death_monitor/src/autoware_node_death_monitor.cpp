@@ -132,10 +132,10 @@ NodeDeathMonitor::NodeDeathMonitor(const rclcpp::NodeOptions & options)
 // launch.log から新規追記分を読み込み、
 // "process has died" を含む行を解析して処理する
 //---------------------------------------------------------------------------
-void NodeDeathMonitor::readLaunchLogDiff()
+void NodeDeathMonitor::read_launch_log_diff()
 {
   if (launch_log_path_.empty()) {
-    return;  // ログファイルが見つからない場合は何もしない
+    return;
   }
 
   std::ifstream ifs(launch_log_path_, std::ios::binary);
@@ -196,7 +196,7 @@ void NodeDeathMonitor::readLaunchLogDiff()
     }
 
     // 3) 行をパース
-    parseLogLine(line);
+    parse_log_line(line);
 
     // 4) 行読み込み後にファイル位置を取得
     std::streampos current_pos_end = ifs.tellg();
@@ -224,27 +224,12 @@ void NodeDeathMonitor::readLaunchLogDiff()
   } else {
     RCLCPP_WARN(get_logger(), "No valid position found at the end");
   }
-
-  // std::streampos pos = ifs.tellg();
-  // if (pos == std::streampos(-1)) {
-  //   // エラー処理
-  //   RCLCPP_WARN(get_logger(), "tellg() failed after reading. Possibly reached EOF");
-  //   return;
-  // }
-
-  // if (enable_debug_) {
-  //   RCLCPP_WARN(
-  //     get_logger(), "[DEBUG] Final position after reading: %jd, Total iterations: %zu",
-  //     static_cast<intmax_t>(pos), iteration);
-  // }
-
-  // last_file_pos_ = static_cast<size_t>(pos);
 }
 
 //---------------------------------------------------------------------------
 // 1行分の "process has died" ログ解析
 //---------------------------------------------------------------------------
-void NodeDeathMonitor::parseLogLine(const std::string & line)
+void NodeDeathMonitor::parse_log_line(const std::string & line)
 {
   const std::string target_str = "process has died";
   if (line.find(target_str) == std::string::npos) {
@@ -334,7 +319,7 @@ void NodeDeathMonitor::parseLogLine(const std::string & line)
 void NodeDeathMonitor::on_timer()
 {
   // 1) launch.log の差分を読み取り
-  readLaunchLogDiff();
+  read_launch_log_diff();
 
   // 2) 死んだノード一覧を出力
   if (!dead_nodes_.empty()) {

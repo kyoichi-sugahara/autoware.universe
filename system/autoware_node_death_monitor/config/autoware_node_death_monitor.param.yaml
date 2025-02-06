@@ -4,7 +4,6 @@
     #    例: rviz2 がクラッシュしても警告を出さないなど。
     ignore_node_names:
       - rviz2
-      - teleop_twist_joy
 
     # 2) 監視対象から除外したい exit code (Ctrl+C など)
     #    例: 0, 130 はユーザによる終了など、異常と見なさない
@@ -16,4 +15,4 @@
     check_interval: 1.0
 
     # 4) デバッグ出力の有効/無効
-    enable_debug: true
+    enable_debug: false

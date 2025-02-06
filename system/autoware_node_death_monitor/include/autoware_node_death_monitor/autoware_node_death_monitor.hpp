@@ -33,9 +33,9 @@ public:
 
 private:
   // launch.logファイルから新規追記分を読み込む
-  void readLaunchLogDiff();
+  void read_launch_log_diff();
   // 1行分のログを解析
-  void parseLogLine(const std::string & line);
+  void parse_log_line(const std::string & line);
   // 定期処理（死んだノード一覧の報告やクリアなど）
   void on_timer();
 
