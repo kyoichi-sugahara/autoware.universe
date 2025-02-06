@@ -15,7 +15,6 @@
 #ifndef AUTOWARE_NODE_DEATH_MONITOR__AUTOWARE_NODE_DEATH_MONITOR_HPP_
 #define AUTOWARE_NODE_DEATH_MONITOR__AUTOWARE_NODE_DEATH_MONITOR_HPP_
 
-#include "rcl_interfaces/msg/log.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 #include <filesystem>
