@@ -287,14 +287,14 @@ void NodeDeathMonitor::parse_log_line(const std::string & line)
   if (std::regex_search(line, match_node, node_name_pattern)) {
     const std::string node_id = match_node[1];
     if (enable_debug_) {
-      RCLCPP_INFO(get_logger(), "[DEBUG] Extracted node_id='%s'", node_id.c_str());
+      RCLCPP_WARN(get_logger(), "[DEBUG] Extracted node_id='%s'", node_id.c_str());
     }
 
     // ignore_node_names_ に含まれるなら無視
     for (const auto & ignore : ignore_node_names_) {
       if (node_id.find(ignore) != std::string::npos) {
         if (enable_debug_) {
-          RCLCPP_INFO(
+          RCLCPP_WARN(
             get_logger(), "[DEBUG] Ignoring node death: node_id='%s' matched ignore='%s'",
             node_id.c_str(), ignore.c_str());
         }
@@ -311,7 +311,7 @@ void NodeDeathMonitor::parse_log_line(const std::string & line)
       node_id.c_str(), exit_code, line.c_str());
   } else {
     if (enable_debug_) {
-      RCLCPP_INFO(
+      RCLCPP_WARN(
         get_logger(),
         "[DEBUG] Could not extract [node_name-#] (with ': process has died') from log line='%s'",
         line.c_str());
@@ -335,9 +335,9 @@ void NodeDeathMonitor::on_timer()
         report += kv.first + " ";
       }
     }
-    RCLCPP_INFO(get_logger(), "%s", report.c_str());
+    RCLCPP_WARN(get_logger(), "%s", report.c_str());
   } else if (enable_debug_) {
-    RCLCPP_INFO(get_logger(), "[DEBUG] on_timer: No dead nodes so far.");
+    RCLCPP_WARN(get_logger(), "[DEBUG] on_timer: No dead nodes so far.");
   }
 }
 
