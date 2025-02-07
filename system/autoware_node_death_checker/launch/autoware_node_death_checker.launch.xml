@@ -1,0 +1,12 @@
+<launch>
+  <!-- Parameter -->
+  <arg name="config_file" default="$(find-pkg-share autoware_node_death_checker)/config/autoware_node_death_checker.param.yaml"/>
+
+  <!-- Set log level -->
+  <arg name="log_level" default="info"/>
+
+  <node pkg="autoware_node_death_checker" exec="autoware_node_death_checker_node" name="node_death_checker" output="screen" args="--ros-args --log-level $(var log_level)">
+    <!-- Parameter -->
+    <param from="$(var config_file)"/>
+  </node>
+</launch>
