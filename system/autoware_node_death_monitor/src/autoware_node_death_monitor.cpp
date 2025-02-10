@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "autoware_node_death_monitor/autoware_node_death_monitor.hpp"
+#include "autoware_process_alive_monitor/autoware_process_alive_monitor.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -77,7 +77,7 @@ static fs::path find_latest_launch_log()
 }
 
 NodeDeathMonitor::NodeDeathMonitor(const rclcpp::NodeOptions & options)
-: Node("autoware_node_death_monitor", options)
+: Node("autoware_process_alive_monitor", options)
 {
   ignore_node_names_ =
     declare_parameter<std::vector<std::string>>("ignore_node_names", std::vector<std::string>{});
