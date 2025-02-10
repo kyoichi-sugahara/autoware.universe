@@ -150,7 +150,7 @@ void NodeDeathMonitor::read_launch_log_diff()
   std::streampos last_valid_pos = static_cast<std::streampos>(last_file_pos_);
 
   size_t iteration = 0;
-  while (true) {
+  while (rclcpp::ok) {
     // Check current position
     std::streampos current_pos_start = ifs.tellg();
     if (current_pos_start == std::streampos(-1)) {
