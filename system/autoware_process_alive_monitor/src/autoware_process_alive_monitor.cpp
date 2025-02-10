@@ -22,7 +22,7 @@
 
 namespace fs = std::filesystem;
 
-namespace autoware::node_death_monitor
+namespace autoware::process_alive_monitor
 {
 
 /**
@@ -304,7 +304,7 @@ void NodeDeathMonitor::on_timer()
   }
 }
 
-}  // namespace autoware::node_death_monitor
+}  // namespace autoware::process_alive_monitor
 
 #include <rclcpp_components/register_node_macro.hpp>
-RCLCPP_COMPONENTS_REGISTER_NODE(autoware::node_death_monitor::NodeDeathMonitor)
+RCLCPP_COMPONENTS_REGISTER_NODE(autoware::process_alive_monitor::NodeDeathMonitor)
