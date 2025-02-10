@@ -76,7 +76,7 @@ static fs::path find_latest_launch_log()
   return fs::path();
 }
 
-NodeDeathMonitor::NodeDeathMonitor(const rclcpp::NodeOptions & options)
+ProcessAliveMonitor::ProcessAliveMonitor(const rclcpp::NodeOptions & options)
 : Node("autoware_process_alive_monitor", options)
 {
   ignore_node_names_ =
@@ -109,10 +109,10 @@ NodeDeathMonitor::NodeDeathMonitor(const rclcpp::NodeOptions & options)
 
   auto interval_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
     std::chrono::duration<double>(check_interval_));
-  timer_ = create_wall_timer(interval_ns, std::bind(&NodeDeathMonitor::on_timer, this));
+  timer_ = create_wall_timer(interval_ns, std::bind(&ProcessAliveMonitor::on_timer, this));
 }
 
-void NodeDeathMonitor::read_launch_log_diff()
+void ProcessAliveMonitor::read_launch_log_diff()
 {
   if (launch_log_path_.empty()) {
     return;
@@ -200,7 +200,7 @@ void NodeDeathMonitor::read_launch_log_diff()
   }
 }
 
-void NodeDeathMonitor::parse_log_line(const std::string & line)
+void ProcessAliveMonitor::parse_log_line(const std::string & line)
 {
   const std::string target_str = "process has died";
   if (line.find(target_str) == std::string::npos) {
@@ -286,7 +286,7 @@ void NodeDeathMonitor::parse_log_line(const std::string & line)
   }
 }
 
-void NodeDeathMonitor::on_timer()
+void ProcessAliveMonitor::on_timer()
 {
   read_launch_log_diff();
 
@@ -307,4 +307,4 @@ void NodeDeathMonitor::on_timer()
 }  // namespace autoware::process_alive_monitor
 
 #include <rclcpp_components/register_node_macro.hpp>
-RCLCPP_COMPONENTS_REGISTER_NODE(autoware::process_alive_monitor::NodeDeathMonitor)
+RCLCPP_COMPONENTS_REGISTER_NODE(autoware::process_alive_monitor::ProcessAliveMonitor)

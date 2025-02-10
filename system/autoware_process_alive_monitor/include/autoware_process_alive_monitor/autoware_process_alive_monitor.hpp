@@ -25,14 +25,14 @@
 namespace autoware::process_alive_monitor
 {
 
-class NodeDeathMonitor : public rclcpp::Node
+class ProcessAliveMonitor : public rclcpp::Node
 {
 public:
   /**
-   * @brief Constructor for NodeDeathMonitor
+   * @brief Constructor for ProcessAliveMonitor
    * @param options Node options for configuration
    */
-  explicit NodeDeathMonitor(const rclcpp::NodeOptions & options);
+  explicit ProcessAliveMonitor(const rclcpp::NodeOptions & options);
 
 private:
   /**
