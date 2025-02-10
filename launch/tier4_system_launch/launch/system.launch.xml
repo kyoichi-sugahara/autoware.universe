@@ -124,7 +124,7 @@
   </group>
 
   <!-- Process Alive Monitor  -->
-  <!-- <group>
+  <group>
     <include file="$(find-pkg-share autoware_process_alive_monitor)/launch/autoware_process_alive_monitor.launch.xml"/>
-  </group> -->
+  </group>
 </launch>
