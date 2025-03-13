@@ -413,11 +413,11 @@ rcl_interfaces::msg::SetParametersResult SimplePlanningSimulator::on_parameter(
   result.reason = "success";
 
   try {
-    universe_utils::updateParam(parameters, "x_stddev", x_stddev_);
-    universe_utils::updateParam(parameters, "y_stddev", y_stddev_);
+    universe_utils::update_param(parameters, "x_stddev", x_stddev_);
+    universe_utils::update_param(parameters, "y_stddev", y_stddev_);
     double pos_noise_stddev;
     auto & n = brownian_noise_;
-    universe_utils::updateParam(parameters, "brownian_pos_noise_stddev", pos_noise_stddev);
+    universe_utils::update_param(parameters, "brownian_pos_noise_stddev", pos_noise_stddev);
     n.pos_dist_ = std::make_shared<std::normal_distribution<>>(0.0, pos_noise_stddev);
     // you can update parameter with the following command
     // ros2 param set /simulation/simple_planning_simulator brownian_pos_noise_stddev <value>
