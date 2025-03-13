@@ -16,8 +16,12 @@
 
 #include "autoware/planning_validator/utils.hpp"
 
+#include <autoware/motion_utils/trajectory/interpolation.hpp>
 #include <autoware/motion_utils/trajectory/trajectory.hpp>
 #include <autoware_utils/geometry/geometry.hpp>
+
+#include <angles/angles/angles.h>
+#include <tf2/utils.h>
 
 #include <memory>
 #include <string>
@@ -80,6 +84,8 @@ void PlanningValidator::setupParameters()
     p.distance_deviation_threshold = declare_parameter<double>(t + "distance_deviation");
     p.longitudinal_distance_deviation_threshold =
       declare_parameter<double>(t + "longitudinal_distance_deviation");
+    p.nominal_latency_threshold = declare_parameter<double>(t + "nominal_latency");
+    p.yaw_deviation_threshold = declare_parameter<double>(t + "yaw_deviation");
 
     const std::string ps = "parameters.";
     p.forward_trajectory_length_acceleration =
@@ -175,6 +181,14 @@ void PlanningValidator::setupDiag()
   });
   d->add(ns + "trajectory_collision", [&](auto & stat) {
     setStatus(stat, validation_status_.is_valid_no_collision, "collision is detected");
+  });
+  d->add(ns + "latency", [&](auto & stat) {
+    setStatus(stat, validation_status_.is_valid_latency, "latency is larger than expected value.");
+  });
+  d->add(ns + "yaw_deviation", [&](auto & stat) {
+    setStatus(
+      stat, validation_status_.is_valid_yaw_deviation,
+      "difference between vehicle yaw and closest trajectory yaw is too large.");
   });
 }
 
@@ -332,6 +346,8 @@ void PlanningValidator::validate(const Trajectory & trajectory)
   s.is_valid_steering = checkValidSteering(resampled);
   s.is_valid_steering_rate = checkValidSteeringRate(resampled);
   s.is_valid_no_collision = checkValidTrajectoryCollision(resampled);
+  s.is_valid_latency = checkValidLatency(trajectory);
+  s.is_valid_yaw_deviation = checkValidYawDeviation(trajectory);
 
   s.invalid_count = isAllValid(s) ? 0 : s.invalid_count + 1;
 }
@@ -582,6 +598,22 @@ bool PlanningValidator::checkValidTrajectoryCollision(const Trajectory & traject
   return !collision_result;
 }
 
+bool PlanningValidator::checkValidLatency(const Trajectory & trajectory)
+{
+  validation_status_.latency = (this->now() - trajectory.header.stamp).seconds();
+  return validation_status_.latency < validation_params_.nominal_latency_threshold;
+}
+
+bool PlanningValidator::checkValidYawDeviation(const Trajectory & trajectory)
+{
+  const auto interpolated_trajectory_point =
+    motion_utils::calcInterpolatedPoint(trajectory, current_kinematics_->pose.pose);
+  validation_status_.yaw_deviation = std::abs(angles::shortest_angular_distance(
+    tf2::getYaw(interpolated_trajectory_point.pose.orientation),
+    tf2::getYaw(current_kinematics_->pose.pose.orientation)));
+  return validation_status_.yaw_deviation <= validation_params_.yaw_deviation_threshold;
+}
+
 bool PlanningValidator::isAllValid(const PlanningValidatorStatus & s) const
 {
   // TODO(Sugahara): Add s.is_valid_no_collision after verifying that:
@@ -595,7 +627,7 @@ bool PlanningValidator::isAllValid(const PlanningValidatorStatus & s) const
          s.is_valid_longitudinal_max_acc && s.is_valid_longitudinal_min_acc &&
          s.is_valid_steering && s.is_valid_steering_rate && s.is_valid_velocity_deviation &&
          s.is_valid_distance_deviation && s.is_valid_longitudinal_distance_deviation &&
-         s.is_valid_forward_trajectory_length;
+         s.is_valid_forward_trajectory_length && s.is_valid_latency && s.is_valid_yaw_deviation;
 }
 
 void PlanningValidator::displayStatus()
@@ -630,6 +662,8 @@ void PlanningValidator::displayStatus()
   //   s.is_valid_no_collision,
   //   "planning trajectory has collision!! but this validation is not utilized for trajectory "
   //   "validation.");
+  warn(s.is_valid_latency, "planning component latency is larger than threshold!!");
+  warn(s.is_valid_yaw_deviation, "planning trajectory yaw difference from ego yaw is too large!!");
 }
 
 }  // namespace autoware::planning_validator

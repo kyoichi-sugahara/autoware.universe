@@ -66,6 +66,8 @@ struct ValidationParams
   double trajectory_to_object_distance_threshold;
   double ego_to_object_distance_threshold;
   double time_tolerance_threshold;
+  double nominal_latency_threshold;
+  double yaw_deviation_threshold;
 
   // parameters
   double forward_trajectory_length_acceleration;
@@ -94,6 +96,8 @@ public:
   bool checkValidLongitudinalDistanceDeviation(const Trajectory & trajectory);
   bool checkValidForwardTrajectoryLength(const Trajectory & trajectory);
   bool checkValidTrajectoryCollision(const Trajectory & trajectory);
+  bool checkValidLatency(const Trajectory & trajectory);
+  bool checkValidYawDeviation(const Trajectory & trajectory);
 
 private:
   void setupDiag();
