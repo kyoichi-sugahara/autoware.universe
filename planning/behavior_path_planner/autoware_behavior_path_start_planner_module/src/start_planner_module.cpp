@@ -1211,7 +1211,7 @@ PathWithLaneId StartPlannerModule::calcBackwardPathFromStartPose() const
       [&left_boundary_path](const auto & boundary_point) {
         const double x = boundary_point.x();
         const double y = boundary_point.y();
-        left_boundary_path.push_back(autoware::universe_utils::createPoint(x, y, 0.0));
+        left_boundary_path.push_back(autoware_utils::create_point(x, y, 0.0));
       });
 
     std::for_each(
@@ -1219,7 +1219,7 @@ PathWithLaneId StartPlannerModule::calcBackwardPathFromStartPose() const
       [&right_boundary_path](const auto & boundary_point) {
         const double x = boundary_point.x();
         const double y = boundary_point.y();
-        right_boundary_path.push_back(autoware::universe_utils::createPoint(x, y, 0.0));
+        right_boundary_path.push_back(autoware_utils::create_point(x, y, 0.0));
       });
 
     const double left_lateral_offset = calcLateralOffset(left_boundary_path, search_pose.position);
@@ -1228,7 +1228,7 @@ PathWithLaneId StartPlannerModule::calcBackwardPathFromStartPose() const
 
     const auto closest_index =
       autoware::motion_utils::findNearestSegmentIndex(left_boundary_path, search_pose.position);
-    const auto yaw = autoware::universe_utils::calcAzimuthAngle(
+    const auto yaw = autoware_utils::calc_azimuth_angle(
       left_boundary_path[closest_index], left_boundary_path[closest_index + 1]);
     // std::cerr << "closest_index: " << closest_index << "\n\n\n" << std::endl;
     // std::cerr << "yaw: " << yaw << "/n/n/n" << std::endl;
@@ -1982,9 +1982,9 @@ void StartPlannerModule::setDebugData()
   {
     visualization_msgs::msg::MarkerArray engage_is_blocked{};
     const auto color = marker_utils::colors::red();
-    auto marker = createDefaultMarker(
+    auto marker = create_default_marker(
       header.frame_id, header.stamp, "engage_block_reason", 0,
-      visualization_msgs::msg::Marker::TEXT_VIEW_FACING, createMarkerScale(0.0, 0.0, 1.0), color);
+      visualization_msgs::msg::Marker::TEXT_VIEW_FACING, create_marker_scale(0.0, 0.0, 1.0), color);
     marker.pose = status_.pull_out_start_pose;
 
     if (!status_.found_pull_out_path) {

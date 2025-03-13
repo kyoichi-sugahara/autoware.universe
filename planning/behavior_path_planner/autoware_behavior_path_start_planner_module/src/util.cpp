@@ -17,11 +17,11 @@
 #include "autoware/behavior_path_planner_common/utils/path_shifter/path_shifter.hpp"
 #include "autoware/behavior_path_planner_common/utils/path_utils.hpp"
 #include "autoware/behavior_path_planner_common/utils/utils.hpp"
-#include "autoware/universe_utils/geometry/boost_polygon_utils.hpp"
 
 #include <autoware/motion_utils/trajectory/path_with_lane_id.hpp>
 #include <autoware_lanelet2_extension/utility/utilities.hpp>
 #include <autoware_utils/geometry/boost_geometry.hpp>
+#include <autoware_utils/geometry/boost_polygon_utils.hpp>
 #include <rclcpp/rclcpp.hpp>
 
 #include <boost/geometry/algorithms/dispatch/distance.hpp>
@@ -130,14 +130,14 @@ std::optional<PathWithLaneId> extractCollisionCheckSection(
 }
 
 double calcMinArcLengthDistanceFromEgoToObjects(
-  const autoware::universe_utils::LinearRing2d & local_vehicle_footprint, const Pose & ego_pose,
+  const autoware_utils::LinearRing2d & local_vehicle_footprint, const Pose & ego_pose,
   const lanelet::ConstLanelets & lanelets, const PredictedObjects & static_objects)
 {
   double min_distance = std::numeric_limits<double>::max();
   const auto vehicle_footprint =
-    transformVector(local_vehicle_footprint, autoware::universe_utils::pose2transform(ego_pose));
+    transform_vector(local_vehicle_footprint, autoware_utils::pose2transform(ego_pose));
   for (const auto & obj : static_objects.objects) {
-    const auto obj_polygon = autoware::universe_utils::toPolygon2d(obj);
+    const auto obj_polygon = autoware_utils::to_polygon2d(obj);
     for (const auto & obj_outer_point : obj_polygon.outer()) {
       const auto obj_pose_arc_length = getArcLengthForPoint(lanelets, obj_outer_point);
       for (const auto & vehicle_corner_point : vehicle_footprint) {
@@ -152,7 +152,7 @@ double calcMinArcLengthDistanceFromEgoToObjects(
 }
 
 double getArcLengthForPoint(
-  const lanelet::ConstLanelets & lanelets, const autoware::universe_utils::Point2d & point)
+  const lanelet::ConstLanelets & lanelets, const autoware_utils::Point2d & point)
 {
   geometry_msgs::msg::Pose pose;
   pose.position.x = point.x();

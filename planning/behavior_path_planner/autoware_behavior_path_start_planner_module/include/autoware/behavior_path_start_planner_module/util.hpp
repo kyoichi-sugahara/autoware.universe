@@ -38,11 +38,11 @@ namespace autoware::behavior_path_planner::start_planner_utils
 {
 using autoware::behavior_path_planner::utils::path_safety_checker::EgoPredictedPathParams;
 using autoware::route_handler::RouteHandler;
-using autoware::universe_utils::LinearRing2d;
-using autoware::universe_utils::Point2d;
 using autoware_internal_planning_msgs::msg::PathWithLaneId;
 using autoware_perception_msgs::msg::PredictedObjects;
 using autoware_perception_msgs::msg::PredictedPath;
+using autoware_utils::LinearRing2d;
+using autoware_utils::Point2d;
 using geometry_msgs::msg::Pose;
 using geometry_msgs::msg::Twist;
 
@@ -70,11 +70,11 @@ std::optional<PathWithLaneId> extractCollisionCheckSection(
  * object polygons to find the shortest distance within the lanelet system.
  */
 double calcMinArcLengthDistanceFromEgoToObjects(
-  const autoware::universe_utils::LinearRing2d & local_vehicle_footprint, const Pose & ego_pose,
+  const autoware_utils::LinearRing2d & local_vehicle_footprint, const Pose & ego_pose,
   const lanelet::ConstLanelets & lanelets, const PredictedObjects & static_objects);
 
 double getArcLengthForPoint(
-  const lanelet::ConstLanelets & lanelets, const autoware::universe_utils::Point2d & point);
+  const lanelet::ConstLanelets & lanelets, const autoware_utils::Point2d & point);
 
 }  // namespace autoware::behavior_path_planner::start_planner_utils
 
