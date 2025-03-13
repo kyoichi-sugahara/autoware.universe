@@ -45,9 +45,9 @@ StartPlannerParameters StartPlannerParameters::init(rclcpp::Node & node)
     p.collision_check_margins =
       get_or_declare_parameter<std::vector<double>>(node, ns + "collision_check_margins");
     p.collision_check_margin_from_front_object =
-      getOrDeclareParameter<double>(node, ns + "collision_check_margin_from_front_object");
+      get_or_declare_parameter<double>(node, ns + "collision_check_margin_from_front_object");
     p.back_objects_collision_check_margin =
-      getOrDeclareParameter<double>(node, ns + "back_objects_collision_check_margin");
+      get_or_declare_parameter<double>(node, ns + "back_objects_collision_check_margin");
     p.th_moving_object_velocity =
       get_or_declare_parameter<double>(node, ns + "th_moving_object_velocity");
     p.center_line_path_interval =

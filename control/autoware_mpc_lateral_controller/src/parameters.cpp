@@ -14,26 +14,28 @@
 
 #include "autoware/mpc_lateral_controller/parameters.hpp"
 
-#include <autoware/universe_utils/ros/parameter.hpp>
+#include <autoware_utils/ros/parameter.hpp>
 #include <rclcpp/node.hpp>
 
 #include <string>
 
 namespace autoware::motion::control::mpc_lateral_controller
 {
-using autoware::universe_utils::getOrDeclareParameter;
+
+using autoware_utils::get_or_declare_parameter;
 
 TrajectoryFilteringParam TrajectoryFilteringParam::init(rclcpp::Node & node)
 {
   TrajectoryFilteringParam p;
-  p.traj_resample_dist = getOrDeclareParameter<double>(node, "traj_resample_dist");
+  p.traj_resample_dist = get_or_declare_parameter<double>(node, "traj_resample_dist");
   p.extend_trajectory_for_end_yaw_control =
-    getOrDeclareParameter<bool>(node, "extend_trajectory_for_end_yaw_control");
-  p.enable_path_smoothing = getOrDeclareParameter<bool>(node, "enable_path_smoothing");
-  p.path_filter_moving_ave_num = getOrDeclareParameter<int>(node, "path_filter_moving_ave_num");
-  p.curvature_smoothing_num_traj = getOrDeclareParameter<int>(node, "curvature_smoothing_num_traj");
+    get_or_declare_parameter<bool>(node, "extend_trajectory_for_end_yaw_control");
+  p.enable_path_smoothing = get_or_declare_parameter<bool>(node, "enable_path_smoothing");
+  p.path_filter_moving_ave_num = get_or_declare_parameter<int>(node, "path_filter_moving_ave_num");
+  p.curvature_smoothing_num_traj =
+    get_or_declare_parameter<int>(node, "curvature_smoothing_num_traj");
   p.curvature_smoothing_num_ref_steer =
-    getOrDeclareParameter<int>(node, "curvature_smoothing_num_ref_steer");
+    get_or_declare_parameter<int>(node, "curvature_smoothing_num_ref_steer");
 
   return p;
 }
