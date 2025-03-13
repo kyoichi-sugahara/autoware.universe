@@ -219,7 +219,7 @@ void PlanningValidator::onTrajectory(const Trajectory::ConstSharedPtr msg)
 
   // receive data
   current_kinematics_ = sub_kinematics_.take_data();
-  current_objects_ = sub_obj_.takeData();
+  current_objects_ = sub_obj_.take_data();
 
   if (!isDataReady()) return;
 

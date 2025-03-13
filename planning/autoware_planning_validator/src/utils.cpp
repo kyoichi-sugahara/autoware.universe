@@ -14,9 +14,8 @@
 
 #include "autoware/planning_validator/utils.hpp"
 
-#include "autoware/universe_utils/geometry/boost_polygon_utils.hpp"
-
 #include <autoware/motion_utils/trajectory/trajectory.hpp>
+#include <autoware_utils/geometry/boost_polygon_utils.hpp>
 #include <autoware_utils/geometry/geometry.hpp>
 
 #include <boost/geometry/algorithms/intersects.hpp>
@@ -372,19 +371,19 @@ Rtree make_ego_footprint_rtree(
   std::vector<autoware_planning_msgs::msg::TrajectoryPoint> & trajectory,
   const VehicleInfo & vehicle_info)
 {
-  autoware::universe_utils::MultiPolygon2d trajectory_footprints;
+  autoware_utils::MultiPolygon2d trajectory_footprints;
   const double base_to_front = vehicle_info.wheel_base_m + vehicle_info.front_overhang_m;
   const double base_to_rear = vehicle_info.rear_overhang_m;
 
   for (const auto & p : trajectory)
-    trajectory_footprints.push_back(autoware::universe_utils::toFootprint(
+    trajectory_footprints.push_back(autoware_utils::to_footprint(
       p.pose, base_to_front, base_to_rear, vehicle_info.vehicle_width_m));
   std::vector<BoxTimeIndexPair> rtree_nodes;
 
   rtree_nodes.reserve(trajectory_footprints.size());
   for (auto i = 0UL; i < trajectory_footprints.size(); ++i) {
     const auto box =
-      boost::geometry::return_envelope<autoware::universe_utils::Box2d>(trajectory_footprints[i]);
+      boost::geometry::return_envelope<autoware_utils::Box2d>(trajectory_footprints[i]);
     const double time =
       trajectory[i].time_from_start.sec + trajectory[i].time_from_start.nanosec * 1e-9;
     rtree_nodes.emplace_back(box, std::make_pair(time, i));
@@ -405,9 +404,9 @@ std::optional<PredictedObjects> filter_objects(
     const size_t nearest_index =
       autoware::motion_utils::findNearestIndex(trajectory, object_position);
     const double trajectory_to_object_distance =
-      autoware::universe_utils::calcDistance2d(trajectory[nearest_index], object_position);
+      autoware_utils::calc_distance2d(trajectory[nearest_index], object_position);
     const double ego_to_object_distance =
-      autoware::universe_utils::calcDistance2d(trajectory.front().pose.position, object_position);
+      autoware_utils::calc_distance2d(trajectory.front().pose.position, object_position);
 
     if (
       trajectory_to_object_distance < trajectory_to_object_distance_threshold &&
@@ -442,10 +441,9 @@ void make_predicted_object_rtree(
     const auto & pose = highest_confidence_path.path[j];
     const double predicted_time = j * predicted_time_step;
 
-    const auto predicted_polygon = autoware::universe_utils::toPolygon2d(pose, object_shape);
+    const auto predicted_polygon = autoware_utils::to_polygon2d(pose, object_shape);
 
-    const auto box =
-      boost::geometry::return_envelope<autoware::universe_utils::Box2d>(predicted_polygon);
+    const auto box = boost::geometry::return_envelope<autoware_utils::Box2d>(predicted_polygon);
 
     predicted_object_rtree_nodes.emplace_back(box, std::make_pair(predicted_time, j));
   }

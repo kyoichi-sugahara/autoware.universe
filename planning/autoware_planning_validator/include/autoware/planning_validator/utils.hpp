@@ -15,8 +15,9 @@
 #ifndef AUTOWARE__PLANNING_VALIDATOR__UTILS_HPP_
 #define AUTOWARE__PLANNING_VALIDATOR__UTILS_HPP_
 
-#include "autoware/universe_utils/geometry/boost_geometry.hpp"
 #include "autoware_vehicle_info_utils/vehicle_info_utils.hpp"
+
+#include <autoware_utils/geometry/boost_geometry.hpp>
 
 #include <autoware_perception_msgs/msg/predicted_objects.hpp>
 #include <autoware_planning_msgs/msg/trajectory.hpp>
@@ -31,7 +32,6 @@
 
 namespace autoware::planning_validator
 {
-using autoware::universe_utils::Polygon2d;
 using autoware::vehicle_info_utils::VehicleInfo;
 using autoware_perception_msgs::msg::PredictedObject;
 using autoware_perception_msgs::msg::PredictedObjects;
@@ -39,7 +39,9 @@ using autoware_perception_msgs::msg::PredictedPath;
 using autoware_perception_msgs::msg::Shape;
 using autoware_planning_msgs::msg::Trajectory;
 using autoware_planning_msgs::msg::TrajectoryPoint;
-using Point = autoware::universe_utils::Point2d;
+using autoware_utils::Polygon2d;
+using Point = autoware_utils::Point2d;
+
 using Box = boost::geometry::model::box<Point>;
 using BoxTimeIndexPair = std::pair<Box, std::pair<double, std::size_t>>;
 using Rtree = boost::geometry::index::rtree<BoxTimeIndexPair, boost::geometry::index::rstar<16, 4>>;

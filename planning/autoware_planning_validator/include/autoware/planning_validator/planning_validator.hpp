@@ -117,8 +117,7 @@ private:
 
   autoware_utils::InterProcessPollingSubscriber<Odometry> sub_kinematics_{
     this, "~/input/kinematics"};
-  autoware::universe_utils::InterProcessPollingSubscriber<PredictedObjects> sub_obj_{
-    this, "~/input/objects"};
+  autoware_utils::InterProcessPollingSubscriber<PredictedObjects> sub_obj_{this, "~/input/objects"};
   rclcpp::Subscription<Trajectory>::SharedPtr sub_traj_;
   rclcpp::Publisher<Trajectory>::SharedPtr pub_traj_;
   rclcpp::Publisher<PlanningValidatorStatus>::SharedPtr pub_status_;
