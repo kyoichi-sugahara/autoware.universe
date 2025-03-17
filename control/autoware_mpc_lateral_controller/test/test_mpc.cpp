@@ -22,8 +22,8 @@
 #include "rclcpp/rclcpp.hpp"
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
+#include <autoware/planning_test_manager/autoware_planning_test_manager.hpp>
 #include <autoware/trajectory_follower_base/control_horizon.hpp>
-#include <autoware_planning_test_manager/autoware_planning_test_manager.hpp>
 #include <autoware_test_utils/autoware_test_utils.hpp>
 
 #include "autoware_control_msgs/msg/lateral.hpp"

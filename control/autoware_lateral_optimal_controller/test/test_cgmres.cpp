@@ -22,7 +22,7 @@
 #include "rclcpp/rclcpp.hpp"
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
-#include <autoware_planning_test_manager/autoware_planning_test_manager.hpp>
+#include <autoware/planning_test_manager/autoware_planning_test_manager.hpp>
 #include <autoware_test_utils/autoware_test_utils.hpp>
 
 #include "autoware_auto_vehicle_msgs/msg/steering_report.hpp"
