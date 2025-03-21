@@ -53,7 +53,7 @@ if(BUILD_TESTING)
 
   find_package(autoware_testing REQUIRED)
   # Temporary disabled, tracked by:
-  # https://github.com/autowarefoundation/autoware.universe/issues/7733
+  # https://github.com/autowarefoundation/autoware_universe/issues/7733
 #  find_package(autoware_testing REQUIRED)
 #  # smoke test for MPC controller
 #  add_smoke_test(${PROJECT_NAME} ${CONTROLLER_NODE}_exe
