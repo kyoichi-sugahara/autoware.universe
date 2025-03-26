@@ -49,29 +49,50 @@ using diagnostic_updater::DiagnosticStatusWrapper;
 using diagnostic_updater::Updater;
 using nav_msgs::msg::Odometry;
 
+struct ValidationWarningConfig
+{
+  bool interval = false;
+  bool relative_angle = false;
+  bool curvature = false;
+  bool lateral_acc = false;
+  bool longitudinal_max_acc = false;
+  bool longitudinal_min_acc = false;
+  bool steering = false;
+  bool steering_rate = false;
+  bool velocity_deviation = false;
+  bool distance_deviation = false;
+  bool longitudinal_distance_deviation = false;
+  bool trajectory_to_object_distance = false;
+  bool ego_to_object_distance = false;
+  bool latency = false;
+  bool yaw_deviation = false;
+};
+
 struct ValidationParams
 {
   // thresholds
-  double interval_threshold;
-  double relative_angle_threshold;
-  double curvature_threshold;
-  double lateral_acc_threshold;
-  double longitudinal_max_acc_threshold;
-  double longitudinal_min_acc_threshold;
-  double steering_threshold;
-  double steering_rate_threshold;
-  double velocity_deviation_threshold;
-  double distance_deviation_threshold;
-  double longitudinal_distance_deviation_threshold;
-  double trajectory_to_object_distance_threshold;
-  double ego_to_object_distance_threshold;
-  double time_tolerance_threshold;
-  double nominal_latency_threshold;
-  double yaw_deviation_threshold;
+  double interval_threshold{0.0};
+  double relative_angle_threshold{0.0};
+  double curvature_threshold{0.0};
+  double lateral_acc_threshold{0.0};
+  double longitudinal_max_acc_threshold{0.0};
+  double longitudinal_min_acc_threshold{0.0};
+  double steering_threshold{0.0};
+  double steering_rate_threshold{0.0};
+  double velocity_deviation_threshold{0.0};
+  double distance_deviation_threshold{0.0};
+  double longitudinal_distance_deviation_threshold{0.0};
+  double trajectory_to_object_distance_threshold{0.0};
+  double ego_to_object_distance_threshold{0.0};
+  double time_tolerance_threshold{0.0};
+  double nominal_latency_threshold{0.0};
+  double yaw_deviation_threshold{0.0};
+
+  ValidationWarningConfig enable_warnings;
 
   // parameters
-  double forward_trajectory_length_acceleration;
-  double forward_trajectory_length_margin;
+  double forward_trajectory_length_acceleration{0.0};
+  double forward_trajectory_length_margin{0.0};
 };
 
 class PlanningValidator : public rclcpp::Node
@@ -111,6 +132,7 @@ private:
   void publishProcessingTime(const double processing_time_ms);
   void publishTrajectory();
   void publishDebugInfo();
+  void publishWarningVirtualWall();
   void displayStatus();
 
   void setStatus(DiagnosticStatusWrapper & stat, const bool & is_ok, const std::string & msg);
@@ -150,6 +172,7 @@ private:
   PredictedObjects::ConstSharedPtr current_objects_;
 
   std::shared_ptr<PlanningValidatorDebugMarkerPublisher> debug_pose_publisher_;
+  std::shared_ptr<PlanningValidatorDebugMarkerPublisher> warning_pose_publisher_;
 
   std::unique_ptr<autoware_utils::LoggerLevelConfigure> logger_configure_;
 

@@ -26,6 +26,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace autoware::planning_validator
 {
@@ -45,6 +46,7 @@ PlanningValidator::PlanningValidator(const rclcpp::NodeOptions & options)
   pub_processing_time_ms_ = create_publisher<Float64Stamped>("~/debug/processing_time_ms", 1);
 
   debug_pose_publisher_ = std::make_shared<PlanningValidatorDebugMarkerPublisher>(this);
+  warning_pose_publisher_ = std::make_shared<PlanningValidatorDebugMarkerPublisher>(this);
 
   setupParameters();
 
@@ -86,6 +88,23 @@ void PlanningValidator::setupParameters()
       declare_parameter<double>(t + "longitudinal_distance_deviation");
     p.nominal_latency_threshold = declare_parameter<double>(t + "nominal_latency");
     p.yaw_deviation_threshold = declare_parameter<double>(t + "yaw_deviation");
+
+    // Warning flags
+    const std::string wf = "warning_flags.";
+    p.enable_warnings.interval = declare_parameter<bool>(wf + "interval");
+    p.enable_warnings.relative_angle = declare_parameter<bool>(wf + "relative_angle");
+    p.enable_warnings.curvature = declare_parameter<bool>(wf + "curvature");
+    p.enable_warnings.lateral_acc = declare_parameter<bool>(wf + "lateral_acc");
+    p.enable_warnings.longitudinal_max_acc = declare_parameter<bool>(wf + "longitudinal_max_acc");
+    p.enable_warnings.longitudinal_min_acc = declare_parameter<bool>(wf + "longitudinal_min_acc");
+    p.enable_warnings.steering = declare_parameter<bool>(wf + "steering");
+    p.enable_warnings.steering_rate = declare_parameter<bool>(wf + "steering_rate");
+    p.enable_warnings.velocity_deviation = declare_parameter<bool>(wf + "velocity_deviation");
+    p.enable_warnings.distance_deviation = declare_parameter<bool>(wf + "distance_deviation");
+    p.enable_warnings.longitudinal_distance_deviation =
+      declare_parameter<bool>(wf + "longitudinal_distance_deviation");
+    p.enable_warnings.latency = declare_parameter<bool>(wf + "latency");
+    p.enable_warnings.yaw_deviation = declare_parameter<bool>(wf + "yaw_deviation");
 
     const std::string ps = "parameters.";
     p.forward_trajectory_length_acceleration =
@@ -228,6 +247,7 @@ void PlanningValidator::onTrajectory(const Trajectory::ConstSharedPtr msg)
   }
 
   debug_pose_publisher_->clearMarkers();
+  warning_pose_publisher_->clearMarkers();
 
   validate(*current_trajectory_);
 
@@ -238,6 +258,7 @@ void PlanningValidator::onTrajectory(const Trajectory::ConstSharedPtr msg)
   // for debug
   publishProcessingTime(stop_watch_.toc(__func__));
   publishDebugInfo();
+  publishWarningVirtualWall();
   displayStatus();
 }
 
@@ -303,6 +324,113 @@ void PlanningValidator::publishDebugInfo()
     debug_pose_publisher_->pushWarningMsg(front_pose, "INVALID PLANNING");
   }
   debug_pose_publisher_->publish();
+}
+
+void PlanningValidator::publishWarningVirtualWall()
+{
+  if (isAllValid(validation_status_)) {
+    return;
+  }
+
+  geometry_msgs::msg::Pose front_pose = current_kinematics_->pose.pose;
+  shiftPose(front_pose, vehicle_info_.front_overhang_m + vehicle_info_.wheel_base_m - 2.0);
+
+  std::vector<std::string> warning_msgs;
+
+  const auto & s = validation_status_;
+  const auto & p = validation_params_;
+  const auto & w = p.enable_warnings;
+
+  if (!s.is_valid_interval && w.interval)
+    warning_msgs.push_back(
+      "Invalid Interval: " + std::to_string(s.max_interval_distance) +
+      " m (max: " + std::to_string(p.interval_threshold) + " m)");
+
+  if (!s.is_valid_relative_angle && w.relative_angle)
+    warning_msgs.push_back(
+      "Large Angle Change: " + std::to_string(s.max_relative_angle) +
+      "° (max: " + std::to_string(p.relative_angle_threshold) + "°)");
+
+  if (!s.is_valid_curvature && w.curvature)
+    warning_msgs.push_back(
+      "Large Curvature: " + std::to_string(s.max_curvature) +
+      " (max: " + std::to_string(p.curvature_threshold) + ")");
+
+  if (!s.is_valid_lateral_acc && w.lateral_acc)
+    warning_msgs.push_back(
+      "Large Lateral Acc: " + std::to_string(s.max_lateral_acc) +
+      " m/s² (max: " + std::to_string(p.lateral_acc_threshold) + " m/s²)");
+
+  if (!s.is_valid_longitudinal_max_acc && w.longitudinal_max_acc)
+    warning_msgs.push_back(
+      "Large Acceleration: " + std::to_string(s.max_longitudinal_acc) +
+      " m/s² (max: " + std::to_string(p.longitudinal_max_acc_threshold) + " m/s²)");
+
+  if (!s.is_valid_longitudinal_min_acc && w.longitudinal_min_acc)
+    warning_msgs.push_back(
+      "Large Deceleration: " + std::to_string(s.min_longitudinal_acc) +
+      " m/s² (max: " + std::to_string(p.longitudinal_min_acc_threshold) + " m/s²)");
+
+  if (!s.is_valid_steering && w.steering)
+    warning_msgs.push_back(
+      "Large Steering: " + std::to_string(s.max_steering) +
+      "° (max: " + std::to_string(p.steering_threshold) + "°)");
+
+  if (!s.is_valid_steering_rate && w.steering_rate)
+    warning_msgs.push_back(
+      "Large Steering Rate: " + std::to_string(s.max_steering_rate) +
+      "°/s (max: " + std::to_string(p.steering_rate_threshold) + "°/s)");
+
+  if (!s.is_valid_velocity_deviation && w.velocity_deviation)
+    warning_msgs.push_back(
+      "Velocity Deviation: " + std::to_string(s.velocity_deviation) +
+      " m/s (max: " + std::to_string(p.velocity_deviation_threshold) + " m/s)");
+
+  if (!s.is_valid_distance_deviation && w.distance_deviation)
+    warning_msgs.push_back(
+      "Distance Deviation: " + std::to_string(s.distance_deviation) +
+      " m (max: " + std::to_string(p.distance_deviation_threshold) + " m)");
+
+  if (!s.is_valid_longitudinal_distance_deviation && w.longitudinal_distance_deviation)
+    warning_msgs.push_back(
+      "Longitudinal Deviation: " + std::to_string(s.longitudinal_distance_deviation) +
+      " m (max: " + std::to_string(p.longitudinal_distance_deviation_threshold) + " m)");
+
+  if (!s.is_valid_latency && w.latency)
+    warning_msgs.push_back(
+      "High Latency: " + std::to_string(s.latency) +
+      " ms (max: " + std::to_string(p.nominal_latency_threshold) + " ms)");
+
+  if (!s.is_valid_yaw_deviation && w.yaw_deviation)
+    warning_msgs.push_back(
+      "Large Yaw Deviation: " + std::to_string(s.yaw_deviation) +
+      "° (max: " + std::to_string(p.yaw_deviation_threshold) + "°)");
+
+  if (!s.is_valid_distance_deviation && w.trajectory_to_object_distance)
+    warning_msgs.push_back(
+      "Trajectory to Object Distance Violation: " + std::to_string(s.distance_deviation) +
+      " m (min: " + std::to_string(p.trajectory_to_object_distance_threshold) + " m)");
+
+  if (!s.is_valid_distance_deviation && w.ego_to_object_distance)
+    warning_msgs.push_back(
+      "Ego to Object Distance Violation: " + std::to_string(s.distance_deviation) +
+      " m (min: " + std::to_string(p.ego_to_object_distance_threshold) + " m)");
+
+  if (!warning_msgs.empty()) {
+    warning_pose_publisher_->pushVirtualWall(front_pose);
+
+    std::string combined_msg = "WARNING: ";
+
+    for (size_t i = 0; i < warning_msgs.size(); ++i) {
+      combined_msg += warning_msgs[i];
+      if (i < warning_msgs.size() - 1) {
+        combined_msg += ", ";
+      }
+    }
+
+    warning_pose_publisher_->pushWarningMsg(front_pose, combined_msg);
+  }
+  warning_pose_publisher_->publish();
 }
 
 void PlanningValidator::validate(const Trajectory & trajectory)
