@@ -158,21 +158,34 @@ std::pair<double, size_t> calcMaxCurvature(const Trajectory & trajectory)
   return {*max_curvature_it, index};
 }
 
+void calc_interval_distance(
+  const Trajectory & trajectory, std::vector<double> & interval_distance_arr)
+{
+  if (trajectory.points.size() < 2) {
+    interval_distance_arr = std::vector<double>(trajectory.points.size() - 1, 0.0);
+    return;
+  }
+
+  interval_distance_arr = std::vector<double>(trajectory.points.size() - 1, 0.0);
+  for (size_t i = 0; i < trajectory.points.size() - 1; ++i) {
+    const auto d = calc_distance2d(trajectory.points.at(i), trajectory.points.at(i + 1));
+    interval_distance_arr.at(i) = d;
+  }
+}
+
 std::pair<double, size_t> calcMaxIntervalDistance(const Trajectory & trajectory)
 {
   if (trajectory.points.size() < 2) {
     return {0.0, 0};
   }
+  std::vector<double> interval_distance_arr;
+  calc_interval_distance(trajectory, interval_distance_arr);
 
-  double max_interval_distances = 0.0;
-  size_t max_index = 0;
-  for (size_t i = 1; i < trajectory.points.size(); ++i) {
-    const auto d = calc_distance2d(trajectory.points.at(i), trajectory.points.at(i - 1));
-    if (max_interval_distances < std::abs(d)) {
-      takeBigger(max_interval_distances, max_index, std::abs(d), i);
-    }
-  }
-  return {max_interval_distances, max_index};
+  const auto max_interval_it =
+    std::max_element(interval_distance_arr.begin(), interval_distance_arr.end());
+  const size_t max_index = std::distance(interval_distance_arr.begin(), max_interval_it);
+
+  return {*max_interval_it, max_index};
 }
 
 std::pair<double, size_t> calcMaxLateralAcceleration(const Trajectory & trajectory)
@@ -183,10 +196,22 @@ std::pair<double, size_t> calcMaxLateralAcceleration(const Trajectory & trajecto
   double max_lat_acc = 0.0;
   size_t max_index = 0;
   for (size_t i = 0; i < curvatures.size(); ++i) {
-    const auto v = trajectory.points.at(i).longitudinal_velocity_mps;
-    const auto lat_acc = v * v * curvatures.at(i);
-    takeBigger(max_lat_acc, max_index, std::abs(lat_acc), i);
+    const auto v_lon = trajectory.points.at(i).longitudinal_velocity_mps;
+    const auto a_lon = trajectory.points.at(i).acceleration_mps2;
+
+    // Component 1: Centrifugal acceleration from curvature (v^2 * κ)
+    const auto lat_acc_curve = v_lon * v_lon * curvatures.at(i);
+
+    // Component 2: Lateral projection of longitudinal acceleration
+    const auto theta = std::atan2(curvatures.at(i) * v_lon * v_lon, a_lon);
+    const auto lat_acc_from_lon = a_lon * std::sin(theta);
+
+    const auto lat_acc_total =
+      std::sqrt(lat_acc_curve * lat_acc_curve + lat_acc_from_lon * lat_acc_from_lon);
+
+    takeBigger(max_lat_acc, max_index, std::abs(lat_acc_total), i);
   }
+
   return {max_lat_acc, max_index};
 }
 

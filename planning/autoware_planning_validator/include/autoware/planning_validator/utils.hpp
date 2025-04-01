@@ -59,6 +59,9 @@ void calcSteeringAngles(
 
 std::pair<double, size_t> calcMaxCurvature(const Trajectory & trajectory);
 
+void calc_interval_distance(
+  const Trajectory & trajectory, std::vector<double> & interval_distances);
+
 std::pair<double, size_t> calcMaxIntervalDistance(const Trajectory & trajectory);
 
 std::pair<double, size_t> calcMaxLateralAcceleration(const Trajectory & trajectory);
