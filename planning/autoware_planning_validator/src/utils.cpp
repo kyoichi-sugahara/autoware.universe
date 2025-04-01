@@ -215,6 +215,88 @@ std::pair<double, size_t> calcMaxLateralAcceleration(const Trajectory & trajecto
   return {max_lat_acc, max_index};
 }
 
+/**
+ * @brief Calculate time interval between two points assuming constant acceleration
+ * @param v1 Initial velocity [m/s]
+ * @param v2 Final velocity [m/s]
+ * @param a Acceleration [m/s^2]
+ * @param ds Distance interval [m]
+ * @return Time interval [s]
+ */
+double calc_time_interval(double v_current_lon, double v_next_lon, double a_current_lon, double ds)
+{
+  constexpr double epsilon = 1e-6;  // Threshold for near-zero values
+
+  // Handle zero distance case
+  if (std::abs(ds) < epsilon) {
+    return 0.0;
+  }
+
+  // Special case for near-zero acceleration
+  if (std::abs(a_current_lon) < epsilon) {
+    const double v_avg = (v_current_lon + v_next_lon) / 2.0;
+    return (std::abs(v_avg) < epsilon) ? 0.0 : ds / v_avg;
+  }
+
+  // For non-zero acceleration, use: ds = v1 * dt + 0.5 * a * dt^2
+  const double discriminant = v_current_lon * v_current_lon + 2.0 * a_current_lon * ds;
+
+  if (discriminant >= 0.0) {
+    // Standard solution from quadratic formula
+    const double dt = (std::sqrt(discriminant) - v_current_lon) / a_current_lon;
+    return std::max(0.0, dt);  // Ensure non-negative time
+  }
+
+  // Fallback to average velocity if quadratic solution fails
+  const double v_avg = (v_current_lon + v_next_lon) / 2.0;
+  return (std::abs(v_avg) < epsilon) ? 0.0 : ds / v_avg;
+}
+
+/**
+ * @brief Calculate time from start for each point in trajectory
+ * @param trajectory Target trajectory
+ * @param time_from_start_arr Output array of time from start for each point
+ */
+void calc_time_from_start(const Trajectory & trajectory, std::vector<double> & time_from_start_arr)
+{
+  // Handle empty trajectory
+  if (trajectory.points.empty()) {
+    time_from_start_arr.clear();
+    return;
+  }
+
+  // Handle single-point trajectory
+  if (trajectory.points.size() == 1) {
+    time_from_start_arr.assign(1, 0.0);
+    return;
+  }
+
+  // Prepare output array
+  time_from_start_arr.clear();
+  time_from_start_arr.reserve(trajectory.points.size());
+
+  // Calculate distances between points
+  std::vector<double> interval_distance_arr;
+  calc_interval_distance(trajectory, interval_distance_arr);
+
+  // First point starts at time = 0
+  double accumulated_time = 0.0;
+  time_from_start_arr.push_back(accumulated_time);
+
+  // Calculate time for each subsequent point
+  for (size_t i = 0; i < trajectory.points.size() - 1; ++i) {
+    const double v_current_lon = trajectory.points[i].longitudinal_velocity_mps;
+    const double v_next_lon = trajectory.points[i + 1].longitudinal_velocity_mps;
+    const double a_current_lon = trajectory.points[i].acceleration_mps2;
+    const double ds = interval_distance_arr[i];
+
+    const double dt = calc_time_interval(v_current_lon, v_next_lon, a_current_lon, ds);
+    accumulated_time += dt;
+
+    time_from_start_arr.push_back(accumulated_time);
+  }
+}
+
 std::pair<double, size_t> getMaxLongitudinalAcc(const Trajectory & trajectory)
 {
   double max_acc = 0.0;
