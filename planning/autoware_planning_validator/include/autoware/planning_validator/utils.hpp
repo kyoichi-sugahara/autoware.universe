@@ -64,11 +64,15 @@ void calc_interval_distance(
 
 std::pair<double, size_t> calcMaxIntervalDistance(const Trajectory & trajectory);
 
+void calc_lateral_acceleration(
+  const Trajectory & trajectory, std::vector<double> & lateral_acceleration_arr);
+
 std::pair<double, size_t> calcMaxLateralAcceleration(const Trajectory & trajectory);
 
-void calc_time_interval(const Trajectory & trajectory, std::vector<double> & time_interval_arr);
+void calc_interval_time(const Trajectory & trajectory, std::vector<double> & time_interval_arr);
 
-void calc_time_from_start(const Trajectory & trajectory, std::vector<double> & time_from_start_arr);
+// void calc_time_from_start(const Trajectory & trajectory, std::vector<double> &
+// time_from_start_arr);
 
 std::pair<double, size_t> getMaxLongitudinalAcc(const Trajectory & trajectory);
 
