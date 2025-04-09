@@ -206,16 +206,8 @@ void calc_lateral_acceleration(
 
   for (size_t i = 0; i < trajectory.points.size(); ++i) {
     const auto v_lon = trajectory.points.at(i).longitudinal_velocity_mps;
-    const auto a_lon = trajectory.points.at(i).acceleration_mps2;
 
-    // Component 1: Centrifugal acceleration from curvature (v^2 * κ)
-    const auto lat_acc_curve = v_lon * v_lon * curvature_vector.at(i);
-
-    // Component 2: Lateral projection of longitudinal acceleration
-    const auto theta = std::atan2(curvature_vector.at(i) * v_lon * v_lon, a_lon);
-    const auto lat_acc_from_lon = a_lon * std::sin(theta);
-
-    lateral_acceleration_vector.at(i) = std::hypot(lat_acc_curve, lat_acc_from_lon);
+    lateral_acceleration_vector.at(i) = v_lon * v_lon * std::abs(curvature_vector.at(i));
   }
 }
 
