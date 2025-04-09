@@ -207,7 +207,7 @@ void calc_lateral_acceleration(
   for (size_t i = 0; i < trajectory.points.size(); ++i) {
     const auto v_lon = trajectory.points.at(i).longitudinal_velocity_mps;
 
-    lateral_acceleration_vector.at(i) = v_lon * v_lon * std::abs(curvature_vector.at(i));
+    lateral_acceleration_vector.at(i) = v_lon * v_lon * curvature_vector.at(i);
   }
 }
 
@@ -224,8 +224,9 @@ std::pair<double, size_t> calcMaxLateralAcceleration(const Trajectory & trajecto
     return {0.0, 0};
   }
 
-  const auto max_it =
-    std::max_element(lateral_acceleration_vector.begin(), lateral_acceleration_vector.end());
+  const auto max_it = std::max_element(
+    lateral_acceleration_vector.begin(), lateral_acceleration_vector.end(),
+    [](double a, double b) { return std::abs(a) < std::abs(b); });
   const size_t max_index = std::distance(lateral_acceleration_vector.begin(), max_it);
 
   return {*max_it, max_index};
