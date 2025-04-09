@@ -16,6 +16,7 @@
 #define AUTOWARE__PLANNING_VALIDATOR__PLANNING_VALIDATOR_HPP_
 
 #include "autoware/planning_validator/debug_marker.hpp"
+#include "autoware/planning_validator/parameters.hpp"
 #include "autoware_planning_validator/msg/planning_validator_status.hpp"
 #include "autoware_utils/geometry/boost_geometry.hpp"
 #include "autoware_utils/ros/logger_level_configure.hpp"
@@ -146,20 +147,12 @@ private:
   rclcpp::Publisher<Float64Stamped>::SharedPtr pub_processing_time_ms_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub_markers_;
 
-  // system parameters
-  enum class InvalidTrajectoryHandlingType {
-    PUBLISH_AS_IT_IS,
-    STOP_PUBLISHING,
-    USE_PREVIOUS_RESULT,
-  } invalid_trajectory_handling_type_;
-  bool publish_diag_ = true;
-  int diag_error_count_threshold_ = 0;
-  bool display_on_terminal_ = true;
+  bool is_critical_error_ = false;
 
   std::shared_ptr<Updater> diag_updater_ = nullptr;
 
   PlanningValidatorStatus validation_status_;
-  ValidationParams validation_params_;  // for thresholds
+  Params params_;  // for thresholds
 
   VehicleInfo vehicle_info_;
 
