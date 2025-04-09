@@ -16,26 +16,6 @@
     diag_error_count_threshold: 0
     display_on_terminal: true # show error msg on terminal
 
-    # Warning flags configuration
-    # If true, a warning virtual wall will be published when the corresponding check fails
-    warning_flags:
-      interval: false
-      relative_angle: false
-      curvature: false
-      lateral_acc: false
-      longitudinal_max_acc: false
-      longitudinal_min_acc: false
-      steering: false
-      steering_rate: false
-      velocity_deviation: false
-      distance_deviation: false
-      longitudinal_distance_deviation: false
-      latency: false
-      yaw_deviation: false
-
-    parameters:
-
-
     validity_checks:
       latency:
         enable: true

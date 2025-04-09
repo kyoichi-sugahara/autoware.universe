@@ -29,7 +29,8 @@ struct ValidityCheck
 {
   bool enable = false;
   bool is_critical = false;
-  double threshold;
+  bool warn = false;
+  double threshold{0.0};
 };
 
 struct ValidationParams
@@ -38,11 +39,8 @@ struct ValidationParams
   ValidityCheck relative_angle;
   ValidityCheck curvature;
   ValidityCheck latency;
-
-  struct SteeringCheck : ValidityCheck
-  {
-    double rate_th;
-  } steering;
+  ValidityCheck steering;
+  ValidityCheck steering_rate;
 
   struct AccelerationCheck : ValidityCheck
   {
@@ -64,6 +62,13 @@ struct ValidationParams
     double acceleration;
     double margin;
   } forward_trajectory_length;
+
+  struct TrajectoryCollisionCheck : ValidityCheck
+  {
+    double trajectory_to_object_distance_th;
+    double ego_to_object_distance_th;
+    double time_tolerance_th;
+  } trajectory_collision;
 };
 
 struct Params
