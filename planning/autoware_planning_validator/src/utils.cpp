@@ -183,8 +183,6 @@ std::pair<double, size_t> calcMaxIntervalDistance(const Trajectory & trajectory)
   if (interval_distance_vector.empty()) {
     return {0.0, 0};
   }
-  std::vector<double> interval_distance_arr;
-  calc_interval_distance(trajectory, interval_distance_arr);
 
   const auto max_interval_it =
     std::max_element(interval_distance_vector.begin(), interval_distance_vector.end());

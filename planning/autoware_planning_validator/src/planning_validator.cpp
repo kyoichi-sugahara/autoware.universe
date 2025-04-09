@@ -514,6 +514,7 @@ void PlanningValidator::validate(const Trajectory & trajectory)
   s.is_valid_relative_angle = checkValidRelativeAngle(resampled);
   s.is_valid_curvature = checkValidCurvature(resampled);
   s.is_valid_lateral_acc = checkValidLateralAcceleration(resampled);
+  s.is_valid_lateral_jerk = checkValidLateralJerk(resampled);
   s.is_valid_steering = checkValidSteering(resampled);
   s.is_valid_steering_rate = checkValidSteeringRate(resampled);
   s.is_valid_no_collision = checkValidTrajectoryCollision(resampled);
@@ -612,6 +613,22 @@ bool PlanningValidator::checkValidLateralAcceleration(const Trajectory & traject
   validation_status_.max_lateral_acc = max_lateral_acc;
   if (max_lateral_acc > params_.validation_params.acceleration.lateral_th) {
     debug_pose_publisher_->pushPoseMarker(trajectory.points.at(i), "lateral_acceleration");
+    is_critical_error_ |= params_.validation_params.acceleration.is_critical;
+    return false;
+  }
+  return true;
+}
+
+bool PlanningValidator::checkValidLateralJerk(const Trajectory & trajectory)
+{
+  if (!params_.validation_params.lateral_jerk.enable) {
+    return true;
+  }
+
+  const auto [max_lateral_jerk, i] = calc_max_lateral_jerk(trajectory);
+  validation_status_.max_lateral_jerk = max_lateral_jerk;
+  if (max_lateral_jerk > params_.validation_params.acceleration.lateral_th) {
+    debug_pose_publisher_->pushPoseMarker(trajectory.points.at(i), "lateral_jerk");
     is_critical_error_ |= params_.validation_params.acceleration.is_critical;
     return false;
   }
