@@ -63,11 +63,12 @@
         acceleration: -3.0
         margin: 2.0
         is_critical: false
-      collision:
+      trajectory_collision:
         enable: false
         trajectory_to_object_distance_th: 30.0
         ego_to_object_distance_th: 50.0
         time_tolerance_th: 0.1
+        is_critical: false
         # # Threshold to filter out objects that are far from the trajectory.
         # # Only objects within this distance [m] from their nearest point on the trajectory
         # # are considered for collision checking to improve computational efficiency.
