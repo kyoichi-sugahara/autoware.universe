@@ -247,92 +247,78 @@ TEST(PlanningValidatorTestSuite, checkCalcMaxLateralJerkFunction)
   {
     Trajectory custom_traj;
     custom_traj.header.stamp = rclcpp::Clock{RCL_ROS_TIME}.now();
+    std::vector<double> expected_lateral_jerk = {0.0, 0.0,  0.0, 0.15, 0.3,
+                                                 2.4, 4.05, 0.0, 0.0,  0.0};
 
     const size_t num_points = 10;
     const double point_spacing = 2.0;
     const double curve_radius = 10.0;
-    std::vector<double> cumulative_distance(num_points, 0.0);
-    for (size_t i = 0; i < num_points; ++i) {
+
+    // Create straight line section (indices 0-3)
+    for (size_t i = 0; i < 4; ++i) {
+      autoware_planning_msgs::msg::TrajectoryPoint p;
+      p.pose.position.x = i * point_spacing;
+      p.pose.position.y = 0.0;
+      p.pose.orientation = autoware_utils_geometry::create_quaternion_from_yaw(0.0);
+      p.longitudinal_velocity_mps = 1.0;
+      p.acceleration_mps2 = 1.0;
+      custom_traj.points.push_back(p);
+    }
+
+    // Create curve section (indices 4-6)
+    for (size_t i = 4; i <= 6; ++i) {
+      autoware_planning_msgs::msg::TrajectoryPoint p;
+      const auto & last_pose = custom_traj.points[i - 1].pose;
+
+      const double angle = (i - 3) * (point_spacing / curve_radius);
+      const double last_x = last_pose.position.x;
+      const double last_y = last_pose.position.y;
+      const double prev_angle = (i - 4) * (point_spacing / curve_radius);
+
+      p.pose.position.x = last_x + curve_radius * (std::sin(angle) - std::sin(prev_angle));
+      p.pose.position.y =
+        last_y + curve_radius * (1 - std::cos(angle) - (1 - std::cos(prev_angle)));
+      p.pose.orientation = autoware_utils_geometry::create_quaternion_from_yaw(angle);
+
+      p.longitudinal_velocity_mps = 1.0 + (i - 4);  // 1.0, 2.0, 3.0
+      p.acceleration_mps2 = 1.0 + (i - 4);          // 1.0, 2.0, 3.0
+
+      custom_traj.points.push_back(p);
+    }
+
+    // Create final straight line section (indices 7-9)
+    const auto & final_point = custom_traj.points[6];
+    double final_roll, final_pitch, final_yaw;
+    tf2::Quaternion final_q(
+      final_point.pose.orientation.x, final_point.pose.orientation.y,
+      final_point.pose.orientation.z, final_point.pose.orientation.w);
+    tf2::Matrix3x3(final_q).getRPY(final_roll, final_pitch, final_yaw);
+
+    const double start_x = final_point.pose.position.x;
+    const double start_y = final_point.pose.position.y;
+
+    for (size_t i = 7; i < num_points; ++i) {
       autoware_planning_msgs::msg::TrajectoryPoint p;
 
-      if (i <= 3) {
-        // index 0~3: Straight line (along x-axis)
-        p.pose.position.x = i * point_spacing;
-        p.pose.position.y = 0.0;
-        p.pose.orientation =
-          autoware_utils_geometry::create_quaternion_from_yaw(0.0);  // Facing east
-      } else {
-        // index 4 and beyond: Curve or straight line
-        const auto & last_pose = custom_traj.points[i - 1].pose;
+      const double dx = std::cos(final_yaw) * point_spacing * (i - 6);
+      const double dy = std::sin(final_yaw) * point_spacing * (i - 6);
 
-        // Convert quaternion to yaw angle to get the final angle
-        double roll, pitch, yaw;
-        tf2::Quaternion q(
-          last_pose.orientation.x, last_pose.orientation.y, last_pose.orientation.z,
-          last_pose.orientation.w);
-        tf2::Matrix3x3(q).getRPY(roll, pitch, yaw);
+      p.pose.position.x = start_x + dx;
+      p.pose.position.y = start_y + dy;
+      p.pose.orientation = autoware_utils_geometry::create_quaternion_from_yaw(final_yaw);
 
-        // const double last_angle = yaw;
-        const double last_x = last_pose.position.x;
-        const double last_y = last_pose.position.y;
-
-        if (i <= 6) {
-          // index 4~6: Arc with curvature 1.0
-          const double angle =
-            (i - 3) * (point_spacing / curve_radius);  // Angle corresponding to arc length
-          p.pose.position.x =
-            last_x +
-            curve_radius * (std::sin(angle) - std::sin((i - 4) * (point_spacing / curve_radius)));
-          p.pose.position.y =
-            last_y + curve_radius * (1 - std::cos(angle) -
-                                     (1 - std::cos((i - 4) * (point_spacing / curve_radius))));
-          p.pose.orientation = autoware_utils_geometry::create_quaternion_from_yaw(angle);
-        } else {
-          // index 7~9: Straight line (from index 6 point in the same direction)
-          // Get the yaw angle at index 6 (final direction of the arc)
-          double final_roll, final_pitch, final_yaw;
-          tf2::Quaternion final_q(
-            custom_traj.points[6].pose.orientation.x, custom_traj.points[6].pose.orientation.y,
-            custom_traj.points[6].pose.orientation.z, custom_traj.points[6].pose.orientation.w);
-          tf2::Matrix3x3(final_q).getRPY(final_roll, final_pitch, final_yaw);
-
-          // Get the final position at index 6
-          const double start_x = custom_traj.points[6].pose.position.x;
-          const double start_y = custom_traj.points[6].pose.position.y;
-
-          // Calculate points on the straight line (relative position from index 6)
-          const double dx = std::cos(final_yaw) * point_spacing * (i - 6);
-          const double dy = std::sin(final_yaw) * point_spacing * (i - 6);
-
-          p.pose.position.x = start_x + dx;
-          p.pose.position.y = start_y + dy;
-          p.pose.orientation = autoware_utils_geometry::create_quaternion_from_yaw(final_yaw);
-        }
-      }
-
-      // Set velocity and acceleration
-      if (i <= 3) {
-        // index 0~3: velocity 1.0, acceleration 1.0
-        p.longitudinal_velocity_mps = 1.0;
-        p.acceleration_mps2 = 1.0;
-      } else if (i <= 6) {
-        // index 4~6: velocity 1.0/2.0/3.0, acceleration 1.0/2.0/3.0
-        p.longitudinal_velocity_mps = 1.0 + (i - 4);  // 1.0, 2.0, 3.0
-        p.acceleration_mps2 = 1.0 + (i - 4);          // 1.0, 2.0, 3.0
-      } else {
-        // index 7~9: velocity 3.0, acceleration 3.0
-        p.longitudinal_velocity_mps = 3.0;
-        p.acceleration_mps2 = 3.0;
-      }
+      p.longitudinal_velocity_mps = 3.0;
+      p.acceleration_mps2 = 3.0;
 
       custom_traj.points.push_back(p);
     }
 
     // Calculate lateral jerk
     std::vector<double> lateral_jerk_vector;
-    const std::pair<double, size_t> max_lateral_jerk =
-      autoware::planning_validator::calc_max_lateral_jerk(custom_traj);
-    std::cerr << "Max Lateral Jerk: " << max_lateral_jerk.first << " at index "
-              << max_lateral_jerk.second << std::endl;
+    autoware::planning_validator::calc_lateral_jerk(custom_traj, lateral_jerk_vector);
+    const double tolerance = 0.01;  // 1% tolerance for lateral jerk values
+    for (size_t i = 0; i < custom_traj.points.size(); ++i) {
+      EXPECT_NEAR(expected_lateral_jerk.at(i), lateral_jerk_vector.at(i), tolerance);
+    }
   }
 }
