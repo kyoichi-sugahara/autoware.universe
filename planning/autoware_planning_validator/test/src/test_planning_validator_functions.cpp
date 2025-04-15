@@ -14,6 +14,7 @@
 
 #include "autoware/planning_validator/debug_marker.hpp"
 #include "autoware/planning_validator/planning_validator.hpp"
+#include "autoware/planning_validator/utils.hpp"
 #include "test_parameter.hpp"
 #include "test_planning_validator_helper.hpp"
 
@@ -230,16 +231,19 @@ TEST(PlanningValidatorTestSuite, checkValidLateralJerkFunction)
     // This should fail due to high lateral jerk
     ASSERT_FALSE(validator->checkValidLateralJerk(high_jerk_traj));
   }
-  /**
-   * Trajectory specification:
-   * --------------------------
-   * Velocity (m/s):      1    1    1    1    1    2    3    3    3    3
-   * Acceleration (m/s):  1    1    1    1    1    2    3    3    3    3
-   * Curvature (1/m):     0    0    0   0.05 0.1  0.1  0.05  0    0    0
-   * Interval ds (m):        2    2    2    2    2    2    2    2    2
-   */
+}
+TEST(PlanningValidatorTestSuite, checkCalculateLateralJerkFunction)
+/**
+ * Trajectory specification:
+ * --------------------------
+ * Velocity (m/s):      1    1    1    1    1    2    3    3    3    3
+ * Acceleration (m/s):  1    1    1    1    1    2    3    3    3    3
+ * Curvature (1/m):     0    0    0   0.05 0.1  0.1  0.05  0    0    0
+ * Interval ds (m):        2    2    2    2    2    2    2    2    2
+ */
 
-  // Set coordinates, velocity, and acceleration for each point
+// Set coordinates, velocity, and acceleration for each point
+{
   {
     Trajectory custom_traj;
     custom_traj.header.stamp = rclcpp::Clock{RCL_ROS_TIME}.now();
@@ -377,8 +381,12 @@ TEST(PlanningValidatorTestSuite, checkValidLateralJerkFunction)
       std::cout << "Points " << i << "-" << (i + 1) << ": " << segment_distances[i]
                 << " m (cumulative: " << total_dist << " m)" << std::endl;
     }
-
+    std::cerr << "5th test" << std::endl;
     // Calculate lateral jerk (final test)
-    [[maybe_unused]] const bool result = validator->checkValidLateralJerk(custom_traj);
+    std::vector<double> lateral_jerk_vector;
+    const std::pair<double, size_t> max_lateral_jerk =
+      autoware::planning_validator::calc_max_lateral_jerk(custom_traj);
+    std::cerr << "Max Lateral Jerk: " << max_lateral_jerk.first << " at index "
+              << max_lateral_jerk.second << std::endl;
   }
 }
