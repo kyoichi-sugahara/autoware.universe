@@ -299,32 +299,20 @@ void calc_lateral_jerk(const Trajectory & trajectory, std::vector<double> & late
     lateral_jerk_vector = std::vector<double>(trajectory.points.size(), 0.0);
     return;
   }
-
-  // Calculate lateral acceleration for each point
-  std::vector<double> lateral_acceleration_vector;
-  calc_lateral_acceleration(trajectory, lateral_acceleration_vector);
-
-  // Calculate time intervals between consecutive points
-  std::vector<double> time_interval_vector;
-  calc_interval_time(trajectory, time_interval_vector);
+  std::vector<double> curvature_vector;
+  calcCurvature(trajectory, curvature_vector);
 
   // Initialize lateral jerk array with zeros
-  lateral_jerk_vector = std::vector<double>(trajectory.points.size() - 1, 0.0);
+  lateral_jerk_vector = std::vector<double>(trajectory.points.size(), 0.0);
 
-  constexpr double epsilon = 1e-6;  // Threshold for near-zero values
 
   // Calculate lateral jerk for each point (except the last one)
-  for (size_t i = 0; i < trajectory.points.size() - 1; ++i) {
-    const double dt = time_interval_vector[i];
+  for (size_t i = 0; i < trajectory.points.size(); ++i) {
+    const double v_lon = trajectory.points.at(i).longitudinal_velocity_mps;
+    const double a_lon = trajectory.points.at(i).acceleration_mps2;
 
-    // Skip calculation if time interval is too small
-    if (dt < epsilon) {
-      continue;
-    }
-
-    // Simple forward difference: jerk = Δacceleration / Δtime
-    lateral_jerk_vector[i] =
-      (lateral_acceleration_vector[i + 1] - lateral_acceleration_vector[i]) / dt;
+    // Calculate lateral jerk using the formula: jerk_lat = 3 * v_lon^2 * a_lon * curvature
+    lateral_jerk_vector.at(i) = 3.0 * v_lon * v_lon * a_lon * curvature_vector.at(i);
   }
 }
 
