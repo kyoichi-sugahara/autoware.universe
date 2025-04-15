@@ -328,61 +328,7 @@ TEST(PlanningValidatorTestSuite, checkCalcMaxLateralJerkFunction)
       custom_traj.points.push_back(p);
     }
 
-    // Check trajectory accuracy: Calculate distance between each point
-    std::vector<double> segment_distances;
-    for (size_t i = 1; i < custom_traj.points.size(); ++i) {
-      const auto & p1 = custom_traj.points[i - 1];
-      const auto & p2 = custom_traj.points[i];
-      const double dx = p2.pose.position.x - p1.pose.position.x;
-      const double dy = p2.pose.position.y - p1.pose.position.y;
-      const double dist = std::hypot(dx, dy);
-      segment_distances.push_back(dist);
-    }
-
-    std::cout << "Index\tX\tY\tYaw\tVelocity\tAccel\tCurvature\tDistance" << std::endl;
-
-    for (size_t i = 0; i < custom_traj.points.size(); ++i) {
-      const auto & p = custom_traj.points[i];
-      double curvature = 0.0;
-
-      // Set curvature (theoretical value)
-      if (i >= 4 && i <= 6) {
-        curvature = 1.0;  // Specified curvature
-      } else {
-        curvature = 0.0;  // Straight sections
-      }
-
-      // Convert quaternion to yaw angle
-      double roll, pitch, yaw;
-      tf2::Quaternion q(
-        p.pose.orientation.x, p.pose.orientation.y, p.pose.orientation.z, p.pose.orientation.w);
-      tf2::Matrix3x3(q).getRPY(roll, pitch, yaw);
-
-      // Adjust output format
-      std::cout << std::fixed << std::setprecision(6);  // Set to 6 decimal places
-      std::cout << i << "\t" << p.pose.position.x << "\t" << p.pose.position.y << "\t" << yaw
-                << "\t" << p.longitudinal_velocity_mps << "\t" << p.acceleration_mps2 << "\t"
-                << curvature;
-
-      // Add distance information (no distance for the first point)
-      if (i > 0) {
-        std::cout << "\t" << segment_distances[i - 1];
-      } else {
-        std::cout << "\t-";
-      }
-      std::cout << std::endl;
-    }
-
-    // Output debug information: Check if the distance between points is exactly 2.0
-    std::cout << "\nDistance check between points:" << std::endl;
-    double total_dist = 0.0;
-    for (size_t i = 0; i < segment_distances.size(); ++i) {
-      total_dist += segment_distances[i];
-      std::cout << "Points " << i << "-" << (i + 1) << ": " << segment_distances[i]
-                << " m (cumulative: " << total_dist << " m)" << std::endl;
-    }
-    std::cerr << "5th test" << std::endl;
-    // Calculate lateral jerk (final test)
+    // Calculate lateral jerk
     std::vector<double> lateral_jerk_vector;
     const std::pair<double, size_t> max_lateral_jerk =
       autoware::planning_validator::calc_max_lateral_jerk(custom_traj);
