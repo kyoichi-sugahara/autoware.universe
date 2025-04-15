@@ -232,17 +232,17 @@ TEST(PlanningValidatorTestSuite, checkValidLateralJerkFunction)
     ASSERT_FALSE(validator->checkValidLateralJerk(high_jerk_traj));
   }
 }
-TEST(PlanningValidatorTestSuite, checkCalculateLateralJerkFunction)
+
+TEST(PlanningValidatorTestSuite, checkCalcMaxLateralJerkFunction)
 /**
  * Trajectory specification:
  * --------------------------
- * Velocity (m/s):      1    1    1    1    1    2    3    3    3    3
- * Acceleration (m/s):  1    1    1    1    1    2    3    3    3    3
- * Curvature (1/m):     0    0    0   0.05 0.1  0.1  0.05  0    0    0
- * Interval ds (m):        2    2    2    2    2    2    2    2    2
+ * Index :               0    1    2    3    4    5    6    7    8    9
+ * Velocity (m/s):       1    1    1    1    1    2    3    3    3    3
+ * Acceleration (m/ss):  1    1    1    1    1    2    3    3    3    3
+ * Curvature (1/m):      0    0    0    0.05 0.1  0.1  0.05 0    0    0
+ * Lateral Jerk (m/sss): 0    0    0    0.15 0.3  2.4  4.05 0    0    0
  */
-
-// Set coordinates, velocity, and acceleration for each point
 {
   {
     Trajectory custom_traj;
