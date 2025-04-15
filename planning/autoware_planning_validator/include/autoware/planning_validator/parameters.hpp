@@ -27,10 +27,10 @@ enum class InvalidTrajectoryHandlingType : uint8_t {
 
 struct ValidityCheck
 {
-  bool enable = false;
+  bool enable = true;
   bool is_critical = false;
-  bool warn = false;
-  double threshold{0.0};
+  // bool warn = false;
+  double threshold{};
 };
 
 struct ValidationParams
@@ -48,7 +48,7 @@ struct ValidationParams
     double lateral_th;
     double longitudinal_max_th;
     double longitudinal_min_th;
-  } acceleration;
+  } acceleration{};
 
   struct DeviationCheck : ValidityCheck
   {
@@ -56,13 +56,13 @@ struct ValidationParams
     double distance_th;
     double lon_distance_th;
     double yaw_th;
-  } deviation;
+  } deviation{};
 
   struct ForwardTrajectoryLength : ValidityCheck
   {
     double acceleration;
     double margin;
-  } forward_trajectory_length;
+  } forward_trajectory_length{};
 
   struct TrajectoryCollisionCheck : ValidityCheck
   {
@@ -77,10 +77,10 @@ struct Params
   bool enable_soft_stop_on_prev_traj = true;
   bool publish_diag = true;
   bool display_on_terminal = true;
-  double soft_stop_deceleration = -1.0;
-  int diag_error_count_threshold = 0;
-  ValidationParams validation_params;
-  InvalidTrajectoryHandlingType inv_traj_handling_type;
-  InvalidTrajectoryHandlingType inv_traj_critical_handling_type;
+  double soft_stop_deceleration{};
+  int diag_error_count_threshold{};
+  ValidationParams validation_params{};
+  InvalidTrajectoryHandlingType inv_traj_handling_type{};
+  InvalidTrajectoryHandlingType inv_traj_critical_handling_type{};
 };
 }  // namespace autoware::planning_validator
