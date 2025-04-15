@@ -52,6 +52,65 @@ Trajectory generateTrajectoryWithConstantAcceleration(
   return trajectory;
 }
 
+Trajectory generateTrajectoryWithVariableAcceleration(
+  const double interval_distance, const double initial_speed, const double yaw, const size_t size,
+  const std::function<double(size_t)> & acceleration_pattern)
+{
+  Trajectory trajectory;
+  trajectory.header.stamp = rclcpp::Clock{RCL_ROS_TIME}.now();
+  double s = 0.0, v = initial_speed;
+  constexpr auto MAX_DT = 10.0;
+
+  for (size_t i = 0; i < size; ++i) {
+    // Get acceleration for this point based on the provided pattern
+    const double a = acceleration_pattern(i);
+
+    TrajectoryPoint p;
+    p.pose.position.x = s * std::cos(yaw);
+    p.pose.position.y = s * std::sin(yaw);
+    p.pose.orientation = create_quaternion_from_yaw(yaw);
+    p.longitudinal_velocity_mps = v;
+    p.acceleration_mps2 = a;
+    p.front_wheel_angle_rad = 0.0;
+    trajectory.points.push_back(p);
+
+    s += interval_distance;
+
+    // Calculate time interval and update velocity
+    const auto dt = std::abs(v) > 0.1 ? interval_distance / v : MAX_DT;
+    v += a * dt;
+
+    // Ensure velocity doesn't go negative
+    if (v < 0.0) {
+      v = 0.0;
+    }
+  }
+  return trajectory;
+}
+
+Trajectory generateTrajectoryWithSinusoidalAcceleration(
+  const double interval_distance, const double initial_speed, const double yaw, const size_t size,
+  const double max_acceleration, const double oscillation_period)
+{
+  return generateTrajectoryWithVariableAcceleration(
+    interval_distance, initial_speed, yaw, size,
+    [max_acceleration, oscillation_period](size_t i) -> double {
+      return max_acceleration * std::sin(2.0 * M_PI * i / oscillation_period);
+    });
+}
+
+Trajectory generateTrajectoryWithStepAcceleration(
+  const double interval_distance, const double initial_speed, const double yaw, const size_t size,
+  const std::vector<double> & acceleration_values, const size_t steps_per_value)
+{
+  return generateTrajectoryWithVariableAcceleration(
+    interval_distance, initial_speed, yaw, size,
+    [acceleration_values, steps_per_value](size_t i) -> double {
+      const size_t pattern_index = (i / steps_per_value) % acceleration_values.size();
+      return acceleration_values[pattern_index];
+    });
+}
+
 Trajectory generateTrajectory(
   const double interval_distance, const double speed, const double yaw, const size_t size)
 {
@@ -223,6 +282,11 @@ rclcpp::NodeOptions getNodeOptionsWithDefaultParams()
     "validity_checks.acceleration.longitudinal_min_th", THRESHOLD_LONGITUDINAL_MIN_ACC);
   node_options.append_parameter_override("validity_checks.acceleration.is_critical", false);
 
+  node_options.append_parameter_override("validity_checks.lateral_jerk.enable", true);
+  node_options.append_parameter_override(
+    "validity_checks.lateral_jerk.threshold", THRESHOLD_LATERAL_JERK);
+  node_options.append_parameter_override("validity_checks.lateral_jerk.is_critical", false);
+
   node_options.append_parameter_override("validity_checks.deviation.enable", true);
   node_options.append_parameter_override(
     "validity_checks.deviation.velocity_th", THRESHOLD_VELOCITY_DEVIATION);
@@ -251,6 +315,17 @@ rclcpp::NodeOptions getNodeOptionsWithDefaultParams()
     "validity_checks.forward_trajectory_length.margin", PARAMETER_FORWARD_TRAJECTORY_LENGTH_MARGIN);
   node_options.append_parameter_override(
     "validity_checks.forward_trajectory_length.is_critical", false);
+
+  node_options.append_parameter_override("validity_checks.trajectory_collision.enable", true);
+  node_options.append_parameter_override(
+    "validity_checks.trajectory_collision.trajectory_to_object_distance_th",
+    PARAMETER_TRAJECTORY_TO_OBJECT_DISTANCE);
+  node_options.append_parameter_override(
+    "validity_checks.trajectory_collision.ego_to_object_distance_th",
+    PARAMETER_EGO_TO_OBJECT_DISTANCE);
+  node_options.append_parameter_override(
+    "validity_checks.trajectory_collision.time_tolerance_th", PARAMETER_TIME_TOLERANCE);
+  node_options.append_parameter_override("validity_checks.trajectory_collision.is_critical", false);
 
   // for vehicle info
   node_options.append_parameter_override("wheel_radius", 0.5);
