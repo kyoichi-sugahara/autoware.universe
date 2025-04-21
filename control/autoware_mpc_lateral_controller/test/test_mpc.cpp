@@ -321,7 +321,8 @@ TEST_F(MPCTest, OsqpCalculate)
   mpc->setVehicleModel(vehicle_model_ptr);
   ASSERT_TRUE(mpc->hasVehicleModel());
 
-  std::shared_ptr<QPSolverInterface> qpsolver_ptr = std::make_shared<QPSolverOSQP>(logger);
+  std::shared_ptr<QPSolverInterface> qpsolver_ptr =
+    std::make_shared<QPSolverOSQP>(logger, node.get_clock());
   mpc->setQPSolver(qpsolver_ptr);
   ASSERT_TRUE(mpc->hasQPSolver());
 
@@ -356,7 +357,8 @@ TEST_F(MPCTest, OsqpCalculateRightTurn)
   mpc->setVehicleModel(vehicle_model_ptr);
   ASSERT_TRUE(mpc->hasVehicleModel());
 
-  std::shared_ptr<QPSolverInterface> qpsolver_ptr = std::make_shared<QPSolverOSQP>(logger);
+  std::shared_ptr<QPSolverInterface> qpsolver_ptr =
+    std::make_shared<QPSolverOSQP>(logger, node.get_clock());
   mpc->setQPSolver(qpsolver_ptr);
   ASSERT_TRUE(mpc->hasQPSolver());
 
