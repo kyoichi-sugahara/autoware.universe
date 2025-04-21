@@ -97,8 +97,7 @@ class SteeringRateValidator
 {
 public:
   explicit SteeringRateValidator(rclcpp::Node & node)
-  : steer_rate_threshold_{
-      get_or_declare_parameter<double>(node, "thresholds.steer_rate_threshold")} {};
+  : steer_rate_threshold_{get_or_declare_parameter<double>(node, "thresholds.steer_rate")} {};
 
   void validate(ControlValidatorStatus & res, const Control & control_cmd);
 
