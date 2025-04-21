@@ -319,6 +319,7 @@ void ControlValidator::on_control_cmd(const Control::ConstSharedPtr msg)
 
   // validation process
   latency_validator.validate(validation_status_, *control_cmd_msg, *this);
+  steer_rate_validator.validate(validation_status_, *control_cmd_msg);
   trajectory_validator.validate(
     validation_status_, *predicted_trajectory_msg, *reference_trajectory_msg);
   acceleration_validator.validate(
@@ -356,26 +357,28 @@ void ControlValidator::publish_debug_info(const geometry_msgs::msg::Pose & ego_p
 
 bool ControlValidator::is_all_valid(const ControlValidatorStatus & s)
 {
-  return s.is_valid_max_distance_deviation && s.is_valid_acc && !s.is_rolling_back &&
-         !s.is_over_velocity && !s.has_overrun_stop_point && !s.will_overrun_stop_point;
+  return s.is_valid_steer_rate && s.is_valid_max_distance_deviation && s.is_valid_acc &&
+         !s.is_rolling_back && !s.is_over_velocity && !s.has_overrun_stop_point &&
+         !s.will_overrun_stop_point;
 }
 
 void ControlValidator::display_status()
 {
   if (!display_on_terminal_) return;
-  rclcpp::Clock clock{RCL_ROS_TIME};
+  static rclcpp::Clock clock{RCL_ROS_TIME};
 
-  const auto warn = [this, &clock](const bool status, const std::string & msg) {
+  const auto warn = [this, &clock](const bool status, const std::string & msg, const double value) {
     if (!status) {
-      RCLCPP_WARN_THROTTLE(get_logger(), clock, 1000, "%s", msg.c_str());
+      RCLCPP_WARN_THROTTLE(get_logger(), clock, 1000, "%s: %.2f", msg.c_str(), value);
     }
   };
 
   const auto & s = validation_status_;
 
   warn(
-    s.is_valid_max_distance_deviation,
-    "predicted trajectory is too far from planning trajectory!!");
+    s.is_valid_max_distance_deviation, "predicted trajectory is too far from planning trajectory!!",
+    s.max_distance_deviation);
+  warn(s.is_valid_steer_rate, "steering rate exceeds safety threshold!!", s.steer_rate);
 }
 
 }  // namespace autoware::control_validator

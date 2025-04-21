@@ -274,6 +274,7 @@ private:
 
   // individual validators
   LatencyValidator latency_validator{*this};
+  SteeringRateValidator steer_rate_validator{*this};
   TrajectoryValidator trajectory_validator{*this};
   AccelerationValidator acceleration_validator{*this};
   VelocityValidator velocity_validator{*this};
