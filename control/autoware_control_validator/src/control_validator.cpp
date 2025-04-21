@@ -270,6 +270,12 @@ void ControlValidator::setup_diag()
     set_status(
       stat, validation_status_.is_valid_latency, "The latency is larger than expected value.");
   });
+
+  d.add(ns + "steering_rate", [&](auto & stat) {
+    set_status(
+      stat, validation_status_.is_valid_steer_rate,
+      "The steering rate is larger than expected value.");
+  });
 }
 
 void ControlValidator::on_control_cmd(const Control::ConstSharedPtr msg)
@@ -367,7 +373,7 @@ void ControlValidator::display_status()
   if (!display_on_terminal_) return;
   static rclcpp::Clock clock{RCL_ROS_TIME};
 
-  const auto warn = [this, &clock](const bool status, const std::string & msg, const double value) {
+  const auto warn = [this](const bool status, const std::string & msg, const double value) {
     if (!status) {
       RCLCPP_WARN_THROTTLE(get_logger(), clock, 1000, "%s: %.2f", msg.c_str(), value);
     }
