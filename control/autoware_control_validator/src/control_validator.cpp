@@ -46,6 +46,23 @@ void TrajectoryValidator::validate(
     res.max_distance_deviation <= max_distance_deviation_threshold;
 }
 
+void SteeringRateValidator::validate(ControlValidatorStatus & res, const Control & control_cmd)
+{
+  if (!prev_control_cmd_) {
+    prev_control_cmd_ = std::make_unique<Control>(control_cmd);
+    return;
+  }
+  const double steer_cmd = control_cmd.lateral.steering_tire_angle;
+  rclcpp::Time current_time(control_cmd.stamp);
+  rclcpp::Time prev_time(prev_control_cmd_->stamp);
+  const double dt = (current_time - prev_time).seconds();
+  const double steer_rate =
+    std::abs(steer_cmd - prev_control_cmd_->lateral.steering_tire_angle) / dt;
+  res.steer_rate = steer_rate;
+  res.is_valid_steer_rate = steer_rate < steer_rate_threshold_;
+  prev_control_cmd_ = std::make_unique<Control>(control_cmd);
+}
+
 void AccelerationValidator::validate(
   ControlValidatorStatus & res, const Odometry & kinematic_state, const Control & control_cmd,
   const AccelWithCovarianceStamped & loc_acc)
