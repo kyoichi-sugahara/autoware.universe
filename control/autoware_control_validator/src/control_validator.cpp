@@ -48,24 +48,49 @@ void TrajectoryValidator::validate(
 
 void SteeringRateValidator::validate(
   ControlValidatorStatus & res, const Control & control_cmd, const SteeringReport & steering_status,
-  const Odometry & kinematic_state, const AccelWithCovarianceStamped & acceleration)
+  const Odometry & kinematic_state, const AccelWithCovarianceStamped & acceleration,
+  const double wheel_base)
 {
   const double ego_velocity = kinematic_state.twist.twist.linear.x;
   const double ego_acceleration = acceleration.accel.accel.linear.x;
   const double current_steering = steering_status.steering_tire_angle;
   const double steering_cmd = control_cmd.lateral.steering_tire_angle;
 
+  // Calculate lateral acceleration
+  // const double lateral_acceleration =
+  //   (ego_velocity * ego_velocity * std::tan(current_steering)) / wheel_base;
+
   if (!prev_control_cmd_) {
     prev_control_cmd_ = std::make_unique<Control>(control_cmd);
     return;
   }
+
+  // Calculate time difference
   rclcpp::Time current_time(control_cmd.stamp);
   rclcpp::Time prev_time(prev_control_cmd_->stamp);
   const double dt = (current_time - prev_time).seconds();
-  const double steer_rate =
-    std::abs(steer_cmd - prev_control_cmd_->lateral.steering_tire_angle) / dt;
-  res.steer_rate = steer_rate;
-  res.is_valid_steer_rate = steer_rate < steer_rate_threshold_;
+
+  const double steering_rate =
+    std::abs(steering_cmd - prev_control_cmd_->lateral.steering_tire_angle) / dt;
+
+  // Calculate lateral jerk
+  const double tan_steering = std::tan(current_steering);
+  const double tan_squared = tan_steering * tan_steering;
+  const double lateral_jerk =
+    (1.0 / wheel_base) * (2.0 * ego_velocity * ego_acceleration * tan_steering +
+                          ego_velocity * ego_velocity * (1.0 + tan_squared) * steering_rate);
+
+  res.steering_rate = steering_rate;
+  res.lateral_jerk = lateral_jerk;
+  res.is_valid_steering_rate = std::abs(lateral_jerk) < lateral_jerk_threshold_;
+  if (!res.is_valid_steering_rate) {
+    RCLCPP_ERROR(
+      logger_, "Lateral jerk is too high. %f > %f", std::abs(lateral_jerk),
+      lateral_jerk_threshold_);
+    RCLCPP_ERROR(
+      logger_, "current_steering: %f steering_cmd: %f, prev_steering_cmd: %f, dt: %f",
+      current_steering, steering_cmd, prev_control_cmd_->lateral.steering_tire_angle, dt);
+  }
   prev_control_cmd_ = std::make_unique<Control>(control_cmd);
 }
 
@@ -272,7 +297,7 @@ void ControlValidator::setup_diag()
 
   d.add(ns + "steering_rate", [&](auto & stat) {
     set_status(
-      stat, validation_status_.is_valid_steer_rate,
+      stat, validation_status_.is_valid_steering_rate,
       "The steering rate is larger than expected value.");
   });
 }
@@ -326,7 +351,9 @@ void ControlValidator::on_control_cmd(const Control::ConstSharedPtr msg)
 
   // validation process
   latency_validator.validate(validation_status_, *control_cmd_msg, *this);
-  steer_rate_validator.validate(validation_status_, *control_cmd_msg, *steering_status_msg);
+  steering_rate_validator.validate(
+    validation_status_, *control_cmd_msg, *steering_status_msg, *kinematics_msg, *acceleration_msg,
+    vehicle_info_.wheel_base_m);
   if (predicted_trajectory_msg->points.size() < 2) {
     // TODO(takagi): This check should be moved into each of the individual validate() functions.
     // Passing the rclcpp::Logger as an argument to the validate() function is necessary.
@@ -370,7 +397,7 @@ void ControlValidator::publish_debug_info(const geometry_msgs::msg::Pose & ego_p
 
 bool ControlValidator::is_all_valid(const ControlValidatorStatus & s)
 {
-  return s.is_valid_steer_rate && s.is_valid_max_distance_deviation && s.is_valid_acc &&
+  return s.is_valid_steering_rate && s.is_valid_max_distance_deviation && s.is_valid_acc &&
          !s.is_rolling_back && !s.is_over_velocity && !s.has_overrun_stop_point &&
          !s.will_overrun_stop_point;
 }
@@ -391,7 +418,7 @@ void ControlValidator::display_status()
   warn(
     s.is_valid_max_distance_deviation, "predicted trajectory is too far from planning trajectory!!",
     s.max_distance_deviation);
-  warn(s.is_valid_steer_rate, "steering rate exceeds safety threshold!!", s.steer_rate);
+  warn(s.is_valid_steering_rate, "steering rate exceeds safety threshold!!", s.steering_rate);
 }
 
 }  // namespace autoware::control_validator

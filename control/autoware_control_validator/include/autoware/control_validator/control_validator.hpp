@@ -99,15 +99,17 @@ class SteeringRateValidator
 {
 public:
   explicit SteeringRateValidator(rclcpp::Node & node)
-  : steer_rate_threshold_{get_or_declare_parameter<double>(node, "thresholds.steer_rate")} {};
+  : lateral_jerk_threshold_{get_or_declare_parameter<double>(node, "thresholds.lateral_jerk")},
+    logger_{node.get_logger()} {};
 
   void validate(
     ControlValidatorStatus & res, const Control & control_cmd,
     const SteeringReport & steering_status, const Odometry & kinematic_state,
-    const AccelWithCovarianceStamped & acceleration);
+    const AccelWithCovarianceStamped & acceleration, const double wheel_base);
 
 private:
-  double steer_rate_threshold_{};  // rad/s
+  double lateral_jerk_threshold_{};  // m/s^3
+  rclcpp::Logger logger_;
   std::unique_ptr<Control> prev_control_cmd_{};
 };
 
@@ -279,7 +281,7 @@ private:
 
   // individual validators
   LatencyValidator latency_validator{*this};
-  SteeringRateValidator steer_rate_validator{*this};
+  SteeringRateValidator steering_rate_validator{*this};
   TrajectoryValidator trajectory_validator{*this};
   AccelerationValidator acceleration_validator{*this};
   VelocityValidator velocity_validator{*this};
