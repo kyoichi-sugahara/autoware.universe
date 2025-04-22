@@ -46,13 +46,19 @@ void TrajectoryValidator::validate(
     res.max_distance_deviation <= max_distance_deviation_threshold;
 }
 
-void SteeringRateValidator::validate(ControlValidatorStatus & res, const Control & control_cmd)
+void SteeringRateValidator::validate(
+  ControlValidatorStatus & res, const Control & control_cmd, const SteeringReport & steering_status,
+  const Odometry & kinematic_state, const AccelWithCovarianceStamped & acceleration)
 {
+  const double ego_velocity = kinematic_state.twist.twist.linear.x;
+  const double ego_acceleration = acceleration.accel.accel.linear.x;
+  const double current_steering = steering_status.steering_tire_angle;
+  const double steering_cmd = control_cmd.lateral.steering_tire_angle;
+
   if (!prev_control_cmd_) {
     prev_control_cmd_ = std::make_unique<Control>(control_cmd);
     return;
   }
-  const double steer_cmd = control_cmd.lateral.steering_tire_angle;
   rclcpp::Time current_time(control_cmd.stamp);
   rclcpp::Time prev_time(prev_control_cmd_->stamp);
   const double dt = (current_time - prev_time).seconds();
@@ -159,6 +165,9 @@ ControlValidator::ControlValidator(const rclcpp::NodeOptions & options)
 
   sub_control_cmd_ = create_subscription<Control>(
     "~/input/control_cmd", 1, std::bind(&ControlValidator::on_control_cmd, this, _1));
+  sub_steering_status_ =
+    autoware_utils::InterProcessPollingSubscriber<SteeringReport>::create_subscription(
+      this, "~/input/steering_status", 1);
   sub_kinematics_ =
     autoware_utils::InterProcessPollingSubscriber<nav_msgs::msg::Odometry>::create_subscription(
       this, "~/input/kinematics", 1);
@@ -282,6 +291,10 @@ void ControlValidator::on_control_cmd(const Control::ConstSharedPtr msg)
   if (!control_cmd_msg) {
     return waiting(sub_control_cmd_->get_topic_name());
   }
+  SteeringReport::ConstSharedPtr steering_status_msg = sub_steering_status_->take_data();
+  if (!steering_status_msg) {
+    return waiting(sub_steering_status_->subscriber()->get_topic_name());
+  }
   Trajectory::ConstSharedPtr predicted_trajectory_msg = sub_predicted_traj_->take_data();
   if (!predicted_trajectory_msg) {
     return waiting(sub_reference_traj_->subscriber()->get_topic_name());
@@ -313,7 +326,7 @@ void ControlValidator::on_control_cmd(const Control::ConstSharedPtr msg)
 
   // validation process
   latency_validator.validate(validation_status_, *control_cmd_msg, *this);
-  steer_rate_validator.validate(validation_status_, *control_cmd_msg);
+  steer_rate_validator.validate(validation_status_, *control_cmd_msg, *steering_status_msg);
   if (predicted_trajectory_msg->points.size() < 2) {
     // TODO(takagi): This check should be moved into each of the individual validate() functions.
     // Passing the rclcpp::Logger as an argument to the validate() function is necessary.
