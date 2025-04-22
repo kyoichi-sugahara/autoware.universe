@@ -204,6 +204,7 @@
             <remap from="~/input/control_cmd" to="/control/command/control_cmd"/>
             <remap from="~/input/kinematics" to="/localization/kinematic_state"/>
             <remap from="~/input/measured_acceleration" to="/localization/acceleration"/>
+            <remap from="~/input/steering_status" to="/vehicle/status/steering_status"/>
             <remap from="~/input/reference_trajectory" to="/planning/scenario_planning/trajectory"/>
             <remap from="~/input/predicted_trajectory" to="/control/trajectory_follower/lateral/predicted_trajectory"/>
             <remap from="~/output/validation_status" to="~/validation_status"/>
