@@ -339,6 +339,25 @@ bool StartPlannerModule::hasCollisionWithDynamicObjects() const
   return !isSafePath();
 }
 
+bool StartPlannerModule::isInsideOfPullOutLanes() const
+{
+  const auto pull_out_lanes = start_planner_utils::getPullOutLanes(
+    planner_data_, planner_data_->parameters.backward_path_length + parameters_->max_back_distance);
+  const auto & current_pose = planner_data_->self_odometry->pose.pose;
+  const auto vehicle_footprint = autoware_utils::transform_vector(
+    vehicle_info_.createFootprint(), autoware_utils::pose2transform(current_pose));
+
+  const auto combined_pull_out_lanes = lanelet::utils::combineLaneletsShape(pull_out_lanes);
+
+  for (const auto & point : vehicle_footprint) {
+    if (!lanelet::geometry::inside(combined_pull_out_lanes, point)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 bool StartPlannerModule::isExecutionRequested() const
 {
   // log the non-execution reasons
@@ -627,7 +646,20 @@ bool StartPlannerModule::isExecutionReady() const
   // Check pull out path
   if (!status_.found_pull_out_path) {
     is_safe = false;
-    stop_reason = "pull out path not found";
+
+    const bool is_inside_of_lanes = isInsideOfPullOutLanes();
+
+    // TODO(Sugahara): Need to distinguish between cases where current position is within lanes but
+    // backward path would violate lane boundaries, versus cases where safety margins with static
+    // obstacles cannot be maintained. Provide appropriate messages for each case.
+    if (!parameters_->enable_back && !is_inside_of_lanes) {
+      stop_reason = "ego is out of pull out lanes";
+    } else if (is_inside_of_lanes) {
+      stop_reason = "insufficient clearance between planned trajectory and static objects";
+    } else {
+      stop_reason = "failed to generate valid pull out path";
+    }
+
   } else if (isWaitingApproval()) {
     // Check for moving objects around
     if (!noMovingObjectsAround()) {
@@ -719,7 +751,7 @@ BehaviorModuleOutput StartPlannerModule::plan()
         status_.stop_pose = std::nullopt;
       }
       std::string stop_reason = "collision with dynamic objects: after approval";
-      stop_pose_ = PoseWithDetail(status_.stop_pose, stop_reason);
+      stop_pose_ = PoseWithDetail(status_.stop_pose.value().pose, stop_reason);
       return *status_.prev_stop_path_after_approval;
     }
 
