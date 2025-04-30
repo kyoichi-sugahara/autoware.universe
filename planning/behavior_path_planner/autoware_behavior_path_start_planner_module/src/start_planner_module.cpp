@@ -29,6 +29,7 @@
 #include <magic_enum.hpp>
 #include <rclcpp/rclcpp.hpp>
 
+#include <boost/geometry.hpp>
 #include <boost/geometry/algorithms/within.hpp>
 
 #include <lanelet2_core/geometry/Lanelet.h>
@@ -339,23 +340,50 @@ bool StartPlannerModule::hasCollisionWithDynamicObjects() const
   return !isSafePath();
 }
 
-bool StartPlannerModule::isInsideOfPullOutLanes() const
+bool StartPlannerModule::isInsideLanelets() const
 {
-  const auto pull_out_lanes = start_planner_utils::getPullOutLanes(
-    planner_data_, planner_data_->parameters.backward_path_length + parameters_->max_back_distance);
   const auto & current_pose = planner_data_->self_odometry->pose.pose;
   const auto vehicle_footprint = autoware_utils::transform_vector(
     vehicle_info_.createFootprint(), autoware_utils::pose2transform(current_pose));
 
-  const auto combined_pull_out_lanes = lanelet::utils::combineLaneletsShape(pull_out_lanes);
-
+  lanelet::BasicPolygon2d footprint_polygon;
   for (const auto & point : vehicle_footprint) {
-    if (!lanelet::geometry::inside(combined_pull_out_lanes, point)) {
-      return false;
+    footprint_polygon.push_back({point.x(), point.y()});
+  }
+
+  const auto & lanelets_distance_pair = lanelet::geometry::findWithin2d(
+    planner_data_->route_handler->getLaneletMapPtr()->laneletLayer, footprint_polygon, 0.0);
+
+  if (lanelets_distance_pair.empty()) {
+    return false;
+  }
+
+  autoware_utils::MultiPolygon2d combined_lanelets;
+  bool first_lanelet = true;
+
+  for (const auto & [distance, lanelet] : lanelets_distance_pair) {
+    const auto & poly = lanelet.polygon2d().basicPolygon();
+
+    autoware_utils::Polygon2d lanelet_polygon;
+    auto & outer = lanelet_polygon.outer();
+
+    for (const auto & p : poly) {
+      outer.push_back({p.x(), p.y()});
+    }
+
+    boost::geometry::correct(lanelet_polygon);
+
+    if (first_lanelet) {
+      boost::geometry::convert(lanelet_polygon, combined_lanelets);
+      first_lanelet = false;
+    } else {
+      autoware_utils::MultiPolygon2d result;
+      boost::geometry::union_(combined_lanelets, lanelet_polygon, result);
+      combined_lanelets = result;
     }
   }
 
-  return true;
+  return boost::geometry::within(footprint_polygon, combined_lanelets);
 }
 
 bool StartPlannerModule::isExecutionRequested() const
@@ -642,19 +670,17 @@ bool StartPlannerModule::isExecutionReady() const
 
   bool is_safe = true;
   std::string stop_reason = "";
-
   // Check pull out path
   if (!status_.found_pull_out_path) {
     is_safe = false;
-
-    const bool is_inside_of_lanes = isInsideOfPullOutLanes();
+    const bool is_inside_lanelets = isInsideLanelets();
 
     // TODO(Sugahara): Need to distinguish between cases where current position is within lanes but
     // backward path would violate lane boundaries, versus cases where safety margins with static
     // obstacles cannot be maintained. Provide appropriate messages for each case.
-    if (!parameters_->enable_back && !is_inside_of_lanes) {
+    if (!parameters_->enable_back && !is_inside_lanelets) {
       stop_reason = "ego is out of pull out lanes";
-    } else if (is_inside_of_lanes) {
+    } else if (is_inside_lanelets) {
       stop_reason = "insufficient clearance between planned trajectory and static objects";
     } else {
       stop_reason = "failed to generate valid pull out path";
