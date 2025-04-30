@@ -351,6 +351,7 @@ bool StartPlannerModule::isInsideLanelets() const
     footprint_polygon.push_back({point.x(), point.y()});
   }
 
+  // Find lanelets that intersect with the vehicle footprint
   const auto & lanelets_distance_pair = lanelet::geometry::findWithin2d(
     planner_data_->route_handler->getLaneletMapPtr()->laneletLayer, footprint_polygon, 0.0);
 
@@ -358,6 +359,7 @@ bool StartPlannerModule::isInsideLanelets() const
     return false;
   }
 
+  // Combine all intersecting lanelets into a single MultiPolygon
   autoware_utils::MultiPolygon2d combined_lanelets;
   bool first_lanelet = true;
 
@@ -373,16 +375,19 @@ bool StartPlannerModule::isInsideLanelets() const
 
     boost::geometry::correct(lanelet_polygon);
 
+    // Handle the first lanelet differently to avoid unnecessary operations
     if (first_lanelet) {
       boost::geometry::convert(lanelet_polygon, combined_lanelets);
       first_lanelet = false;
     } else {
+      // Union the current lanelet with the combined lanelets
       autoware_utils::MultiPolygon2d result;
       boost::geometry::union_(combined_lanelets, lanelet_polygon, result);
       combined_lanelets = result;
     }
   }
 
+  // Check if the vehicle footprint is completely within the combined lanelets
   return boost::geometry::within(footprint_polygon, combined_lanelets);
 }
 
@@ -675,13 +680,17 @@ bool StartPlannerModule::isExecutionReady() const
     is_safe = false;
     const bool is_inside_lanelets = isInsideLanelets();
 
-    // TODO(Sugahara): Need to distinguish between cases where current position is within lanes but
-    // backward path would violate lane boundaries, versus cases where safety margins with static
-    // obstacles cannot be maintained. Provide appropriate messages for each case.
+    // TODO(Sugahara): Improve error messaging to clearly:
+    // 1. Current position is within lane, but candidate path violates lane boundaries
+    // 2. Current position is within lane, but path from backed position violate lane boundaries
+    // 3. Current position is within lane, but insufficient clearance from static obstacles
+    // Currently assuming most failures are type 3 (obstacle clearance issues)
+    // since type 1 is an edge case and type 2 doesn't occur when backward path is disabled.
+    // Future work should provide appropriate messages for each case.
     if (!parameters_->enable_back && !is_inside_lanelets) {
-      stop_reason = "ego is out of pull out lanes";
+      stop_reason = "ego footprint is out of lanelets";
     } else if (is_inside_lanelets) {
-      stop_reason = "insufficient clearance between planned trajectory and static objects";
+      stop_reason = "insufficient clearance against static objects";
     } else {
       stop_reason = "failed to generate valid pull out path";
     }
@@ -776,8 +785,7 @@ BehaviorModuleOutput StartPlannerModule::plan()
       if (status_.is_safe_dynamic_objects && isStopped()) {
         status_.stop_pose = std::nullopt;
       }
-      std::string stop_reason = "collision with dynamic objects: after approval";
-      stop_pose_ = PoseWithDetail(status_.stop_pose.value().pose, stop_reason);
+      stop_pose_ = status_.stop_pose;
       return *status_.prev_stop_path_after_approval;
     }
 
@@ -793,6 +801,8 @@ BehaviorModuleOutput StartPlannerModule::plan()
       RCLCPP_ERROR_THROTTLE(
         getLogger(), *clock_, 5000, "Insert stop point in the path because of dynamic objects");
       status_.prev_stop_path_after_approval = std::make_shared<PathWithLaneId>(stop_path.value());
+      std::string stop_reason = "collision with dynamic objects: after approval";
+      stop_pose_ = PoseWithDetail(stop_pose_.value().pose, stop_reason);
       status_.stop_pose = stop_pose_;
       return stop_path.value();
     }
