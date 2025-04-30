@@ -617,18 +617,30 @@ bool StartPlannerModule::isExecutionReady() const
 {
   // Evaluate safety. The situation is not safe if any of the following conditions are met:
   // 1. pull out path has not been found
-  // 2. there is a moving objects around ego
-  // 3. waiting for approval and there is a collision with dynamic objects
+  // 2. waiting for approval, AND any of the following conditions:
+  //    a. there are moving objects around ego
+  //    b. there is a collision with dynamic objects (if collision detection is required)
 
-  const bool is_safe = [&]() -> bool {
-    if (!status_.found_pull_out_path) return false;
-    if (!isWaitingApproval()) return true;
-    if (!noMovingObjectsAround()) return false;
-    return !(requiresDynamicObjectsCollisionDetection() && hasCollisionWithDynamicObjects());
-  }();
+  bool is_safe = true;
+  std::string stop_reason = "";
+
+  // Check pull out path
+  if (!status_.found_pull_out_path) {
+    is_safe = false;
+    stop_reason = "pull out path not found";
+  } else if (isWaitingApproval()) {
+    // Check for moving objects around
+    if (!noMovingObjectsAround()) {
+      is_safe = false;
+      stop_reason = "moving objects around: waiting for approval";
+    } else if (requiresDynamicObjectsCollisionDetection() && hasCollisionWithDynamicObjects()) {
+      is_safe = false;
+      stop_reason = "collision with dynamic objects: waiting for approval";
+    }
+  }
 
   if (!is_safe) {
-    stop_pose_ = PoseWithDetail(planner_data_->self_odometry->pose.pose);
+    stop_pose_ = PoseWithDetail(planner_data_->self_odometry->pose.pose, stop_reason);
   }
 
   return is_safe;
@@ -706,7 +718,8 @@ BehaviorModuleOutput StartPlannerModule::plan()
       if (status_.is_safe_dynamic_objects && isStopped()) {
         status_.stop_pose = std::nullopt;
       }
-      stop_pose_ = status_.stop_pose;
+      std::string stop_reason = "collision with dynamic objects: after approval";
+      stop_pose_ = PoseWithDetail(status_.stop_pose, stop_reason);
       return *status_.prev_stop_path_after_approval;
     }
 
