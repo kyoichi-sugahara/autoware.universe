@@ -688,21 +688,21 @@ bool StartPlannerModule::isExecutionReady() const
     // since type 1 is an edge case and type 2 doesn't occur when backward path is disabled.
     // Future work should provide appropriate messages for each case.
     if (!parameters_->enable_back && !is_inside_lanelets) {
-      stop_reason = "ego footprint is out of lanelets";
+      stop_reason = "ego outside lanes";
     } else if (is_inside_lanelets) {
-      stop_reason = "insufficient clearance against static objects";
+      stop_reason = "unsafe against static objects";
     } else {
-      stop_reason = "failed to generate valid pull out path";
+      stop_reason = "failed to generate valid path";
     }
 
   } else if (isWaitingApproval()) {
     // Check for moving objects around
     if (!noMovingObjectsAround()) {
       is_safe = false;
-      stop_reason = "moving objects around: waiting for approval";
+      stop_reason = "unsafe against moving objects around";
     } else if (requiresDynamicObjectsCollisionDetection() && hasCollisionWithDynamicObjects()) {
       is_safe = false;
-      stop_reason = "collision with dynamic objects: waiting for approval";
+      stop_reason = "unsafe against dynamic objects";
     }
   }
 
@@ -801,7 +801,7 @@ BehaviorModuleOutput StartPlannerModule::plan()
       RCLCPP_ERROR_THROTTLE(
         getLogger(), *clock_, 5000, "Insert stop point in the path because of dynamic objects");
       status_.prev_stop_path_after_approval = std::make_shared<PathWithLaneId>(stop_path.value());
-      std::string stop_reason = "collision with dynamic objects: after approval";
+      std::string stop_reason = "unsafe against dynamic objects";
       stop_pose_ = PoseWithDetail(stop_pose_.value().pose, stop_reason);
       status_.stop_pose = stop_pose_;
       return stop_path.value();
