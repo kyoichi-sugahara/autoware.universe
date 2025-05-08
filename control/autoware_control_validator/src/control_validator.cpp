@@ -115,10 +115,15 @@ void AccelerationValidator::validate(
   const double desired_acc = desired_acc_lpf.getValue().value();
 
   res.desired_acc = desired_acc;
+  res.is_valid_acc = is_in_error_range(filtered_acceleration);
+}
 
-  res.is_valid_acc =
-    filtered_acceleration <= desired_acc + std::abs(e_scale * desired_acc) + e_offset &&
-    filtered_acceleration >= desired_acc - std::abs(e_scale * desired_acc) - e_offset;
+bool AccelerationValidator::is_in_error_range(const double measured_acceleration) const
+{
+  const double des = desired_acc_lpf.getValue().value();
+
+  return measured_acceleration <= des + std::abs(e_scale * des) + e_offset &&
+         measured_acceleration >= des - std::abs(e_scale * des) - e_offset;
 }
 
 void VelocityValidator::validate(
@@ -359,9 +364,11 @@ void ControlValidator::on_control_cmd(const Control::ConstSharedPtr msg)
     common_velocity_lpf_->filter(kinematics_msg->twist.twist.linear.x);
   const double filtered_acceleration =
     common_acceleration_lpf_->filter(acceleration_msg->accel.accel.linear.x);
-  if (std::abs(kinematic_state->twist.twist.linear.x) < 0.3) {
+  if (std::abs(kinematics_msg->twist.twist.linear.x) < 0.3) {
     common_acceleration_lpf_->reset(0.0);
   }
+  validation_status_.measured_acc = filtered_acceleration;
+  validation_status_.target_vel = filtered_velocity;
 
   // pre process
   debug_pose_publisher_->clear_markers();
@@ -371,8 +378,8 @@ void ControlValidator::on_control_cmd(const Control::ConstSharedPtr msg)
   latency_validator.validate(validation_status_, *control_cmd_msg, *this);
 
   steering_rate_validator.validate(
-    validation_status_, *control_cmd_msg, *steering_status_msg, filtered_velocity,
-    filtered_acceleration, vehicle_info_.wheel_base_m);
+    validation_status_, *control_cmd_msg, *steering_status_msg, filtered_acceleration,
+    filtered_velocity, vehicle_info_.wheel_base_m);
 
   if (predicted_trajectory_msg->points.size() < 2) {
     // TODO(takagi): This check should be moved into each of the individual validate() functions.
