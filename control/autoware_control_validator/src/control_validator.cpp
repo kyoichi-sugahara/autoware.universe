@@ -70,10 +70,22 @@ void SteeringRateValidator::validate(
   rclcpp::Time prev_time(prev_control_cmd_->stamp);
   const double dt = (current_time - prev_time).seconds();
 
-  const double steering_rate =
-    std::abs(steering_cmd - prev_control_cmd_->lateral.steering_tire_angle) / dt;
+  const double prev_steering_cmd = prev_control_cmd_->lateral.steering_tire_angle;
+  const double steering_rate = steering_cmd - prev_steering_cmd / dt;
 
   // Calculate lateral jerk
+  //
+  // Lateral jerk is calculated based on the formula:
+  // j_y = (1/L) * [2V * a_x * tan(δ) + V^2 * (1 + tan^2(δ)) * (dδ/dt)]
+  //
+  // Where:
+  // - j_y: lateral jerk
+  // - L: wheel base
+  // - V: longitudinal velocity
+  // - a_x: longitudinal acceleration
+  // - δ: steering angle
+  // - dδ/dt: steering angle rate of change
+  //
   const double tan_steering = std::tan(current_steering);
   const double tan_squared = tan_steering * tan_steering;
   const double lateral_jerk =
@@ -82,6 +94,7 @@ void SteeringRateValidator::validate(
 
   res.steering_rate = steering_rate;
   res.lateral_jerk = lateral_jerk;
+  // Note: Assuming left-right symmetry, only considering the magnitude of jerk
   res.is_valid_steering_rate = std::abs(lateral_jerk) < lateral_jerk_threshold_;
   if (!res.is_valid_steering_rate) {
     RCLCPP_ERROR(
