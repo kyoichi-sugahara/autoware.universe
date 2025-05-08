@@ -481,49 +481,6 @@ std::string ControlValidator::generate_error_message(const ControlValidatorStatu
   }
 }
 
-std::string ControlValidator::generate_error_message(const ControlValidatorStatus & s)
-{
-  std::vector<std::string> error_messages;
-
-  if (!s.is_valid_max_distance_deviation) {
-    error_messages.push_back("TRAJECTORY DEVIATION");
-  }
-
-  if (!s.is_valid_acc) {
-    error_messages.push_back("ACCELERATION ERROR");
-  }
-
-  if (s.is_rolling_back) {
-    error_messages.push_back("ROLLING BACK");
-  }
-
-  if (s.is_over_velocity) {
-    error_messages.push_back("OVER VELOCITY");
-  }
-
-  if (s.has_overrun_stop_point) {
-    error_messages.push_back("OVERRUN STOP POINT");
-  }
-
-  if (s.will_overrun_stop_point) {
-    error_messages.push_back("WILL OVERRUN STOP POINT");
-  }
-
-  if (error_messages.empty()) {
-    return "INVALID CONTROL";
-  }
-
-  if (error_messages.size() == 1) {
-    return error_messages[0];
-  } else {
-    std::string result = error_messages[0];
-    for (size_t i = 1; i < error_messages.size(); ++i) {
-      result += ", " + error_messages[i];
-    }
-    return result;
-  }
-}
-
 void ControlValidator::display_status()
 {
   if (!display_on_terminal_) return;

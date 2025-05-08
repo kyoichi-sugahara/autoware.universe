@@ -136,6 +136,7 @@ private:
   const double e_offset;
   const double e_scale;
   autoware::signal_processing::LowpassFilter1d desired_acc_lpf;
+  autoware::signal_processing::LowpassFilter1d measured_acc_lpf;
 };
 
 /**
@@ -166,6 +167,7 @@ private:
   const double over_velocity_ratio_th;
   const double over_velocity_offset_th;
   const bool hold_velocity_error_until_stop;
+  autoware::signal_processing::LowpassFilter1d vehicle_vel_lpf;
   autoware::signal_processing::LowpassFilter1d target_vel_lpf;
 };
 
@@ -194,6 +196,7 @@ private:
   const double will_overrun_stop_point_dist_th;
   const double assumed_limit_acc;
   const double assumed_delay_time;
+  autoware::signal_processing::LowpassFilter1d vehicle_vel_lpf;
 };
 
 /**
