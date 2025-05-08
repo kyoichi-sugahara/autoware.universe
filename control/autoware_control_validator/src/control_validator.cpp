@@ -56,10 +56,6 @@ void SteeringRateValidator::validate(
   const double current_steering = steering_status.steering_tire_angle;
   const double steering_cmd = control_cmd.lateral.steering_tire_angle;
 
-  // Calculate lateral acceleration
-  // const double lateral_acceleration =
-  //   (ego_velocity * ego_velocity * std::tan(current_steering)) / wheel_base;
-
   if (!prev_control_cmd_) {
     prev_control_cmd_ = std::make_unique<Control>(control_cmd);
     return;
