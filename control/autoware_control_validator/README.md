@@ -62,7 +62,7 @@ The input trajectory is detected as invalid if the index exceeds the following t
 | Name                                      | Type   | Description                                                                                                 | Default value |
 | :---------------------------------------- | :----- | :---------------------------------------------------------------------------------------------------------- | :------------ |
 | `thresholds.max_distance_deviation`       | double | invalid threshold of the max distance deviation between the predicted path and the reference trajectory [m] | 1.0           |
-| `thresholds.steering_rate`                | double | invalid threshold of the steer rate [rad/s]                                                                 | **TBD**       |
+| `thresholds.lateral_jerk`                 | double | invalid threshold of the lateral jerk [m/s^3]                                                               | **TBD**       |
 | `thresholds.rolling_back_velocity`        | double | threshold velocity to valid the vehicle velocity [m/s]                                                      | 0.5           |
 | `thresholds.over_velocity_offset`         | double | threshold velocity offset to valid the vehicle velocity [m/s]                                               | 2.0           |
 | `thresholds.over_velocity_ratio`          | double | threshold ratio to valid the vehicle velocity [*]                                                           | 0.2           |

@@ -10,7 +10,6 @@
     thresholds:
       max_distance_deviation: 1.0
       lateral_jerk: 5.0
-      steering_rate: 2.0 # rad/s
       acc_error_offset: 0.8
       acc_error_scale: 0.2
       rolling_back_velocity: 0.5
