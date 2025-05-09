@@ -100,17 +100,21 @@ class SteeringRateValidator
 public:
   explicit SteeringRateValidator(rclcpp::Node & node)
   : lateral_jerk_threshold_{get_or_declare_parameter<double>(node, "thresholds.lateral_jerk")},
-    logger_{node.get_logger()} {};
+    logger_{node.get_logger()},
+    measured_vel_lpf{get_or_declare_parameter<double>(node, "vel_lpf_gain")},
+    measured_acc_lpf{(get_or_declare_parameter<double>(node, "acc_lpf_gain"))} {};
 
   void validate(
-    ControlValidatorStatus & res, const Control & control_cmd,
-    const SteeringReport & steering_status, const double filtered_acceleration,
-    const double filtered_velocity, const double wheel_base);
+    ControlValidatorStatus & res, const Odometry & kinematic_state, const Control & control_cmd,
+    const SteeringReport & steering_status, const AccelWithCovarianceStamped & acceleration,
+    const double wheel_base);
 
 private:
   double lateral_jerk_threshold_{};  // m/s^3
   rclcpp::Logger logger_;
   std::unique_ptr<Control> prev_control_cmd_{};
+  autoware::signal_processing::LowpassFilter1d measured_vel_lpf;
+  autoware::signal_processing::LowpassFilter1d measured_acc_lpf;
 };
 
 /**
@@ -129,10 +133,10 @@ public:
 
   void validate(
     ControlValidatorStatus & res, const Odometry & kinematic_state, const Control & control_cmd,
-    const double filtered_acceleration);
+    const AccelWithCovarianceStamped & loc_acc);
 
 private:
-  bool is_in_error_range(const double filtered_acceleration) const;
+  bool is_in_error_range() const;
   const double e_offset;
   const double e_scale;
   autoware::signal_processing::LowpassFilter1d desired_acc_lpf;
@@ -160,7 +164,7 @@ public:
 
   void validate(
     ControlValidatorStatus & res, const Trajectory & reference_trajectory,
-    const Odometry & kinematics, const double filtered_velocity);
+    const Odometry & kinematics);
 
 private:
   const double rolling_back_velocity_th;
@@ -189,7 +193,7 @@ public:
 
   void validate(
     ControlValidatorStatus & res, const Trajectory & reference_trajectory,
-    const Odometry & kinematics, const double filtered_velocity);
+    const Odometry & kinematics);
 
 private:
   const double overrun_stop_point_dist_th;
@@ -273,9 +277,6 @@ private:
   Updater diag_updater_{this};
   ControlValidatorStatus validation_status_;
   vehicle_info_utils::VehicleInfo vehicle_info_;
-  std::unique_ptr<autoware::signal_processing::LowpassFilter1d> common_velocity_lpf_;
-  std::unique_ptr<autoware::signal_processing::LowpassFilter1d> common_acceleration_lpf_;
-
   /**
    * @brief Check if all validation criteria are met
    * @param status Validation status
