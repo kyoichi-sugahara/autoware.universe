@@ -36,20 +36,20 @@ def main():
     parser.add_argument(
         "--wheel_base",
         type=float,
-        default=4.76012,
-        help="Wheel base [m], default: 4.76012",
+        default=2.74,  # 4.76012
+        help="Wheel base [m]",
     )
     parser.add_argument(
         "--max_velocity",
         type=float,
         default=35.0,
-        help="Maximum velocity [m/s], default: 35.0",
+        help="Maximum velocity [m/s]",
     )
     parser.add_argument(
         "--max_lateral_jerk",
         type=float,
         default=5.0,
-        help="Maximum allowable lateral jerk [m/s³], default: 5.0",
+        help="Maximum allowable lateral jerk [m/s³]",
     )
 
     # Parse arguments
