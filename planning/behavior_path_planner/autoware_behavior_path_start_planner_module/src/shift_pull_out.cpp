@@ -26,6 +26,7 @@
 #include <autoware_lanelet2_extension/utility/utilities.hpp>
 
 #include <algorithm>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <utility>
@@ -440,6 +441,43 @@ std::vector<PullOutPath> ShiftPullOut::calcPullOutPaths(
     }
     refineShiftedPathToStartPose(
       shifted_path, start_pose, *shift_end_pose_ptr, longitudinal_acc, lateral_acc);
+
+    // Check if ego vehicle is in shoulder lane
+    const auto shoulder_lanes = route_handler.getShoulderLaneletsAtPose(start_pose);
+    if (shoulder_lanes.empty()) {
+      std::cerr << "\n\n\n No shoulder lanes found" << std::endl;
+    }
+
+    // Find shoulder lanelet containing ego vehicle
+    lanelet::ConstLanelet current_lanelet;
+    bool found_current_lanelet = false;
+    for (const auto & lanelet : shoulder_lanes) {
+      if (lanelet::utils::isInLanelet(start_pose, lanelet)) {
+        current_lanelet = lanelet;
+        found_current_lanelet = true;
+        break;
+      }
+    }
+    if (!found_current_lanelet) {
+      std::cerr << "\n\n\n Ego vehicle is not in any shoulder lane" << std::endl;
+    }
+    std::cerr << "\n\n\n closest_lanelet: " << current_lanelet.id() << std::endl;
+
+    // Calculate forward distance to shift_end_pose_ptr using road_lanes
+    const auto arc_position_start = getArcCoordinates(road_lanes, start_pose);
+    const auto arc_position_end = getArcCoordinates(road_lanes, *shift_end_pose_ptr);
+    const double actual_forward_distance = arc_position_end.length - arc_position_start.length;
+    std::cerr << "\n\n\n actual_forward_distance: " << actual_forward_distance << std::endl;
+
+    // Get shoulder lanelets from nearest shoulder lane to shift_end_pose_ptr
+    const auto shoulder_lanelet_sequence = route_handler.getShoulderLaneletSequence(
+      current_lanelet, start_pose, actual_forward_distance);
+    for (const auto & lanelet : shoulder_lanelet_sequence) {
+      std::cerr << "\n\n\n shoulder_lanelet: " << lanelet.id() << std::endl;
+    }
+    if (shoulder_lanelet_sequence.empty()) {
+      std::cerr << "\n\n\n No shoulder lanelet sequence found" << std::endl;
+    }
 
     // set velocity
     const size_t pull_out_end_idx =
