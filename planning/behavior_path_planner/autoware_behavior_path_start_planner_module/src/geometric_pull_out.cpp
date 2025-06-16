@@ -73,7 +73,7 @@ std::optional<PullOutPath> GeometricPullOut::plan(
   planner_.setTurningRadius(planner_data->parameters, max_steer_angle);
   planner_.setPlannerData(planner_data);
   const bool found_valid_path = planner_.planPullOut(
-    start_pose, goal_pose, road_lanes, pull_out_lanes, left_side_start,use_clothoid_
+    start_pose, goal_pose, road_lanes, pull_out_lanes, left_side_start, use_clothoid_,
     boundary_departure_checker_);
   if (!found_valid_path) {
     planner_debug_data.conditions_evaluation.emplace_back("no path found");
