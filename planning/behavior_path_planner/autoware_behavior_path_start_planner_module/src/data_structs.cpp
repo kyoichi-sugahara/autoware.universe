@@ -89,6 +89,10 @@ StartPlannerParameters StartPlannerParameters::init(rclcpp::Node & node)
     p.parallel_parking_parameters.geometric_pull_out_max_steer_angle_margin_scale =
       get_or_declare_parameter<double>(
         node, ns + "geometric_pull_out_max_steer_angle_margin_scale");
+    p.parallel_parking_parameters.pull_out_max_steer_angle =
+      get_or_declare_parameter<double>(node, ns + "pull_out_max_steer_angle");
+    p.parallel_parking_parameters.pull_out_steer_rate_lim =
+      get_or_declare_parameter<double>(node, ns + "pull_out_steer_rate_lim");
     p.parallel_parking_parameters.center_line_path_interval =
       p.center_line_path_interval;  // for geometric parallel parking
     // search start pose backward
