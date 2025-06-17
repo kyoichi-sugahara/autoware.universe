@@ -113,10 +113,21 @@ std::optional<PullOutPath> GeometricPullOut::plan(
     const double average_acceleration = average_velocity / (time_to_center * 2);
     output.pairs_terminal_velocity_and_accel.push_back(
       std::make_pair(average_velocity, average_acceleration));
-    const double arc_length_on_second_arc_path =
-      autoware::motion_utils::calcArcLength(planner_.getArcPaths().at(1).points);
-    output.pairs_terminal_velocity_and_accel.push_back(
-      std::make_pair(velocity, velocity * velocity / (2 * arc_length_on_second_arc_path)));
+
+    // Check if there are multiple arc paths before accessing the second one
+    const auto arc_paths_for_accel = planner_.getArcPaths();
+    if (arc_paths_for_accel.size() > 1) {
+      const double arc_length_on_second_arc_path =
+        autoware::motion_utils::calcArcLength(arc_paths_for_accel.at(1).points);
+      output.pairs_terminal_velocity_and_accel.push_back(
+        std::make_pair(velocity, velocity * velocity / (2 * arc_length_on_second_arc_path)));
+    } else {
+      // If only one arc path, use the same path for second acceleration calculation
+      const double arc_length_on_second_arc_path =
+        autoware::motion_utils::calcArcLength(arc_paths_for_accel.at(0).points);
+      output.pairs_terminal_velocity_and_accel.push_back(
+        std::make_pair(velocity, velocity * velocity / (2 * arc_length_on_second_arc_path)));
+    }
   } else {
     const auto partial_paths = planner_.getPaths();
     const auto combined_path = utils::combinePath(partial_paths.at(0), partial_paths.at(1));
@@ -129,8 +140,21 @@ std::optional<PullOutPath> GeometricPullOut::plan(
       std::make_pair(velocity, velocity * velocity / 2 * arc_length_on_path));
   }
 
-  output.start_pose = planner_.getArcPaths().at(0).points.front().point.pose;
-  output.end_pose = planner_.getArcPaths().at(1).points.back().point.pose;
+  const auto arc_paths = planner_.getArcPaths();
+  if (arc_paths.empty()) {
+    planner_debug_data.conditions_evaluation.emplace_back("no arc paths generated");
+    return {};
+  }
+
+  output.start_pose = arc_paths.at(0).points.front().point.pose;
+
+  // Check if there are multiple arc paths or just one
+  if (arc_paths.size() > 1) {
+    output.end_pose = arc_paths.at(1).points.back().point.pose;
+  } else {
+    // If only one arc path, use the last point of that path
+    output.end_pose = arc_paths.at(0).points.back().point.pose;
+  }
 
   if (isPullOutPathCollided(
         output, planner_data, parameters_.geometric_collision_check_distance_from_end)) {
