@@ -315,18 +315,20 @@ std::vector<std::pair<double, double>> calc_circular_path(
 
   std::cout << "\n=== Circular Path Planning ===" << std::endl;
   std::cout << std::fixed << std::setprecision(2);
-  std::cout << "Start: (" << start_pose.x << ", " << start_pose.y
-            << "), yaw=" << start_pose.yaw * 180.0 / PI << "°" << std::endl;
-  std::cout << "Goal: (" << goal_pose.x << ", " << goal_pose.y
-            << "), yaw=" << goal_pose.yaw * 180.0 / PI << "°" << std::endl;
+  std::cout << "Start: (" << start_pose.position.x << ", " << start_pose.position.y
+            << "), yaw=" << tf2::getYaw(start_pose.orientation) * 180.0 / PI << "°" << std::endl;
+  std::cout << "Goal: (" << goal_pose.position.x << ", " << goal_pose.position.y
+            << "), yaw=" << tf2::getYaw(goal_pose.orientation) * 180.0 / PI << "°" << std::endl;
 
   // Calculate arc center Cr for starting from start position with minimum radius
-  double C_rx = start_pose.x + minimum_radius * std::sin(start_pose.yaw);
-  double C_ry = start_pose.y - minimum_radius * std::cos(start_pose.yaw);
+  double C_rx =
+    start_pose.position.x + minimum_radius * std::sin(tf2::getYaw(start_pose.orientation));
+  double C_ry =
+    start_pose.position.y - minimum_radius * std::cos(tf2::getYaw(start_pose.orientation));
 
   // Calculate connectable arc radius to goal position using Al-Kashi theorem
-  double dx_goal = goal_pose.x - C_rx;
-  double dy_goal = goal_pose.y - C_ry;
+  double dx_goal = goal_pose.position.x - C_rx;
+  double dy_goal = goal_pose.position.y - C_ry;
   double d_goal_Cr = std::sqrt(dx_goal * dx_goal + dy_goal * dy_goal);
 
   if (d_goal_Cr < 1e-6) {
@@ -341,7 +343,7 @@ std::vector<std::pair<double, double>> calc_circular_path(
   cos_term = std::max(-1.0, std::min(1.0, cos_term));  // Clamp for numerical stability
 
   // Adjust angle for goal approach (π added for reverse direction)
-  double alpha = (goal_pose.yaw + PI) + std::acos(cos_term);
+  double alpha = (tf2::getYaw(goal_pose.orientation) + PI) + std::acos(cos_term);
 
   double denominator = 2 * minimum_radius + 2 * d_goal_Cr * std::cos(alpha);
 
@@ -359,8 +361,8 @@ std::vector<std::pair<double, double>> calc_circular_path(
   std::cout << "d_goal_Cr = " << std::setprecision(6) << d_goal_Cr << std::endl;
   std::cout << "minimum_radius = " << minimum_radius << std::endl;
   std::cout << "cos_term = " << cos_term << std::endl;
-  std::cout << "goal_pose.yaw = " << goal_pose.yaw << " rad (" << goal_pose.yaw * 180.0 / PI << "°)"
-            << std::endl;
+  std::cout << "goal_pose.yaw = " << tf2::getYaw(goal_pose.orientation) << " rad ("
+            << tf2::getYaw(goal_pose.orientation) * 180.0 / PI << "°)" << std::endl;
   std::cout << "alpha = " << alpha << " rad (" << alpha * 180.0 / PI << "°)" << std::endl;
   std::cout << "cos(alpha) = " << std::cos(alpha) << std::endl;
   std::cout << "denominator = 2 * " << minimum_radius << " + 2 * " << d_goal_Cr << " * "
@@ -386,8 +388,8 @@ std::vector<std::pair<double, double>> calc_circular_path(
   }
 
   // Calculate goal arc center Cl
-  double C_lx = goal_pose.x - R_goal * std::sin(goal_pose.yaw);
-  double C_ly = goal_pose.y + R_goal * std::cos(goal_pose.yaw);
+  double C_lx = goal_pose.position.x - R_goal * std::sin(tf2::getYaw(goal_pose.orientation));
+  double C_ly = goal_pose.position.y + R_goal * std::cos(tf2::getYaw(goal_pose.orientation));
 
   // Calculate tangent point for external tangent circles
   double dx_centers = C_lx - C_rx;
@@ -450,7 +452,7 @@ std::vector<std::pair<double, double>> calc_circular_path(
   const int points_per_segment = 50;
 
   // Generate first arc (clockwise from start to tangent point)
-  double start_angle1 = std::atan2(start_pose.y - C_ry, start_pose.x - C_rx);
+  double start_angle1 = std::atan2(start_pose.position.y - C_ry, start_pose.position.x - C_rx);
   double end_angle1 = std::atan2(tangent_y - C_ry, tangent_x - C_rx);
   double angle_diff1 = end_angle1 - start_angle1;
 
@@ -478,7 +480,7 @@ std::vector<std::pair<double, double>> calc_circular_path(
 
   // Generate second arc (counterclockwise from tangent point to goal)
   double start_angle2 = std::atan2(tangent_y - C_ly, tangent_x - C_lx);
-  double end_angle2 = std::atan2(goal_pose.y - C_ly, goal_pose.x - C_lx);
+  double end_angle2 = std::atan2(goal_pose.position.y - C_ly, goal_pose.position.x - C_lx);
   double angle_diff2 = end_angle2 - start_angle2;
 
   // Adjust for counterclockwise direction
