@@ -26,6 +26,7 @@
 #include <autoware_lanelet2_extension/utility/utilities.hpp>
 
 #include <algorithm>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <utility>
@@ -76,14 +77,16 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     centerline_path.points.empty()
       ? 0.0
       : autoware::motion_utils::calcLateralOffset(centerline_path.points, start_pose.position);
+  std::cerr << "Lateral offset: " << lateral_offset << std::endl;
 
   // Temporary variables to avoid compilation errors
-  const double minimum_radius = 5.0;
+  const double minimum_radius = 13.46;
 
   // longitudinal necessary distance for pull out
+  // minus lateral offset should be fixed later
   const double longitudinal_distance =
-    start_planner_utils::calc_necessary_longitudinal_distance(lateral_offset, minimum_radius);
-
+    start_planner_utils::calc_necessary_longitudinal_distance(-lateral_offset, minimum_radius);
+  std::cerr << "Longitudinal distance: " << longitudinal_distance << std::endl;
   // target pose on the target lane
   // Get target pose from centerline path at longitudinal_distance ahead
   Pose target_pose = start_pose;

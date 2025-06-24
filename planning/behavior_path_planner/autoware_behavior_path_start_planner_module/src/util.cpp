@@ -164,38 +164,76 @@ double calc_necessary_longitudinal_distance(
     y_goal += lateral_offset * std::cos(yaw_start);
 
     // 開始円弧の中心を計算（右回りを想定）
-    double C_rx = x_start - minimum_radius * std::sin(yaw_start);
-    double C_ry = y_start + minimum_radius * std::cos(yaw_start);
+    double C_rx = x_start + minimum_radius * std::sin(yaw_start);
+    double C_ry = y_start - minimum_radius * std::cos(yaw_start);
+
+    // std::cerr << "Trial distance: " << std::fixed << std::setprecision(2) << trial_distance
+    //           << " m, x_goal: " << std::fixed << std::setprecision(2) << x_goal
+    //           << " m, y_goal: " << std::fixed << std::setprecision(2) << y_goal << " m"
+    //           << std::endl;
+    // std::cerr << "C_rx: " << std::fixed << std::setprecision(2) << C_rx
+    //           << " m, C_ry: " << std::fixed << std::setprecision(2) << C_ry << " m" << std::endl;
 
     // 目標円弧の半径を計算
     double dx_goal = x_goal - C_rx;
     double dy_goal = y_goal - C_ry;
     double distance_to_goal = std::sqrt(dx_goal * dx_goal + dy_goal * dy_goal);
 
+    double cos_term = (y_goal - C_ry) / distance_to_goal;
+    cos_term = std::clamp(cos_term, -1.0, 1.0);  // For numerical stability
+
+    // # Adjust angle for goal approach (π added for reverse direction)
+    // alpha = (yaw_goal + np.pi) + np.arccos(cos_term)
+    // double alpha = std::acos(cos_term);
+    // double alpha = (yaw_goal + M_PI) + std::acos(cos_term);
+    double alpha = M_PI + std::acos(cos_term);
+    const double denominator = 2 * minimum_radius + 2 * distance_to_goal * std::cos(alpha);
+    const double radius_goal =
+      (distance_to_goal * distance_to_goal - minimum_radius * minimum_radius) / denominator;
+    // const double center_goal_x = x_goal + radius_goal * std::sin(yaw_start);
+    // const double center_goal_y = y_goal - radius_goal * std::cos(yaw_start);
+    // std::cerr << "Radius goal: " << std::fixed << std::setprecision(2) << radius_goal
+    //           << " m, Center goal: (" << std::fixed << std::setprecision(2) << center_goal_x <<
+    //           ", "
+    //           << std::fixed << std::setprecision(2) << center_goal_y << ")" << std::endl;
+    // std::cerr << "alpha: " << std::fixed << std::setprecision(2) << alpha
+    //           << " rad, cos_term: " << std::fixed << std::setprecision(2) << cos_term <<
+    //           std::endl;
+
     // 目標円弧の半径は、目標位置から開始円弧中心までの距離
-    double R_goal = distance_to_goal;
+    // double R_goal = distance_to_goal;
+    // std::cerr << "Trial distance: " << std::fixed << std::setprecision(2) << trial_distance
+    //           << "dx_goal: " << std::fixed << std::setprecision(2) << dx_goal
+    //           << " m, dy_goal: " << std::fixed << std::setprecision(2) << dy_goal
+    //           << " m, Distance to goal: " << std::fixed << std::setprecision(2) <<
+    //           distance_to_goal
+    //           << " m, R_goal: " << std::setprecision(2) << R_goal
+    //           << " m, Lateral offset: " << std::setprecision(2) << lateral_offset << " m"
+    //           << std::endl;
 
     // 接続不可能な場合をスキップ
-    if (R_goal < 0) {
-      std::cout << "Warning: Calculated radius is negative (R_goal: " << std::fixed
-                << std::setprecision(3) << R_goal << ")" << std::endl;
+    if (radius_goal < 0) {
+      std::cout << "Warning: Calculated radius is negative (distance_to_goal: " << std::fixed
+                << std::setprecision(3) << distance_to_goal << ")" << std::endl;
       std::cout << "  Trial distance: " << trial_distance << " m - SKIPPED (connection impossible)"
                 << std::endl;
       continue;
     }
 
-    if (R_goal < minimum_radius) {
-      std::cout << "Warning: Calculated radius is smaller than minimum (R_goal: " << std::fixed
-                << std::setprecision(3) << R_goal << " < R_min: " << minimum_radius << ")"
-                << std::endl;
+    if (radius_goal < minimum_radius) {
+      std::cout << "Warning: Calculated radius is smaller than minimum (distance_to_goal: "
+                << std::fixed << std::setprecision(3) << distance_to_goal
+                << " < R_min: " << minimum_radius << ")" << std::endl;
       std::cout << "  Trial distance: " << trial_distance << " m - SKIPPED (connection impossible)"
                 << std::endl;
       continue;
     }
 
     // 目標円弧の中心を計算（左回りを想定）
-    double C_lx = x_goal + R_goal * std::sin(yaw_start);
-    double C_ly = y_goal - R_goal * std::cos(yaw_start);
+    double C_lx = x_goal - radius_goal * std::sin(yaw_start);
+    double C_ly = y_goal + radius_goal * std::cos(yaw_start);
+    // std::cerr << "C_lx: " << std::fixed << std::setprecision(2) << C_lx
+    //           << " m, C_ly: " << std::fixed << std::setprecision(2) << C_ly << " m" << std::endl;
 
     // 円弧同士の接続状態をチェック
     double dx_centers = C_lx - C_rx;
@@ -203,8 +241,8 @@ double calc_necessary_longitudinal_distance(
     double distance_between_centers = std::sqrt(dx_centers * dx_centers + dy_centers * dy_centers);
 
     // 接続判定
-    double external_tangent_distance = minimum_radius + R_goal;
-    double internal_tangent_distance = std::abs(minimum_radius - R_goal);
+    double external_tangent_distance = minimum_radius + radius_goal;
+    double internal_tangent_distance = std::abs(minimum_radius - radius_goal);
     double tolerance = 0.1;
 
     bool connection_valid = false;
@@ -215,7 +253,7 @@ double calc_necessary_longitudinal_distance(
        distance_between_centers - external_tangent_distance <= 2.0) ||
       (distance_between_centers < internal_tangent_distance - tolerance &&
        internal_tangent_distance - distance_between_centers <=
-         std::min(minimum_radius, R_goal) * 0.8)) {
+         std::min(minimum_radius, radius_goal) * 0.8)) {
       connection_valid = true;
     }
 
@@ -229,7 +267,7 @@ double calc_necessary_longitudinal_distance(
     double tangent_x, tangent_y;
     if (std::abs(distance_between_centers - external_tangent_distance) <= tolerance) {
       // 外接の場合
-      double ratio = minimum_radius / (minimum_radius + R_goal);
+      double ratio = minimum_radius / (minimum_radius + radius_goal);
       tangent_x = C_rx + ratio * dx_centers;
       tangent_y = C_ry + ratio * dy_centers;
     } else {
@@ -261,11 +299,11 @@ double calc_necessary_longitudinal_distance(
     double arc1_length = minimum_radius * std::abs(angle_diff);
 
     // デバッグ出力
-    std::cout << "  Trial distance: " << std::fixed << std::setprecision(2) << trial_distance
-              << " m, R_goal: " << std::setprecision(2) << R_goal
-              << " m, Arc1 length: " << std::setprecision(3) << arc1_length
-              << " m, Actual offset: " << std::setprecision(3) << actual_lateral_offset
-              << " m, Error: " << std::setprecision(3) << error << " m" << std::endl;
+    // std::cout << "  Trial distance: " << std::fixed << std::setprecision(2) << trial_distance
+    //           << " m, radius_goal: " << std::setprecision(2) << radius_goal
+    //           << " m, Arc1 length: " << std::setprecision(3) << arc1_length
+    //           << " m, Actual offset: " << std::setprecision(3) << actual_lateral_offset
+    //           << " m, Error: " << std::setprecision(3) << error << " m" << std::endl;
 
     valid_results_count++;
 
@@ -355,23 +393,23 @@ std::vector<std::pair<double, double>> calc_circular_path(
 
   double R_goal = (d_goal_Cr * d_goal_Cr - minimum_radius * minimum_radius) / denominator;
   // Debug output for Al-Kashi theorem calculation
-  std::cout << "\n=== Al-Kashi Debug Info ===" << std::endl;
-  std::cout << "dx_goal = " << dx_goal << std::endl;
-  std::cout << "dy_goal = " << dy_goal << std::endl;
-  std::cout << "d_goal_Cr = " << std::setprecision(6) << d_goal_Cr << std::endl;
-  std::cout << "minimum_radius = " << minimum_radius << std::endl;
-  std::cout << "cos_term = " << cos_term << std::endl;
-  std::cout << "goal_pose.yaw = " << tf2::getYaw(goal_pose.orientation) << " rad ("
-            << tf2::getYaw(goal_pose.orientation) * 180.0 / PI << "°)" << std::endl;
-  std::cout << "alpha = " << alpha << " rad (" << alpha * 180.0 / PI << "°)" << std::endl;
-  std::cout << "cos(alpha) = " << std::cos(alpha) << std::endl;
-  std::cout << "denominator = 2 * " << minimum_radius << " + 2 * " << d_goal_Cr << " * "
-            << std::cos(alpha) << " = " << denominator << std::endl;
-  std::cout << "numerator = " << d_goal_Cr << "^2 - " << minimum_radius
-            << "^2 = " << (d_goal_Cr * d_goal_Cr - minimum_radius * minimum_radius) << std::endl;
+  // std::cout << "\n=== Al-Kashi Debug Info ===" << std::endl;
+  // std::cout << "dx_goal = " << dx_goal << std::endl;
+  // std::cout << "dy_goal = " << dy_goal << std::endl;
+  // std::cout << "d_goal_Cr = " << std::setprecision(6) << d_goal_Cr << std::endl;
+  // std::cout << "minimum_radius = " << minimum_radius << std::endl;
+  // std::cout << "cos_term = " << cos_term << std::endl;
+  // std::cout << "goal_pose.yaw = " << tf2::getYaw(goal_pose.orientation) << " rad ("
+  //           << tf2::getYaw(goal_pose.orientation) * 180.0 / PI << "°)" << std::endl;
+  // std::cout << "alpha = " << alpha << " rad (" << alpha * 180.0 / PI << "°)" << std::endl;
+  // std::cout << "cos(alpha) = " << std::cos(alpha) << std::endl;
+  // std::cout << "denominator = 2 * " << minimum_radius << " + 2 * " << d_goal_Cr << " * "
+  //           << std::cos(alpha) << " = " << denominator << std::endl;
+  // std::cout << "numerator = " << d_goal_Cr << "^2 - " << minimum_radius
+  //           << "^2 = " << (d_goal_Cr * d_goal_Cr - minimum_radius * minimum_radius) << std::endl;
 
-  std::cout << "R_goal = " << (d_goal_Cr * d_goal_Cr - minimum_radius * minimum_radius) << " / "
-            << denominator << " = " << R_goal << std::endl;
+  // std::cout << "R_goal = " << (d_goal_Cr * d_goal_Cr - minimum_radius * minimum_radius) << " / "
+  //           << denominator << " = " << R_goal << std::endl;
 
   // Check if connection is physically possible
   if (R_goal < 0) {
