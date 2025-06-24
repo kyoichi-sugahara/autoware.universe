@@ -30,6 +30,7 @@
 #include <pybind11/pytypes.h>
 
 #include <algorithm>
+#include <iostream>
 #include <memory>
 #include <optional>
 #include <string>
@@ -200,24 +201,25 @@ TEST_F(TestClothoidPullOut, GenerateValidClothoidPullOutPath)
 {
   const auto start_pose =
     geometry_msgs::build<geometry_msgs::msg::Pose>()
-      .position(geometry_msgs::build<geometry_msgs::msg::Point>().x(311.599).y(446.834).z(100.000))
+      .position(geometry_msgs::build<geometry_msgs::msg::Point>().x(362.181).y(362.164).z(100.000))
       .orientation(
-        geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(-0.742286).w(
-          0.670083));
+        geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(0.709650).w(
+          0.704554));
 
   const auto goal_pose =
     geometry_msgs::build<geometry_msgs::msg::Pose>()
-      .position(geometry_msgs::build<geometry_msgs::msg::Point>().x(271.060).y(402.186).z(100.000))
+      .position(geometry_msgs::build<geometry_msgs::msg::Point>().x(365.658).y(507.253).z(100.000))
       .orientation(
-        geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(-0.714133).w(
-          0.700010));
+        geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(0.705897).w(
+          0.708314));
 
   auto planner_data = std::make_shared<PlannerData>();
   planner_data->init_parameters(*node_);
   StartPlannerTestHelper::set_odometry(planner_data, start_pose);
-  StartPlannerTestHelper::set_route(planner_data, 1938, 1303);
+  StartPlannerTestHelper::set_route(planner_data, 4619, 4635);
   // Plan the pull out path
   PlannerDebugData debug_data;
+  std::cerr << "Planning clothoid pull out path..." << std::endl;
   auto result = call_plan(start_pose, goal_pose, planner_data, debug_data);
 
   // Assert that a valid clothoid pull out path is generated
