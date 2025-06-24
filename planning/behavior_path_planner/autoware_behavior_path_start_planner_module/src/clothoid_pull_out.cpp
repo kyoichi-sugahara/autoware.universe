@@ -68,14 +68,14 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
 
   // longitudinal necessary distance for pull out
   const double longitudinal_distance =
-    autoware::motion_utils::calcLongitudinalOffsetPose(road_lanes, start_pose.position);
+    start_planner_utils::calc_necessary_longitudinal_distance(lateral_offset, minimum_radius);
 
   // target pose on the target lane
+  // needed to be checked later
   const Pose target_pose = calc_offset_pose(start_pose, lateral_offset, longitudinal_distance, 0.0);
 
-  const auto circular_path = autoware::motion_utils::calcCircularPath(
-    start_pose, target_pose, common_parameters.ego_nearest_dist_threshold,
-    common_parameters.ego_nearest_yaw_threshold);
+  const auto circular_path =
+    start_planner_utils::calc_circular_path(start_pose, target_pose, minimum_radius);
 
   const auto corrected_path = autoware::motion_utils::correctPathWithLaneId(
     circular_path, common_parameters.ego_nearest_dist_threshold,
