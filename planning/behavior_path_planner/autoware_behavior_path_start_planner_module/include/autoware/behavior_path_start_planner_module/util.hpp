@@ -33,6 +33,7 @@
 
 #include <memory>
 #include <utility>
+#include <vector>
 
 namespace autoware::behavior_path_planner::start_planner_utils
 {
@@ -51,6 +52,13 @@ lanelet::ConstLanelets getPullOutLanes(
   const std::shared_ptr<const PlannerData> & planner_data, const double backward_length);
 std::optional<PathWithLaneId> extractCollisionCheckSection(
   const PullOutPath & path, const double collision_check_distance_from_end);
+
+double calc_necessary_longitudinal_distance(
+  const double lateral_offset, const double minimum_radius);
+
+std::vector<std::pair<double, double>> calc_circular_path(
+  const Pose & start_pose, const Pose & goal_pose, const double minimum_radius);
+
 }  // namespace autoware::behavior_path_planner::start_planner_utils
 
 #endif  // AUTOWARE__BEHAVIOR_PATH_START_PLANNER_MODULE__UTIL_HPP_

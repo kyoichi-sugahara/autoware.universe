@@ -44,28 +44,11 @@ public:
     const std::shared_ptr<const PlannerData> & planner_data,
     PlannerDebugData & planner_debug_data) override;
 
-  std::vector<PullOutPath> calcPullOutPaths(
-    const RouteHandler & route_handler, const lanelet::ConstLanelets & road_lanes,
-    const Pose & start_pose, const Pose & goal_pose,
-    const BehaviorPathPlannerParameters & behavior_path_parameters);
-
-  double calcBeforeShiftedArcLength(
-    const PathWithLaneId & path, const double target_after_arc_length, const double dr);
-
-  bool refineShiftedPathToStartPose(
-    ShiftedPath & shifted_path, const Pose & start_pose, const Pose & end_pose,
-    const double longitudinal_acc, const double lateral_acc);
-
   std::shared_ptr<BoundaryDepartureChecker> boundary_departure_checker_;
 
   friend class TestClothoidPullOut;
 
-private:
-  // Calculate longitudinal distance based on the acceleration limit, curvature limit, and the
-  // minimum distance requirement.
-  double calcPullOutLongitudinalDistance(
-    const double lon_acc, const double shift_time, const double shift_length,
-    const double max_curvature, const double min_distance) const;
+  // private:
 };
 }  // namespace autoware::behavior_path_planner
 
