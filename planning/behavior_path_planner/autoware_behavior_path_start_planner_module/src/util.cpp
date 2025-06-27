@@ -346,7 +346,7 @@ double calc_necessary_longitudinal_distance(
   return best_distance;
 }
 
-std::vector<std::pair<double, double>> calc_circular_path(
+CompositeArcPath calc_circular_path(
   const Pose & start_pose, const double longitudinal_distance, const double lateral_distance,
   const double angle_diff, const double minimum_radius)
 {
@@ -387,7 +387,7 @@ std::vector<std::pair<double, double>> calc_circular_path(
   if (d_goal_Cr_rel < 1e-6) {
     std::cout << "Warning: Goal is too close to start arc center (distance: "
               << std::setprecision(6) << d_goal_Cr_rel << ")" << std::endl;
-    return std::vector<std::pair<double, double>>();
+    return CompositeArcPath();
   }
 
   // Al-Kashi定理を使用した半径計算
@@ -402,7 +402,7 @@ std::vector<std::pair<double, double>> calc_circular_path(
   if (std::abs(denominator) < 1e-6) {
     std::cout << "Warning: Denominator too small (denominator: " << std::setprecision(6)
               << denominator << ")" << std::endl;
-    return std::vector<std::pair<double, double>>();
+    return CompositeArcPath();
   }
 
   double R_goal = (d_goal_Cr_rel * d_goal_Cr_rel - minimum_radius * minimum_radius) / denominator;
@@ -411,14 +411,14 @@ std::vector<std::pair<double, double>> calc_circular_path(
   if (R_goal < 0) {
     std::cout << "Warning: Calculated radius is negative (R_goal: " << std::setprecision(3)
               << R_goal << ")" << std::endl;
-    return std::vector<std::pair<double, double>>();
+    return CompositeArcPath();
   }
 
   if (R_goal < minimum_radius) {
     std::cout << "Warning: Calculated radius is smaller than minimum (R_goal: "
               << std::setprecision(3) << R_goal << " < R_min: " << minimum_radius << ")"
               << std::endl;
-    return std::vector<std::pair<double, double>>();
+    return CompositeArcPath();
   }
 
   // 目標円弧の中心を計算（左回りを想定）
@@ -455,10 +455,6 @@ std::vector<std::pair<double, double>> calc_circular_path(
   std::cout << "Relative tangent point: (" << tangent_x_rel << ", " << tangent_y_rel << ")"
             << std::endl;
 
-  // 相対座標系で経路点を生成
-  std::vector<std::pair<double, double>> path_points_rel;
-  const int points_per_segment = 50;
-
   // 第1円弧（開始点から接線点まで、時計回り）
   double start_angle1 = std::atan2(y_start_rel - C_ry_rel, x_start_rel - C_rx_rel);
   double end_angle1 = std::atan2(tangent_y_rel - C_ry_rel, tangent_x_rel - C_rx_rel);
@@ -475,17 +471,6 @@ std::vector<std::pair<double, double>> calc_circular_path(
   std::cout << std::setprecision(3);
   std::cout << "Arc 1 length: " << arc1_length << " m" << std::endl;
 
-  // 第1円弧の点を生成
-  for (int i = 0; i < points_per_segment; i++) {
-    double progress = static_cast<double>(i) / (points_per_segment - 1);
-    double current_angle = start_angle1 + angle_diff1 * progress;
-
-    double x_rel = C_rx_rel + minimum_radius * std::cos(current_angle);
-    double y_rel = C_ry_rel + minimum_radius * std::sin(current_angle);
-
-    path_points_rel.push_back(std::make_pair(x_rel, y_rel));
-  }
-
   // 第2円弧（接線点から目標点まで、反時計回り）
   double start_angle2 = std::atan2(tangent_y_rel - C_ly_rel, tangent_x_rel - C_lx_rel);
   double end_angle2 = std::atan2(y_goal_rel - C_ly_rel, x_goal_rel - C_lx_rel);
@@ -500,43 +485,85 @@ std::vector<std::pair<double, double>> calc_circular_path(
   std::cout << "Arc 2 length: " << arc2_length << " m" << std::endl;
   std::cout << "Total path length: " << arc1_length + arc2_length << " m" << std::endl;
 
-  // 第2円弧の点を生成（最初の点は重複を避けるためスキップ）
-  for (int i = 1; i < points_per_segment; i++) {
-    double progress = static_cast<double>(i) / (points_per_segment - 1);
-    double current_angle = start_angle2 + angle_diff2 * progress;
-
-    double x_rel = C_lx_rel + R_goal * std::cos(current_angle);
-    double y_rel = C_ly_rel + R_goal * std::sin(current_angle);
-
-    path_points_rel.push_back(std::make_pair(x_rel, y_rel));
-  }
-
-  // 相対座標系の経路点をグローバル座標系に変換
-  std::vector<std::pair<double, double>> path_points_global;
+  // グローバル座標系への変換のための準備
   const double start_yaw = tf2::getYaw(start_pose.orientation);
   const double cos_yaw = std::cos(start_yaw);
   const double sin_yaw = std::sin(start_yaw);
 
-  for (const auto & point_rel : path_points_rel) {
-    // 相対座標系からグローバル座標系への変換
-    double x_global =
-      start_pose.position.x + point_rel.first * cos_yaw - point_rel.second * sin_yaw;
-    double y_global =
-      start_pose.position.y + point_rel.first * sin_yaw + point_rel.second * cos_yaw;
+  // CompositeArcPathを作成
+  CompositeArcPath composite_path;
 
-    path_points_global.push_back(std::make_pair(x_global, y_global));
-  }
+  // 第1円弧セグメントを作成
+  ArcSegment arc1;
+  arc1.radius = minimum_radius;
+  arc1.is_clockwise = true;
+
+  // 相対座標系の中心をグローバル座標系に変換
+  arc1.center.x = start_pose.position.x + C_rx_rel * cos_yaw - C_ry_rel * sin_yaw;
+  arc1.center.y = start_pose.position.y + C_rx_rel * sin_yaw + C_ry_rel * cos_yaw;
+  arc1.center.z = start_pose.position.z;
+
+  // 開始姿勢と終了姿勢を設定
+  arc1.start_pose = start_pose;
+
+  // 接線点での姿勢を計算（グローバル座標系）
+  geometry_msgs::msg::Pose tangent_pose;
+  tangent_pose.position.x =
+    start_pose.position.x + tangent_x_rel * cos_yaw - tangent_y_rel * sin_yaw;
+  tangent_pose.position.y =
+    start_pose.position.y + tangent_x_rel * sin_yaw + tangent_y_rel * cos_yaw;
+  tangent_pose.position.z = start_pose.position.z;
+
+  // 接線点での向きを計算（円弧の接線方向）
+  double tangent_angle_global = end_angle1 + (arc1.is_clockwise ? -PI / 2 : PI / 2) + start_yaw;
+  tangent_pose.orientation.x = 0.0;
+  tangent_pose.orientation.y = 0.0;
+  tangent_pose.orientation.z = std::sin(tangent_angle_global / 2.0);
+  tangent_pose.orientation.w = std::cos(tangent_angle_global / 2.0);
+
+  arc1.end_pose = tangent_pose;
+
+  // 第2円弧セグメントを作成
+  ArcSegment arc2;
+  arc2.radius = R_goal;
+  arc2.is_clockwise = false;
+
+  // 相対座標系の中心をグローバル座標系に変換
+  arc2.center.x = start_pose.position.x + C_lx_rel * cos_yaw - C_ly_rel * sin_yaw;
+  arc2.center.y = start_pose.position.y + C_lx_rel * sin_yaw + C_ly_rel * cos_yaw;
+  arc2.center.z = start_pose.position.z;
+
+  // 開始姿勢（接線点）と終了姿勢（目標点）を設定
+  arc2.start_pose = tangent_pose;
+
+  // 目標姿勢を計算（グローバル座標系）
+  geometry_msgs::msg::Pose goal_pose;
+  goal_pose.position.x = start_pose.position.x + x_goal_rel * cos_yaw - y_goal_rel * sin_yaw;
+  goal_pose.position.y = start_pose.position.y + x_goal_rel * sin_yaw + y_goal_rel * cos_yaw;
+  goal_pose.position.z = start_pose.position.z;
+
+  // 目標点での向きを計算
+  double goal_yaw_global = start_yaw + yaw_goal_rel;
+  goal_pose.orientation.x = 0.0;
+  goal_pose.orientation.y = 0.0;
+  goal_pose.orientation.z = std::sin(goal_yaw_global / 2.0);
+  goal_pose.orientation.w = std::cos(goal_yaw_global / 2.0);
+
+  arc2.end_pose = goal_pose;
+
+  // セグメントを追加
+  composite_path.segments.push_back(arc1);
+  composite_path.segments.push_back(arc2);
 
   std::cout << "\nPath generation completed!" << std::endl;
-  std::cout << "  Segments: 2" << std::endl;
-  std::cout << "  Total points: " << path_points_global.size() << std::endl;
+  std::cout << "  Segments: " << composite_path.segments.size() << std::endl;
+  std::cout << "  Total length: " << composite_path.calculateTotalLength() << " m" << std::endl;
 
-  return path_points_global;
+  return composite_path;
 }
 
 autoware_planning_msgs::msg::Trajectory convertCircularPathToTrajectory(
-  const std::vector<std::pair<double, double>> & circular_path, const double velocity,
-  const double z)
+  const CompositeArcPath & composite_arc_path, const double velocity, const double z)
 {
   using autoware_planning_msgs::msg::Trajectory;
   using autoware_planning_msgs::msg::TrajectoryPoint;
@@ -545,31 +572,75 @@ autoware_planning_msgs::msg::Trajectory convertCircularPathToTrajectory(
   trajectory.header.stamp = rclcpp::Clock{RCL_ROS_TIME}.now();
   trajectory.header.frame_id = "map";
 
-  if (circular_path.empty()) {
+  if (composite_arc_path.segments.empty()) {
     return trajectory;
   }
 
-  trajectory.points.reserve(circular_path.size());
+  // CompositeArcPathから点群を生成
+  std::vector<std::pair<double, double>> path_points;
+  const int points_per_segment = 50;
 
-  for (size_t i = 0; i < circular_path.size(); ++i) {
+  for (const auto & segment : composite_arc_path.segments) {
+    // 各セグメントから点を生成
+    for (int i = 0; i < points_per_segment; ++i) {
+      // 最初のセグメント以外は最初の点をスキップ（重複回避）
+      if (!path_points.empty() && i == 0) {
+        continue;
+      }
+
+      double progress = static_cast<double>(i) / (points_per_segment - 1);
+
+      // 開始角度と終了角度を計算
+      double start_angle = segment.getStartAngle();
+      double end_angle = segment.getEndAngle();
+      double current_angle;
+
+      if (segment.is_clockwise) {
+        // 時計回りの場合の角度調整
+        double angle_diff = end_angle - start_angle;
+        if (angle_diff > 0) {
+          angle_diff -= 2 * M_PI;
+        }
+        current_angle = start_angle + angle_diff * progress;
+      } else {
+        // 反時計回りの場合の角度調整
+        double angle_diff = end_angle - start_angle;
+        if (angle_diff < 0) {
+          angle_diff += 2 * M_PI;
+        }
+        current_angle = start_angle + angle_diff * progress;
+      }
+
+      auto point = segment.getPointAtAngle(current_angle);
+      path_points.push_back(std::make_pair(point.x, point.y));
+    }
+  }
+
+  if (path_points.empty()) {
+    return trajectory;
+  }
+
+  trajectory.points.reserve(path_points.size());
+
+  for (size_t i = 0; i < path_points.size(); ++i) {
     TrajectoryPoint point;
 
     // 位置設定
-    point.pose.position.x = circular_path[i].first;
-    point.pose.position.y = circular_path[i].second;
+    point.pose.position.x = path_points[i].first;
+    point.pose.position.y = path_points[i].second;
     point.pose.position.z = z;
 
     // 方向設定（次の点への方向）
-    if (i < circular_path.size() - 1) {
-      const double dx = circular_path[i + 1].first - circular_path[i].first;
-      const double dy = circular_path[i + 1].second - circular_path[i].second;
+    if (i < path_points.size() - 1) {
+      const double dx = path_points[i + 1].first - path_points[i].first;
+      const double dy = path_points[i + 1].second - path_points[i].second;
       const double yaw = std::atan2(dy, dx);
       point.pose.orientation = autoware_utils::create_quaternion_from_yaw(yaw);
     } else {
       // 最後の点は前の点と同じ方向
       if (i > 0) {
-        const double dx = circular_path[i].first - circular_path[i - 1].first;
-        const double dy = circular_path[i].second - circular_path[i - 1].second;
+        const double dx = path_points[i].first - path_points[i - 1].first;
+        const double dy = path_points[i].second - path_points[i - 1].second;
         const double yaw = std::atan2(dy, dx);
         point.pose.orientation = autoware_utils::create_quaternion_from_yaw(yaw);
       } else {
@@ -591,8 +662,8 @@ autoware_planning_msgs::msg::Trajectory convertCircularPathToTrajectory(
       point.time_from_start.nanosec = 0;
     } else {
       const double distance = std::sqrt(
-        std::pow(circular_path[i].first - circular_path[i - 1].first, 2) +
-        std::pow(circular_path[i].second - circular_path[i - 1].second, 2));
+        std::pow(path_points[i].first - path_points[i - 1].first, 2) +
+        std::pow(path_points[i].second - path_points[i - 1].second, 2));
       const double time_diff = distance / velocity;
 
       // builtin_interfaces::msg::Durationを使用
