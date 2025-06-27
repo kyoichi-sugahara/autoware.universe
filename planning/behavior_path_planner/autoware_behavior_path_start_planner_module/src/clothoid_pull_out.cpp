@@ -271,7 +271,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
   // Implement actual clothoid pull out path generation
   // For now, return nullopt to indicate no path found
   // circular_pathが空の場合は処理を終了
-  if (circular_path.empty()) {
+  if (circular_path.segments.empty()) {
     return std::nullopt;
   }
 
@@ -279,10 +279,52 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
   const auto trajectory = start_planner_utils::convertCircularPathToTrajectory(circular_path);
   const auto curvatures = start_planner_utils::calcCurvatureFromTrajectory(trajectory);
 
+  // CompositeArcPathから点群を生成
+  std::vector<std::pair<double, double>> path_points;
+  const int points_per_segment = 50;
+
+  for (const auto & segment : circular_path.segments) {
+    // 各セグメントから点を生成
+    for (int i = 0; i < points_per_segment; ++i) {
+      // 最初のセグメント以外は最初の点をスキップ（重複回避）
+      if (!path_points.empty() && i == 0) {
+        continue;
+      }
+
+      double progress = static_cast<double>(i) / (points_per_segment - 1);
+
+      // 開始角度と終了角度を計算
+      double start_angle = segment.getStartAngle();
+      double end_angle = segment.getEndAngle();
+      double current_angle;
+
+      if (segment.is_clockwise) {
+        // 時計回りの場合の角度調整
+        double angle_diff = end_angle - start_angle;
+        if (angle_diff > 0) {
+          angle_diff -= 2 * M_PI;
+        }
+        current_angle = start_angle + angle_diff * progress;
+      } else {
+        // 反時計回りの場合の角度調整
+        double angle_diff = end_angle - start_angle;
+        if (angle_diff < 0) {
+          angle_diff += 2 * M_PI;
+        }
+        current_angle = start_angle + angle_diff * progress;
+      }
+
+      auto point = segment.getPointAtAngle(current_angle);
+      path_points.push_back(std::make_pair(point.x, point.y));
+    }
+  }
+
   // 曲率情報を端末に出力
   std::cerr << "=== Circular Path Curvature Information ===" << std::endl;
-  std::cerr << "Number of points: " << circular_path.size() << std::endl;
+  std::cerr << "Number of segments: " << circular_path.segments.size() << std::endl;
+  std::cerr << "Number of points: " << path_points.size() << std::endl;
   std::cerr << "Number of curvatures: " << curvatures.size() << std::endl;
+  std::cerr << "Total path length: " << circular_path.calculateTotalLength() << " m" << std::endl;
 
   if (!curvatures.empty()) {
     // 統計情報を計算
@@ -309,18 +351,18 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
   path_with_lane_id.header = planner_data->route_handler->getRouteHeader();
 
   // 各座標点をPathPointWithLaneIdに変換
-  for (size_t i = 0; i < circular_path.size(); ++i) {
+  for (size_t i = 0; i < path_points.size(); ++i) {
     PathPointWithLaneId path_point;
 
     // 座標設定
-    path_point.point.pose.position.x = circular_path[i].first;
-    path_point.point.pose.position.y = circular_path[i].second;
+    path_point.point.pose.position.x = path_points[i].first;
+    path_point.point.pose.position.y = path_points[i].second;
     path_point.point.pose.position.z = start_pose.position.z;  // 高さは開始点と同じ
 
     // 向きを計算（次の点への方向）
-    if (i < circular_path.size() - 1) {
-      const double dx = circular_path[i + 1].first - circular_path[i].first;
-      const double dy = circular_path[i + 1].second - circular_path[i].second;
+    if (i < path_points.size() - 1) {
+      const double dx = path_points[i + 1].first - path_points[i].first;
+      const double dy = path_points[i + 1].second - path_points[i].second;
       const double yaw = std::atan2(dy, dx);
 
       // quaternionを直接設定
@@ -337,7 +379,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     path_point.point.longitudinal_velocity_mps = 5.0;  // 5 m/s
     path_point.point.lateral_velocity_mps = 0.0;
     path_point.point.heading_rate_rps = 0.0;
-    path_point.point.is_final = (i == circular_path.size() - 1);
+    path_point.point.is_final = (i == path_points.size() - 1);
 
     // レーンID設定（現在のレーンのIDを使用）
     if (!road_lanes.empty()) {
