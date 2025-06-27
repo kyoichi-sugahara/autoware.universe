@@ -25,6 +25,10 @@
 #include <autoware/motion_utils/trajectory/path_shift.hpp>
 #include <autoware_lanelet2_extension/utility/utilities.hpp>
 
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+
+#include <tf2/LinearMath/Quaternion.h>
+
 #include <algorithm>
 #include <iostream>
 #include <limits>
@@ -143,7 +147,6 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
   const auto circular_path = start_planner_utils::calc_circular_path(
     start_pose, longitudinal_distance_vehicle, lateral_distance_vehicle, angle_diff,
     minimum_radius);
-
   // const auto corrected_path = autoware::motion_utils::correctPathWithLaneId(
   //   circular_path, common_parameters.ego_nearest_dist_threshold,
   //   common_parameters.ego_nearest_yaw_threshold);
@@ -266,7 +269,64 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
 
   // Implement actual clothoid pull out path generation
   // For now, return nullopt to indicate no path found
-  return std::nullopt;
+  // circular_pathが空の場合は処理を終了
+  if (circular_path.empty()) {
+    return std::nullopt;
+  }
+
+  // circular_pathからPathWithLaneIdを作成
+  PathWithLaneId path_with_lane_id;
+  path_with_lane_id.header = planner_data->route_handler->getRouteHeader();
+
+  // 各座標点をPathPointWithLaneIdに変換
+  for (size_t i = 0; i < circular_path.size(); ++i) {
+    PathPointWithLaneId path_point;
+
+    // 座標設定
+    path_point.point.pose.position.x = circular_path[i].first;
+    path_point.point.pose.position.y = circular_path[i].second;
+    path_point.point.pose.position.z = start_pose.position.z;  // 高さは開始点と同じ
+
+    // 向きを計算（次の点への方向）
+    if (i < circular_path.size() - 1) {
+      const double dx = circular_path[i + 1].first - circular_path[i].first;
+      const double dy = circular_path[i + 1].second - circular_path[i].second;
+      const double yaw = std::atan2(dy, dx);
+
+      // quaternionを直接設定
+      path_point.point.pose.orientation.x = 0.0;
+      path_point.point.pose.orientation.y = 0.0;
+      path_point.point.pose.orientation.z = std::sin(yaw / 2.0);
+      path_point.point.pose.orientation.w = std::cos(yaw / 2.0);
+    } else {
+      // 最後の点は目標姿勢と同じ向き
+      path_point.point.pose.orientation = target_pose.orientation;
+    }
+
+    // 速度設定（一定速度）
+    path_point.point.longitudinal_velocity_mps = 5.0;  // 5 m/s
+    path_point.point.lateral_velocity_mps = 0.0;
+    path_point.point.heading_rate_rps = 0.0;
+    path_point.point.is_final = (i == circular_path.size() - 1);
+
+    // レーンID設定（現在のレーンのIDを使用）
+    if (!road_lanes.empty()) {
+      path_point.lane_ids.push_back(road_lanes[0].id());
+    }
+
+    path_with_lane_id.points.push_back(path_point);
+  }
+
+  // PullOutPathを作成
+  PullOutPath pull_out_path;
+  pull_out_path.partial_paths.push_back(path_with_lane_id);
+  pull_out_path.start_pose = start_pose;
+  pull_out_path.end_pose = target_pose;
+
+  // 速度と加速度のペア設定
+  pull_out_path.pairs_terminal_velocity_and_accel.push_back(std::make_pair(5.0, 1.0));
+
+  return pull_out_path;
 }
 
 }  // namespace autoware::behavior_path_planner
