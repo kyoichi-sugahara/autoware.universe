@@ -113,9 +113,36 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       target_pose = centerline_path.points[target_idx].point.pose;
     }
   }
+  std::cerr << "start_pose: " << start_pose.position.x << ", " << start_pose.position.y << ", "
+            << tf2::getYaw(start_pose.orientation) << std::endl;
+  std::cerr << "target_pose: " << target_pose.position.x << ", " << target_pose.position.y << ", "
+            << tf2::getYaw(target_pose.orientation) << std::endl;
 
-  const auto circular_path =
-    start_planner_utils::calc_circular_path(start_pose, target_pose, minimum_radius);
+  // Calculate relative position in vehicle coordinate system
+  const double dx = target_pose.position.x - start_pose.position.x;
+  const double dy = target_pose.position.y - start_pose.position.y;
+  const double start_yaw = tf2::getYaw(start_pose.orientation);
+  const double target_yaw = tf2::getYaw(target_pose.orientation);
+
+  // Transform to vehicle coordinate system (x: forward, y: left)
+  const double longitudinal_distance_vehicle = dx * std::cos(start_yaw) + dy * std::sin(start_yaw);
+  const double lateral_distance_vehicle = -dx * std::sin(start_yaw) + dy * std::cos(start_yaw);
+
+  // Calculate angle difference
+  double angle_diff = target_yaw - start_yaw;
+  // Normalize angle to [-pi, pi]
+  while (angle_diff > M_PI) angle_diff -= 2.0 * M_PI;
+  while (angle_diff < -M_PI) angle_diff += 2.0 * M_PI;
+
+  std::cerr << "Vehicle coordinate relative position:" << std::endl;
+  std::cerr << "  Longitudinal (forward): " << longitudinal_distance_vehicle << " m" << std::endl;
+  std::cerr << "  Lateral (left): " << lateral_distance_vehicle << " m" << std::endl;
+  std::cerr << "  Angle difference: " << angle_diff << " rad (" << angle_diff * 180.0 / M_PI
+            << " deg)" << std::endl;
+
+  const auto circular_path = start_planner_utils::calc_circular_path(
+    start_pose, longitudinal_distance_vehicle, lateral_distance_vehicle, angle_diff,
+    minimum_radius);
 
   // const auto corrected_path = autoware::motion_utils::correctPathWithLaneId(
   //   circular_path, common_parameters.ego_nearest_dist_threshold,
