@@ -347,43 +347,57 @@ double calc_necessary_longitudinal_distance(
 }
 
 std::vector<std::pair<double, double>> calc_circular_path(
-  const Pose & start_pose, const Pose & goal_pose, const double minimum_radius)
+  const Pose & start_pose, const double longitudinal_distance, const double lateral_distance,
+  const double angle_diff, const double minimum_radius)
 {
   const double PI = M_PI;
 
-  std::cout << "\n=== Circular Path Planning ===" << std::endl;
+  std::cout << "\n=== Circular Path Planning (Relative Direct) ===" << std::endl;
   std::cout << std::fixed << std::setprecision(2);
   std::cout << "Start: (" << start_pose.position.x << ", " << start_pose.position.y
             << "), yaw=" << tf2::getYaw(start_pose.orientation) * 180.0 / PI << "°" << std::endl;
-  std::cout << "Goal: (" << goal_pose.position.x << ", " << goal_pose.position.y
-            << "), yaw=" << tf2::getYaw(goal_pose.orientation) * 180.0 / PI << "°" << std::endl;
+  std::cout << "Relative target: longitudinal=" << longitudinal_distance
+            << "m, lateral=" << lateral_distance << "m, angle_diff=" << angle_diff * 180.0 / PI
+            << "°" << std::endl;
 
-  // Calculate arc center Cr for starting from start position with minimum radius
-  double C_rx =
-    start_pose.position.x + minimum_radius * std::sin(tf2::getYaw(start_pose.orientation));
-  double C_ry =
-    start_pose.position.y - minimum_radius * std::cos(tf2::getYaw(start_pose.orientation));
+  // 相対座標系で計算（原点を開始点、X軸を進行方向とする）
+  // 開始点: (0, 0, 0)
+  // 目標点: (longitudinal_distance, lateral_distance, angle_diff)
 
-  // Calculate connectable arc radius to goal position using Al-Kashi theorem
-  double dx_goal = goal_pose.position.x - C_rx;
-  double dy_goal = goal_pose.position.y - C_ry;
-  double d_goal_Cr = std::sqrt(dx_goal * dx_goal + dy_goal * dy_goal);
+  const double x_start_rel = 0.0;
+  const double y_start_rel = 0.0;
+  const double yaw_start_rel = 0.0;
 
-  if (d_goal_Cr < 1e-6) {
+  const double x_goal_rel = longitudinal_distance;
+  const double y_goal_rel = lateral_distance;
+  const double yaw_goal_rel = angle_diff;
+
+  std::cout << "Relative coordinates - Start: (" << x_start_rel << ", " << y_start_rel
+            << "), Goal: (" << x_goal_rel << ", " << y_goal_rel << ")" << std::endl;
+
+  // 開始円弧の中心を計算（右回りを想定）
+  double C_rx_rel = x_start_rel + minimum_radius * std::sin(yaw_start_rel);
+  double C_ry_rel = y_start_rel - minimum_radius * std::cos(yaw_start_rel);
+
+  // 目標点から開始円弧中心までの距離
+  double dx_goal_rel = x_goal_rel - C_rx_rel;
+  double dy_goal_rel = y_goal_rel - C_ry_rel;
+  double d_goal_Cr_rel = std::sqrt(dx_goal_rel * dx_goal_rel + dy_goal_rel * dy_goal_rel);
+
+  if (d_goal_Cr_rel < 1e-6) {
     std::cout << "Warning: Goal is too close to start arc center (distance: "
-              << std::setprecision(6) << d_goal_Cr << ")" << std::endl;
+              << std::setprecision(6) << d_goal_Cr_rel << ")" << std::endl;
     return std::vector<std::pair<double, double>>();
   }
 
-  // Radius calculation using Al-Kashi theorem (reversed for goal)
-  // Note: yaw_goal direction is opposite for entry into goal position
-  double cos_term = dy_goal / d_goal_Cr;
-  cos_term = std::max(-1.0, std::min(1.0, cos_term));  // Clamp for numerical stability
+  // Al-Kashi定理を使用した半径計算
+  double cos_term = dy_goal_rel / d_goal_Cr_rel;
+  cos_term = std::max(-1.0, std::min(1.0, cos_term));
 
-  // Adjust angle for goal approach (π added for reverse direction)
-  double alpha = (tf2::getYaw(goal_pose.orientation) + PI) + std::acos(cos_term);
+  // 目標への進入角度調整（逆方向なのでπを加算）
+  double alpha = (yaw_goal_rel + PI) + std::acos(cos_term);
 
-  double denominator = 2 * minimum_radius + 2 * d_goal_Cr * std::cos(alpha);
+  double denominator = 2 * minimum_radius + 2 * d_goal_Cr_rel * std::cos(alpha);
 
   if (std::abs(denominator) < 1e-6) {
     std::cout << "Warning: Denominator too small (denominator: " << std::setprecision(6)
@@ -391,27 +405,9 @@ std::vector<std::pair<double, double>> calc_circular_path(
     return std::vector<std::pair<double, double>>();
   }
 
-  double R_goal = (d_goal_Cr * d_goal_Cr - minimum_radius * minimum_radius) / denominator;
-  // Debug output for Al-Kashi theorem calculation
-  // std::cout << "\n=== Al-Kashi Debug Info ===" << std::endl;
-  // std::cout << "dx_goal = " << dx_goal << std::endl;
-  // std::cout << "dy_goal = " << dy_goal << std::endl;
-  // std::cout << "d_goal_Cr = " << std::setprecision(6) << d_goal_Cr << std::endl;
-  // std::cout << "minimum_radius = " << minimum_radius << std::endl;
-  // std::cout << "cos_term = " << cos_term << std::endl;
-  // std::cout << "goal_pose.yaw = " << tf2::getYaw(goal_pose.orientation) << " rad ("
-  //           << tf2::getYaw(goal_pose.orientation) * 180.0 / PI << "°)" << std::endl;
-  // std::cout << "alpha = " << alpha << " rad (" << alpha * 180.0 / PI << "°)" << std::endl;
-  // std::cout << "cos(alpha) = " << std::cos(alpha) << std::endl;
-  // std::cout << "denominator = 2 * " << minimum_radius << " + 2 * " << d_goal_Cr << " * "
-  //           << std::cos(alpha) << " = " << denominator << std::endl;
-  // std::cout << "numerator = " << d_goal_Cr << "^2 - " << minimum_radius
-  //           << "^2 = " << (d_goal_Cr * d_goal_Cr - minimum_radius * minimum_radius) << std::endl;
+  double R_goal = (d_goal_Cr_rel * d_goal_Cr_rel - minimum_radius * minimum_radius) / denominator;
 
-  // std::cout << "R_goal = " << (d_goal_Cr * d_goal_Cr - minimum_radius * minimum_radius) << " / "
-  //           << denominator << " = " << R_goal << std::endl;
-
-  // Check if connection is physically possible
+  // 物理的に接続可能かチェック
   if (R_goal < 0) {
     std::cout << "Warning: Calculated radius is negative (R_goal: " << std::setprecision(3)
               << R_goal << ")" << std::endl;
@@ -425,76 +421,50 @@ std::vector<std::pair<double, double>> calc_circular_path(
     return std::vector<std::pair<double, double>>();
   }
 
-  // Calculate goal arc center Cl
-  double C_lx = goal_pose.position.x - R_goal * std::sin(tf2::getYaw(goal_pose.orientation));
-  double C_ly = goal_pose.position.y + R_goal * std::cos(tf2::getYaw(goal_pose.orientation));
+  // 目標円弧の中心を計算（左回りを想定）
+  double C_lx_rel = x_goal_rel - R_goal * std::sin(yaw_goal_rel);
+  double C_ly_rel = y_goal_rel + R_goal * std::cos(yaw_goal_rel);
 
-  // Calculate tangent point for external tangent circles
-  double dx_centers = C_lx - C_rx;
-  double dy_centers = C_ly - C_ry;
+  // 接線点の計算
+  double dx_centers = C_lx_rel - C_rx_rel;
+  double dy_centers = C_ly_rel - C_ry_rel;
   double distance_centers = std::sqrt(dx_centers * dx_centers + dy_centers * dy_centers);
 
-  double tangent_x, tangent_y;
+  double tangent_x_rel, tangent_y_rel;
 
-  // Check contact state and calculate tangent point
+  // 外接円の場合の接線点計算
   double external_tangent_distance = minimum_radius + R_goal;
   double tolerance = 0.01;
 
   if (distance_centers < 1e-6) {
-    // Special case: centers at same position
-    tangent_x = (C_rx + C_lx) / 2.0;
-    tangent_y = (C_ry + C_ly) / 2.0;
+    tangent_x_rel = (C_rx_rel + C_lx_rel) / 2.0;
+    tangent_y_rel = (C_ry_rel + C_ly_rel) / 2.0;
   } else if (std::abs(distance_centers - external_tangent_distance) <= tolerance) {
-    // External tangent case: calculate tangent point on the line connecting centers
     double ratio = minimum_radius / distance_centers;
-    tangent_x = C_rx + ratio * dx_centers;
-    tangent_y = C_ry + ratio * dy_centers;
+    tangent_x_rel = C_rx_rel + ratio * dx_centers;
+    tangent_y_rel = C_ry_rel + ratio * dy_centers;
   } else {
-    // General case: approximate external tangent calculation
     double ratio = minimum_radius / distance_centers;
-    tangent_x = C_rx + ratio * dx_centers;
-    tangent_y = C_ry + ratio * dy_centers;
-
-    std::cout << "Warning: Circles not perfectly tangent (distance: " << std::setprecision(3)
-              << distance_centers << ", expected: " << external_tangent_distance << ")"
-              << std::endl;
+    tangent_x_rel = C_rx_rel + ratio * dx_centers;
+    tangent_y_rel = C_ry_rel + ratio * dy_centers;
   }
 
-  std::cout << "Arc centers: C_r=(" << C_rx << ", " << C_ry << "), C_l=(" << C_lx << ", " << C_ly
-            << ")" << std::endl;
+  std::cout << "Relative arc centers: C_r=(" << C_rx_rel << ", " << C_ry_rel << "), C_l=("
+            << C_lx_rel << ", " << C_ly_rel << ")" << std::endl;
   std::cout << "Radii: R_start=" << minimum_radius << " m, R_goal=" << R_goal << " m" << std::endl;
-  std::cout << "Tangent point: (" << tangent_x << ", " << tangent_y << ")" << std::endl;
+  std::cout << "Relative tangent point: (" << tangent_x_rel << ", " << tangent_y_rel << ")"
+            << std::endl;
 
-  // Check arc connection validity (reuse previously calculated values)
-  bool connection_valid = false;
-  if (
-    std::abs(distance_centers - external_tangent_distance) <= tolerance ||
-    std::abs(distance_centers - (std::abs(minimum_radius - R_goal))) <= tolerance ||
-    (distance_centers > external_tangent_distance + tolerance &&
-     distance_centers - external_tangent_distance <= 2.0) ||
-    (distance_centers < std::abs(minimum_radius - R_goal) - tolerance &&
-     std::abs(minimum_radius - R_goal) - distance_centers <=
-       std::min(minimum_radius, R_goal) * 0.8)) {
-    connection_valid = true;
-  }
-
-  if (!connection_valid) {
-    std::cout << "Warning: Arc connection invalid (distance: " << std::setprecision(3)
-              << distance_centers << ", expected: " << external_tangent_distance << ")"
-              << std::endl;
-    // Continue anyway for visualization purposes
-  }
-
-  // Generate path points
-  std::vector<std::pair<double, double>> path_points;
+  // 相対座標系で経路点を生成
+  std::vector<std::pair<double, double>> path_points_rel;
   const int points_per_segment = 50;
 
-  // Generate first arc (clockwise from start to tangent point)
-  double start_angle1 = std::atan2(start_pose.position.y - C_ry, start_pose.position.x - C_rx);
-  double end_angle1 = std::atan2(tangent_y - C_ry, tangent_x - C_rx);
+  // 第1円弧（開始点から接線点まで、時計回り）
+  double start_angle1 = std::atan2(y_start_rel - C_ry_rel, x_start_rel - C_rx_rel);
+  double end_angle1 = std::atan2(tangent_y_rel - C_ry_rel, tangent_x_rel - C_rx_rel);
   double angle_diff1 = end_angle1 - start_angle1;
 
-  // Adjust for clockwise direction
+  // 時計回りの角度調整
   if (angle_diff1 > 0) {
     angle_diff1 -= 2 * PI;
   }
@@ -505,23 +475,23 @@ std::vector<std::pair<double, double>> calc_circular_path(
   std::cout << std::setprecision(3);
   std::cout << "Arc 1 length: " << arc1_length << " m" << std::endl;
 
-  // Generate points for first arc
+  // 第1円弧の点を生成
   for (int i = 0; i < points_per_segment; i++) {
     double progress = static_cast<double>(i) / (points_per_segment - 1);
     double current_angle = start_angle1 + angle_diff1 * progress;
 
-    double x = C_rx + minimum_radius * std::cos(current_angle);
-    double y = C_ry + minimum_radius * std::sin(current_angle);
+    double x_rel = C_rx_rel + minimum_radius * std::cos(current_angle);
+    double y_rel = C_ry_rel + minimum_radius * std::sin(current_angle);
 
-    path_points.push_back(std::make_pair(x, y));
+    path_points_rel.push_back(std::make_pair(x_rel, y_rel));
   }
 
-  // Generate second arc (counterclockwise from tangent point to goal)
-  double start_angle2 = std::atan2(tangent_y - C_ly, tangent_x - C_lx);
-  double end_angle2 = std::atan2(goal_pose.position.y - C_ly, goal_pose.position.x - C_lx);
+  // 第2円弧（接線点から目標点まで、反時計回り）
+  double start_angle2 = std::atan2(tangent_y_rel - C_ly_rel, tangent_x_rel - C_lx_rel);
+  double end_angle2 = std::atan2(y_goal_rel - C_ly_rel, x_goal_rel - C_lx_rel);
   double angle_diff2 = end_angle2 - start_angle2;
 
-  // Adjust for counterclockwise direction
+  // 反時計回りの角度調整
   if (angle_diff2 < 0) {
     angle_diff2 += 2 * PI;
   }
@@ -530,39 +500,38 @@ std::vector<std::pair<double, double>> calc_circular_path(
   std::cout << "Arc 2 length: " << arc2_length << " m" << std::endl;
   std::cout << "Total path length: " << arc1_length + arc2_length << " m" << std::endl;
 
-  // Generate points for second arc (skip first point to avoid duplication)
+  // 第2円弧の点を生成（最初の点は重複を避けるためスキップ）
   for (int i = 1; i < points_per_segment; i++) {
     double progress = static_cast<double>(i) / (points_per_segment - 1);
     double current_angle = start_angle2 + angle_diff2 * progress;
 
-    double x = C_lx + R_goal * std::cos(current_angle);
-    double y = C_ly + R_goal * std::sin(current_angle);
+    double x_rel = C_lx_rel + R_goal * std::cos(current_angle);
+    double y_rel = C_ly_rel + R_goal * std::sin(current_angle);
 
-    path_points.push_back(std::make_pair(x, y));
+    path_points_rel.push_back(std::make_pair(x_rel, y_rel));
+  }
+
+  // 相対座標系の経路点をグローバル座標系に変換
+  std::vector<std::pair<double, double>> path_points_global;
+  const double start_yaw = tf2::getYaw(start_pose.orientation);
+  const double cos_yaw = std::cos(start_yaw);
+  const double sin_yaw = std::sin(start_yaw);
+
+  for (const auto & point_rel : path_points_rel) {
+    // 相対座標系からグローバル座標系への変換
+    double x_global =
+      start_pose.position.x + point_rel.first * cos_yaw - point_rel.second * sin_yaw;
+    double y_global =
+      start_pose.position.y + point_rel.first * sin_yaw + point_rel.second * cos_yaw;
+
+    path_points_global.push_back(std::make_pair(x_global, y_global));
   }
 
   std::cout << "\nPath generation completed!" << std::endl;
   std::cout << "  Segments: 2" << std::endl;
-  std::cout << "  Total points: " << path_points.size() << std::endl;
+  std::cout << "  Total points: " << path_points_global.size() << std::endl;
 
-  // Debug output for arc details
-  std::cout << "\n=== Arc Details ===" << std::endl;
-  std::cout << "  Segment 1/2: circular arc" << std::endl;
-  std::cout << "    Start angle: " << start_angle1 * 180.0 / PI << "°" << std::endl;
-  std::cout << "    End angle: " << end_angle1 * 180.0 / PI << "°" << std::endl;
-  std::cout << "    Angle diff: " << angle_diff1 * 180.0 / PI << "°" << std::endl;
-  std::cout << "    Arc length: " << arc1_length << " m" << std::endl;
-  std::cout << "    Curvature: " << std::setprecision(6) << -1.0 / minimum_radius << " 1/m"
-            << std::endl;
-
-  std::cout << "  Segment 2/2: circular arc" << std::endl;
-  std::cout << "    Start angle: " << start_angle2 * 180.0 / PI << "°" << std::endl;
-  std::cout << "    End angle: " << end_angle2 * 180.0 / PI << "°" << std::endl;
-  std::cout << "    Angle diff: " << angle_diff2 * 180.0 / PI << "°" << std::endl;
-  std::cout << "    Arc length: " << arc2_length << " m" << std::endl;
-  std::cout << "    Curvature: " << std::setprecision(6) << 1.0 / R_goal << " 1/m" << std::endl;
-
-  return path_points;
+  return path_points_global;
 }
 
 }  // namespace autoware::behavior_path_planner::start_planner_utils
