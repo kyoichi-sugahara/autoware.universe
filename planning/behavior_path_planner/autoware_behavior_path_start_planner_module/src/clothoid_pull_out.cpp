@@ -33,6 +33,7 @@
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <numeric>
 #include <utility>
 #include <vector>
 
@@ -273,6 +274,35 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
   if (circular_path.empty()) {
     return std::nullopt;
   }
+
+  // circular_pathをTrajectoryに変換して曲率を計算
+  const auto trajectory = start_planner_utils::convertCircularPathToTrajectory(circular_path);
+  const auto curvatures = start_planner_utils::calcCurvatureFromTrajectory(trajectory);
+
+  // 曲率情報を端末に出力
+  std::cerr << "=== Circular Path Curvature Information ===" << std::endl;
+  std::cerr << "Number of points: " << circular_path.size() << std::endl;
+  std::cerr << "Number of curvatures: " << curvatures.size() << std::endl;
+
+  if (!curvatures.empty()) {
+    // 統計情報を計算
+    double max_curvature = *std::max_element(curvatures.begin(), curvatures.end());
+    double min_curvature = *std::min_element(curvatures.begin(), curvatures.end());
+    double sum_curvature = std::accumulate(curvatures.begin(), curvatures.end(), 0.0);
+    double avg_curvature = sum_curvature / curvatures.size();
+
+    std::cerr << "Curvature statistics:" << std::endl;
+    std::cerr << "  Maximum: " << max_curvature << " [1/m]" << std::endl;
+    std::cerr << "  Minimum: " << min_curvature << " [1/m]" << std::endl;
+    std::cerr << "  Average: " << avg_curvature << " [1/m]" << std::endl;
+
+    // 各点の曲率を出力（すべての点）
+    std::cerr << "Curvature at each point:" << std::endl;
+    for (size_t i = 0; i < curvatures.size(); ++i) {
+      std::cerr << "  Point " << i << ": " << curvatures[i] << " [1/m]" << std::endl;
+    }
+  }
+  std::cerr << "=========================================" << std::endl;
 
   // circular_pathからPathWithLaneIdを作成
   PathWithLaneId path_with_lane_id;
