@@ -42,20 +42,39 @@ struct PullOutPath
 };
 
 /**
- * @brief 単一の円弧セグメントを表現する構造体
+ * @brief 姿勢ベースの円弧セグメントを表現する構造体
  */
 struct ArcSegment
 {
   // 円弧の幾何学的パラメータ
-  geometry_msgs::msg::Point center;  // 円弧の中心点
-  double radius;                     // 半径 [m]
-  double start_angle;                // 開始角度 [rad]
-  double end_angle;                  // 終了角度 [rad]
-  bool is_clockwise;                 // 時計回りかどうか
+  geometry_msgs::msg::Point center;     // 円弧の中心点
+  double radius;                        // 半径 [m]
+  geometry_msgs::msg::Pose start_pose;  // 開始姿勢
+  geometry_msgs::msg::Pose end_pose;    // 終了姿勢
+  bool is_clockwise;                    // 時計回りかどうか
 
-  ArcSegment() : radius(0.0), start_angle(0.0), end_angle(0.0), is_clockwise(true)
+  ArcSegment() : radius(0.0), is_clockwise(true)
   {
     center.x = center.y = center.z = 0.0;
+    // start_pose, end_poseはデフォルトで初期化される
+  }
+
+  /**
+   * @brief 開始角度を計算
+   * @return 開始角度 [rad]
+   */
+  double getStartAngle() const
+  {
+    return std::atan2(start_pose.position.y - center.y, start_pose.position.x - center.x);
+  }
+
+  /**
+   * @brief 終了角度を計算
+   * @return 終了角度 [rad]
+   */
+  double getEndAngle() const
+  {
+    return std::atan2(end_pose.position.y - center.y, end_pose.position.x - center.x);
   }
 
   /**
@@ -64,7 +83,10 @@ struct ArcSegment
    */
   double calculateArcLength() const
   {
+    double start_angle = getStartAngle();
+    double end_angle = getEndAngle();
     double angle_diff = std::abs(end_angle - start_angle);
+
     // 角度差が2πを超える場合の調整
     if (angle_diff > 2.0 * M_PI) {
       angle_diff = 2.0 * M_PI - std::fmod(angle_diff, 2.0 * M_PI);
@@ -96,13 +118,13 @@ struct ArcSegment
    * @brief 開始位置を取得
    * @return 開始位置
    */
-  geometry_msgs::msg::Point getStartPoint() const { return getPointAtAngle(start_angle); }
+  geometry_msgs::msg::Point getStartPoint() const { return start_pose.position; }
 
   /**
    * @brief 終了位置を取得
    * @return 終了位置
    */
-  geometry_msgs::msg::Point getEndPoint() const { return getPointAtAngle(end_angle); }
+  geometry_msgs::msg::Point getEndPoint() const { return end_pose.position; }
 
   /**
    * @brief 指定した角度での姿勢を計算
@@ -132,13 +154,13 @@ struct ArcSegment
    * @brief 開始姿勢を取得
    * @return 開始姿勢
    */
-  geometry_msgs::msg::Pose getStartPose() const { return getPoseAtAngle(start_angle); }
+  geometry_msgs::msg::Pose getStartPose() const { return start_pose; }
 
   /**
    * @brief 終了姿勢を取得
    * @return 終了姿勢
    */
-  geometry_msgs::msg::Pose getEndPose() const { return getPoseAtAngle(end_angle); }
+  geometry_msgs::msg::Pose getEndPose() const { return end_pose; }
 };
 
 /**
@@ -148,15 +170,8 @@ struct CompositeArcPath
 {
   std::vector<ArcSegment> segments;  // 円弧セグメントの配列
 
-  /**
-   * @brief デフォルトコンストラクタ
-   */
   CompositeArcPath() = default;
 
-  /**
-   * @brief 総経路長を計算
-   * @return 総経路長 [m]
-   */
   double calculateTotalLength() const
   {
     double length = 0.0;
