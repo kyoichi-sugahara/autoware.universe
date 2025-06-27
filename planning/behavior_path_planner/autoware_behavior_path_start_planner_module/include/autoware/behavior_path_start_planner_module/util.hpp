@@ -57,14 +57,13 @@ std::optional<PathWithLaneId> extractCollisionCheckSection(
 double calc_necessary_longitudinal_distance(
   const double lateral_offset, const double minimum_radius);
 
-std::vector<std::pair<double, double>> calc_circular_path(
+CompositeArcPath calc_circular_path(
   const Pose & start_pose, const double longitudinal_distance, const double lateral_distance,
   const double angle_diff, const double minimum_radius);
 
 // Convert circular_path to Trajectory and calculate curvature at each point
 autoware_planning_msgs::msg::Trajectory convertCircularPathToTrajectory(
-  const std::vector<std::pair<double, double>> & circular_path, const double velocity = 5.0,
-  const double z = 0.0);
+  const CompositeArcPath & composite_arc_path, const double velocity = 5.0, const double z = 0.0);
 
 std::vector<double> calcCurvatureFromTrajectory(
   const autoware_planning_msgs::msg::Trajectory & trajectory);
