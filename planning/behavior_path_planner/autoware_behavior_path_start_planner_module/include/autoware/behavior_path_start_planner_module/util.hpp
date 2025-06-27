@@ -57,7 +57,8 @@ double calc_necessary_longitudinal_distance(
   const double lateral_offset, const double minimum_radius);
 
 std::vector<std::pair<double, double>> calc_circular_path(
-  const Pose & start_pose, const Pose & goal_pose, const double minimum_radius);
+  const Pose & start_pose, const double longitudinal_distance, const double lateral_distance,
+  const double angle_diff, const double minimum_radius);
 
 }  // namespace autoware::behavior_path_planner::start_planner_utils
 
