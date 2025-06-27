@@ -26,6 +26,7 @@
 #include <autoware_internal_planning_msgs/msg/path_with_lane_id.hpp>
 #include <autoware_perception_msgs/msg/predicted_objects.hpp>
 #include <autoware_perception_msgs/msg/predicted_path.hpp>
+#include <autoware_planning_msgs/msg/trajectory.hpp>
 #include <geometry_msgs/msg/pose.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 
@@ -59,6 +60,14 @@ double calc_necessary_longitudinal_distance(
 std::vector<std::pair<double, double>> calc_circular_path(
   const Pose & start_pose, const double longitudinal_distance, const double lateral_distance,
   const double angle_diff, const double minimum_radius);
+
+// Convert circular_path to Trajectory and calculate curvature at each point
+autoware_planning_msgs::msg::Trajectory convertCircularPathToTrajectory(
+  const std::vector<std::pair<double, double>> & circular_path, const double velocity = 5.0,
+  const double z = 0.0);
+
+std::vector<double> calcCurvatureFromTrajectory(
+  const autoware_planning_msgs::msg::Trajectory & trajectory);
 
 }  // namespace autoware::behavior_path_planner::start_planner_utils
 

@@ -534,4 +534,126 @@ std::vector<std::pair<double, double>> calc_circular_path(
   return path_points_global;
 }
 
+autoware_planning_msgs::msg::Trajectory convertCircularPathToTrajectory(
+  const std::vector<std::pair<double, double>> & circular_path, const double velocity,
+  const double z)
+{
+  using autoware_planning_msgs::msg::Trajectory;
+  using autoware_planning_msgs::msg::TrajectoryPoint;
+
+  Trajectory trajectory;
+  trajectory.header.stamp = rclcpp::Clock{RCL_ROS_TIME}.now();
+  trajectory.header.frame_id = "map";
+
+  if (circular_path.empty()) {
+    return trajectory;
+  }
+
+  trajectory.points.reserve(circular_path.size());
+
+  for (size_t i = 0; i < circular_path.size(); ++i) {
+    TrajectoryPoint point;
+
+    // 位置設定
+    point.pose.position.x = circular_path[i].first;
+    point.pose.position.y = circular_path[i].second;
+    point.pose.position.z = z;
+
+    // 方向設定（次の点への方向）
+    if (i < circular_path.size() - 1) {
+      const double dx = circular_path[i + 1].first - circular_path[i].first;
+      const double dy = circular_path[i + 1].second - circular_path[i].second;
+      const double yaw = std::atan2(dy, dx);
+      point.pose.orientation = autoware_utils::create_quaternion_from_yaw(yaw);
+    } else {
+      // 最後の点は前の点と同じ方向
+      if (i > 0) {
+        const double dx = circular_path[i].first - circular_path[i - 1].first;
+        const double dy = circular_path[i].second - circular_path[i - 1].second;
+        const double yaw = std::atan2(dy, dx);
+        point.pose.orientation = autoware_utils::create_quaternion_from_yaw(yaw);
+      } else {
+        point.pose.orientation = autoware_utils::create_quaternion_from_yaw(0.0);
+      }
+    }
+
+    // 速度設定
+    point.longitudinal_velocity_mps = velocity;
+    point.lateral_velocity_mps = 0.0;
+    point.acceleration_mps2 = 0.0;
+    point.heading_rate_rps = 0.0;
+    point.front_wheel_angle_rad = 0.0;
+    point.rear_wheel_angle_rad = 0.0;
+
+    // 時間設定
+    if (i == 0) {
+      point.time_from_start.sec = 0;
+      point.time_from_start.nanosec = 0;
+    } else {
+      const double distance = std::sqrt(
+        std::pow(circular_path[i].first - circular_path[i - 1].first, 2) +
+        std::pow(circular_path[i].second - circular_path[i - 1].second, 2));
+      const double time_diff = distance / velocity;
+
+      // builtin_interfaces::msg::Durationを使用
+      const auto prev_time = trajectory.points[i - 1].time_from_start;
+      const auto time_diff_sec = static_cast<int32_t>(time_diff);
+      const auto time_diff_nanosec = static_cast<uint32_t>((time_diff - time_diff_sec) * 1e9);
+
+      point.time_from_start.sec = prev_time.sec + time_diff_sec;
+      point.time_from_start.nanosec = prev_time.nanosec + time_diff_nanosec;
+
+      // ナノ秒のオーバーフロー処理
+      if (point.time_from_start.nanosec >= 1000000000) {
+        point.time_from_start.sec += 1;
+        point.time_from_start.nanosec -= 1000000000;
+      }
+    }
+
+    trajectory.points.push_back(point);
+  }
+
+  return trajectory;
+}
+
+std::vector<double> calcCurvatureFromTrajectory(
+  const autoware_planning_msgs::msg::Trajectory & trajectory)
+{
+  using autoware_utils::calc_curvature;
+
+  std::vector<double> curvatures;
+
+  if (trajectory.points.size() < 3) {
+    // 点が3つ未満の場合は曲率を計算できない
+    curvatures.resize(trajectory.points.size(), 0.0);
+    return curvatures;
+  }
+
+  curvatures.reserve(trajectory.points.size());
+
+  for (size_t i = 0; i < trajectory.points.size(); ++i) {
+    if (i == 0) {
+      // 最初の点：次の2点を使用
+      const auto & p1 = trajectory.points[0].pose.position;
+      const auto & p2 = trajectory.points[1].pose.position;
+      const auto & p3 = trajectory.points[2].pose.position;
+      curvatures.push_back(calc_curvature(p1, p2, p3));
+    } else if (i == trajectory.points.size() - 1) {
+      // 最後の点：前の2点を使用
+      const auto & p1 = trajectory.points[i - 2].pose.position;
+      const auto & p2 = trajectory.points[i - 1].pose.position;
+      const auto & p3 = trajectory.points[i].pose.position;
+      curvatures.push_back(calc_curvature(p1, p2, p3));
+    } else {
+      // 中間の点：前後の点を使用
+      const auto & p1 = trajectory.points[i - 1].pose.position;
+      const auto & p2 = trajectory.points[i].pose.position;
+      const auto & p3 = trajectory.points[i + 1].pose.position;
+      curvatures.push_back(calc_curvature(p1, p2, p3));
+    }
+  }
+
+  return curvatures;
+}
+
 }  // namespace autoware::behavior_path_planner::start_planner_utils
