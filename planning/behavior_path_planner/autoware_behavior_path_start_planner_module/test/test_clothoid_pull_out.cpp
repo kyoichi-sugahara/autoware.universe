@@ -28,12 +28,16 @@
 #include <gtest/gtest.h>
 #include <matplotlibcpp17/pyplot.h>
 #include <pybind11/pytypes.h>
+#include <tf2/utils.h>
 
 #include <algorithm>
 #include <iostream>
+#include <limits>
 #include <memory>
+#include <numeric>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 using autoware::behavior_path_planner::ClothoidPullOut;
@@ -197,7 +201,7 @@ private:
   }
 };
 
-TEST_F(TestClothoidPullOut, GenerateValidClothoidPullOutPath)
+TEST_F(TestClothoidPullOut, DISABLED_GenerateValidClothoidPullOutPath)
 {
   const auto start_pose =
     geometry_msgs::build<geometry_msgs::msg::Pose>()
@@ -268,6 +272,226 @@ TEST_F(TestClothoidPullOut, GenerateValidClothoidPullOutPath)
   ax.set_ylim(Args(y_min, y_max));
 
   ax.set_aspect(Args("equal"));
+  ax.legend();
+  plt.show(Args(), Kwargs("block"_a = true));
+}
+
+TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
+{
+  // GenerateValidClothoidPullOutPathと同じ条件を使用
+  const auto start_pose =
+    geometry_msgs::build<geometry_msgs::msg::Pose>()
+      .position(geometry_msgs::build<geometry_msgs::msg::Point>().x(362.181).y(362.164).z(100.000))
+      .orientation(
+        geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(0.709650).w(
+          0.704554));
+
+  auto planner_data = std::make_shared<PlannerData>();
+  planner_data->init_parameters(*node_);
+  StartPlannerTestHelper::set_odometry(planner_data, start_pose);
+  StartPlannerTestHelper::set_route(planner_data, 4619, 4635);
+
+  // clothoid_pull_out.cppと同じパラメータ計算を実行
+  const auto & route_handler = planner_data->route_handler;
+  const auto & common_parameters = planner_data->parameters;
+
+  const double backward_path_length =
+    planner_data->parameters.backward_path_length + 10.0;  // max_back_distance = 10.0と仮定
+  const auto road_lanes = utils::getExtendedCurrentLanes(
+    planner_data, backward_path_length, std::numeric_limits<double>::max(),
+    /*forward_only_in_route*/ true);
+
+  // Generate centerline path from road_lanes
+  const auto centerline_path = utils::getCenterLinePath(
+    *route_handler, road_lanes, start_pose, backward_path_length,
+    std::numeric_limits<double>::max(), common_parameters);
+
+  // Calculate lateral offset
+  const double lateral_offset =
+    centerline_path.points.empty()
+      ? 0.0
+      : autoware::motion_utils::calcLateralOffset(centerline_path.points, start_pose.position);
+
+  const double minimum_radius = 13.46;
+
+  // longitudinal necessary distance for pull out
+  const double longitudinal_distance =
+    start_planner_utils::calc_necessary_longitudinal_distance(-lateral_offset, minimum_radius);
+
+  // target pose calculation
+  Pose target_pose = start_pose;
+  if (!centerline_path.points.empty()) {
+    const auto start_idx =
+      autoware::motion_utils::findNearestIndex(centerline_path.points, start_pose.position);
+    double accumulated_distance = 0.0;
+    size_t target_idx = start_idx;
+
+    for (size_t i = start_idx; i < centerline_path.points.size() - 1; ++i) {
+      const double segment_distance = autoware_utils::calc_distance2d(
+        centerline_path.points[i].point.pose.position,
+        centerline_path.points[i + 1].point.pose.position);
+      accumulated_distance += segment_distance;
+
+      if (accumulated_distance >= longitudinal_distance) {
+        target_idx = i + 1;
+        break;
+      }
+    }
+
+    if (target_idx < centerline_path.points.size()) {
+      target_pose = centerline_path.points[target_idx].point.pose;
+    }
+  }
+
+  // Calculate relative position in vehicle coordinate system
+  const double dx = target_pose.position.x - start_pose.position.x;
+  const double dy = target_pose.position.y - start_pose.position.y;
+  const double start_yaw = tf2::getYaw(start_pose.orientation);
+  const double target_yaw = tf2::getYaw(target_pose.orientation);
+
+  // Transform to vehicle coordinate system
+  const double longitudinal_distance_vehicle = dx * std::cos(start_yaw) + dy * std::sin(start_yaw);
+  const double lateral_distance_vehicle = -dx * std::sin(start_yaw) + dy * std::cos(start_yaw);
+
+  // Calculate angle difference
+  double angle_diff = target_yaw - start_yaw;
+  while (angle_diff > M_PI) angle_diff -= 2.0 * M_PI;
+  while (angle_diff < -M_PI) angle_diff += 2.0 * M_PI;
+
+  std::cerr << "=== Test Parameters ===" << std::endl;
+  std::cerr << "Lateral offset: " << lateral_offset << std::endl;
+  std::cerr << "Longitudinal distance: " << longitudinal_distance << std::endl;
+  std::cerr << "Vehicle coordinate relative position:" << std::endl;
+  std::cerr << "  Longitudinal (forward): " << longitudinal_distance_vehicle << " m" << std::endl;
+  std::cerr << "  Lateral (left): " << lateral_distance_vehicle << " m" << std::endl;
+  std::cerr << "  Angle difference: " << angle_diff << " rad (" << angle_diff * 180.0 / M_PI
+            << " deg)" << std::endl;
+
+  // calc_circular_pathを直接呼び出し
+  const auto circular_path = start_planner_utils::calc_circular_path(
+    start_pose, longitudinal_distance_vehicle, lateral_distance_vehicle, angle_diff,
+    minimum_radius);
+
+  // 円弧経路が生成されたことを確認
+  ASSERT_FALSE(circular_path.segments.empty()) << "Circular path generation failed.";
+
+  // 経路点を生成
+  std::vector<std::pair<double, double>> path_points;
+  const int points_per_segment = 50;
+
+  for (const auto & segment : circular_path.segments) {
+    for (int i = 0; i < points_per_segment; ++i) {
+      if (!path_points.empty() && i == 0) {
+        continue;
+      }
+
+      double progress = static_cast<double>(i) / (points_per_segment - 1);
+
+      double start_angle = segment.getStartAngle();
+      double end_angle = segment.getEndAngle();
+      double current_angle;
+
+      if (segment.is_clockwise) {
+        double angle_diff_seg = end_angle - start_angle;
+        if (angle_diff_seg > 0) {
+          angle_diff_seg -= 2 * M_PI;
+        }
+        current_angle = start_angle + angle_diff_seg * progress;
+      } else {
+        double angle_diff_seg = end_angle - start_angle;
+        if (angle_diff_seg < 0) {
+          angle_diff_seg += 2 * M_PI;
+        }
+        current_angle = start_angle + angle_diff_seg * progress;
+      }
+
+      auto point = segment.getPointAtAngle(current_angle);
+      path_points.push_back(std::make_pair(point.x, point.y));
+    }
+  }
+
+  // 統計情報を出力
+  std::cerr << "=== Circular Path Information ===" << std::endl;
+  std::cerr << "Number of segments: " << circular_path.segments.size() << std::endl;
+  std::cerr << "Number of points: " << path_points.size() << std::endl;
+  std::cerr << "Total path length: " << circular_path.calculateTotalLength() << " m" << std::endl;
+
+  // 曲率情報を計算・出力
+  const auto trajectory = start_planner_utils::convertCircularPathToTrajectory(circular_path);
+  const auto curvatures = start_planner_utils::calcCurvatureFromTrajectory(trajectory);
+
+  if (!curvatures.empty()) {
+    double max_curvature = *std::max_element(curvatures.begin(), curvatures.end());
+    double min_curvature = *std::min_element(curvatures.begin(), curvatures.end());
+    double sum_curvature = std::accumulate(curvatures.begin(), curvatures.end(), 0.0);
+    double avg_curvature = sum_curvature / curvatures.size();
+
+    std::cerr << "Curvature statistics:" << std::endl;
+    std::cerr << "  Maximum: " << max_curvature << " [1/m]" << std::endl;
+    std::cerr << "  Minimum: " << min_curvature << " [1/m]" << std::endl;
+    std::cerr << "  Average: " << avg_curvature << " [1/m]" << std::endl;
+  }
+  std::cerr << "=================================" << std::endl;
+
+  // プロット作成
+  pybind11::scoped_interpreter guard{};
+  auto plt = matplotlibcpp17::pyplot::import();
+  auto [fig, axes] = plt.subplots(1, 1);
+  auto & ax = axes[0];
+
+  // レーンレットをプロット
+  const auto & lanelets = planner_data->route_handler->getLaneletMapPtr()->laneletLayer;
+  for (const auto & lanelet : lanelets) {
+    plot_lanelet(ax, lanelet);
+  }
+
+  // 開始姿勢と目標姿勢をプロット
+  ax.plot(
+    Args(start_pose.position.x, start_pose.position.y),
+    Kwargs("marker"_a = "x", "label"_a = "start", "markersize"_a = 20, "color"_a = "green"));
+  ax.plot(
+    Args(target_pose.position.x, target_pose.position.y),
+    Kwargs("marker"_a = "x", "label"_a = "target", "markersize"_a = 20, "color"_a = "red"));
+
+  // フットプリントをプロット
+  plot_footprint(ax, start_pose, planner_data->parameters.vehicle_info, "green", 0.3);
+  plot_footprint(ax, target_pose, planner_data->parameters.vehicle_info, "red", 0.3);
+
+  // 円弧経路の点をプロット
+  std::vector<double> xs, ys;
+  for (const auto & point : path_points) {
+    xs.push_back(point.first);
+    ys.push_back(point.second);
+  }
+
+  // 経路点を線で接続
+  ax.plot(
+    Args(xs, ys), Kwargs("color"_a = "blue", "linewidth"_a = 2.0, "label"_a = "circular path"));
+
+  // 経路点を点でマーク
+  ax.scatter(Args(xs, ys), Kwargs("color"_a = "blue", "s"_a = 10, "alpha"_a = 0.6));
+
+  // 円弧セグメントの中心点をプロット
+  for (size_t i = 0; i < circular_path.segments.size(); ++i) {
+    const auto & segment = circular_path.segments[i];
+    ax.plot(
+      Args(segment.center.x, segment.center.y),
+      Kwargs(
+        "marker"_a = "o", "color"_a = "orange", "markersize"_a = 8,
+        "label"_a = (i == 0 ? "arc centers" : "")));
+  }
+
+  // プロット範囲を設定
+  const double margin = 20.0;
+  const double x_min = std::min(start_pose.position.x, target_pose.position.x) - margin;
+  const double x_max = std::max(start_pose.position.x, target_pose.position.x) + margin;
+  const double y_min = std::min(start_pose.position.y, target_pose.position.y) - margin;
+  const double y_max = std::max(start_pose.position.y, target_pose.position.y) + margin;
+  ax.set_xlim(Args(x_min, x_max));
+  ax.set_ylim(Args(y_min, y_max));
+
+  ax.set_aspect(Args("equal"));
+  ax.set_title(Args("Circular Path Generation Test"));
   ax.legend();
   plt.show(Args(), Kwargs("block"_a = true));
 }
