@@ -358,21 +358,6 @@ struct ClothoidSegment
 };
 
 /**
- * @brief 車両の状態（位置、姿勢、曲率）
- */
-struct VehicleState
-{
-  double x, y;   // 位置
-  double psi;    // 姿勢角 [rad]
-  double kappa;  // 曲率 [1/m]
-
-  explicit VehicleState(double x_ = 0.0, double y_ = 0.0, double psi_ = 0.0, double kappa_ = 0.0)
-  : x(x_), y(y_), psi(psi_), kappa(kappa_)
-  {
-  }
-};
-
-/**
  * @brief クロソイド変換後の点を元の円弧の終点と一致するように補正する
  * @param clothoid_points クロソイド変換後の点列
  * @param original_segment 元の円弧セグメント
@@ -528,18 +513,19 @@ std::vector<geometry_msgs::msg::Point> correctClothoidEndpoint(
 /**
  * @brief エントリクロソイドセグメントを生成
  */
-std::pair<std::vector<geometry_msgs::msg::Point>, VehicleState> generateClothoidEntry(
-  const ClothoidSegment & segment, const VehicleState & start_state, int num_points)
+std::pair<std::vector<geometry_msgs::msg::Point>, geometry_msgs::msg::Pose> generateClothoidEntry(
+  const ClothoidSegment & segment, const geometry_msgs::msg::Pose & start_pose, int num_points)
 {
   double A = segment.A;
   double L = segment.L;
   double direction_factor = segment.is_clockwise ? -1.0 : 1.0;
+  double start_yaw = tf2::getYaw(start_pose.orientation);
 
   std::vector<geometry_msgs::msg::Point> points;
 
   std::cerr << "\n=== Clothoid Entry Point Generation ===" << std::endl;
-  std::cerr << "Start state: (" << start_state.x << ", " << start_state.y
-            << "), psi=" << start_state.psi << " rad" << std::endl;
+  std::cerr << "Start pose: (" << start_pose.position.x << ", " << start_pose.position.y
+            << "), psi=" << start_yaw << " rad" << std::endl;
   std::cerr << "Parameters: A=" << A << ", L=" << L << ", direction_factor=" << direction_factor
             << std::endl;
   std::cerr << "Number of points: " << num_points << std::endl;
@@ -559,23 +545,16 @@ std::pair<std::vector<geometry_msgs::msg::Point>, VehicleState> generateClothoid
       double x_local = A * std::sqrt(M_PI) * C_f;
       double y_local = A * std::sqrt(M_PI) * S_f * direction_factor;
 
-      double cos_start = std::cos(start_state.psi);
-      double sin_start = std::sin(start_state.psi);
+      double cos_start = std::cos(start_yaw);
+      double sin_start = std::sin(start_yaw);
 
-      point.x = start_state.x + x_local * cos_start - y_local * sin_start;
-      point.y = start_state.y + x_local * sin_start + y_local * cos_start;
+      point.x = start_pose.position.x + x_local * cos_start - y_local * sin_start;
+      point.y = start_pose.position.y + x_local * sin_start + y_local * cos_start;
       point.z = 0.0;
-
-      // std::cerr << "Point " << i << ": s=" << s << ", t=" << t << ", S_f=" << S_f << ", C_f=" <<
-      // C_f << std::endl; std::cerr << "  Local: (" << x_local << ", " << y_local << ")" <<
-      // std::endl; std::cerr << "  Global: (" << point.x << ", " << point.y << ")" << std::endl;
     } else {
-      point.x = start_state.x;
-      point.y = start_state.y;
+      point.x = start_pose.position.x;
+      point.y = start_pose.position.y;
       point.z = 0.0;
-
-      // std::cerr << "Point " << i << ": s=" << s << " (start point)" << std::endl;
-      // std::cerr << "  Global: (" << point.x << ", " << point.y << ")" << std::endl;
     }
 
     points.push_back(point);
@@ -583,95 +562,98 @@ std::pair<std::vector<geometry_msgs::msg::Point>, VehicleState> generateClothoid
 
   // 終端状態
   double final_curvature = (L / (A * A)) * direction_factor;
-  double final_psi = start_state.psi + (L * L / (2.0 * A * A)) * direction_factor;
-  VehicleState end_state(points.back().x, points.back().y, final_psi, final_curvature);
+  double final_psi = start_yaw + (L * L / (2.0 * A * A)) * direction_factor;
 
-  std::cerr << "Final state: (" << end_state.x << ", " << end_state.y << "), psi=" << end_state.psi
-            << " rad, kappa=" << end_state.kappa << std::endl;
+  geometry_msgs::msg::Pose end_pose;
+  end_pose.position = points.back();
+  end_pose.orientation = tf2::toMsg(tf2::Quaternion(tf2::Vector3(0, 0, 1), final_psi));
+
+  std::cerr << "Final pose: (" << end_pose.position.x << ", " << end_pose.position.y
+            << "), psi=" << final_psi << " rad, curvature=" << final_curvature << std::endl;
   std::cerr << "=========================================" << std::endl;
 
-  return {points, end_state};
+  return {points, end_pose};
 }
 
 /**
  * @brief 円弧セグメントを生成
  */
-std::pair<std::vector<geometry_msgs::msg::Point>, VehicleState> generateCircularSegment(
-  const ClothoidSegment & segment, const VehicleState & start_state, int num_points)
+std::pair<std::vector<geometry_msgs::msg::Point>, geometry_msgs::msg::Pose> generateCircularSegment(
+  const ClothoidSegment & segment, const geometry_msgs::msg::Pose & start_pose, int num_points)
 {
   double radius = segment.radius;
   double angle = segment.angle;
   double direction_factor = segment.is_clockwise ? -1.0 : 1.0;
-
-  // 実際の半径を計算
-  double actual_radius =
-    (std::abs(start_state.kappa) > 1e-10) ? 1.0 / std::abs(start_state.kappa) : radius;
+  double start_yaw = tf2::getYaw(start_pose.orientation);
 
   std::vector<geometry_msgs::msg::Point> points;
 
   // 円弧中心計算
-  double center_x = start_state.x - actual_radius * std::sin(start_state.psi) * direction_factor;
-  double center_y = start_state.y + actual_radius * std::cos(start_state.psi) * direction_factor;
+  double center_x = start_pose.position.x - radius * std::sin(start_yaw) * direction_factor;
+  double center_y = start_pose.position.y + radius * std::cos(start_yaw) * direction_factor;
 
   std::cerr << "\n=== Circular Segment Point Generation ===" << std::endl;
-  std::cerr << "Start state: (" << start_state.x << ", " << start_state.y
-            << "), psi=" << start_state.psi << " rad" << std::endl;
-  std::cerr << "Parameters: radius=" << radius << ", actual_radius=" << actual_radius
-            << ", angle=" << angle << ", direction_factor=" << direction_factor << std::endl;
+  std::cerr << "Start pose: (" << start_pose.position.x << ", " << start_pose.position.y
+            << "), psi=" << start_yaw << " rad" << std::endl;
+  std::cerr << "Parameters: angle=" << angle << ", direction_factor=" << direction_factor
+            << std::endl;
   std::cerr << "Arc center: (" << center_x << ", " << center_y << ")" << std::endl;
   std::cerr << "Number of points: " << num_points << std::endl;
 
   for (int i = 0; i < num_points; ++i) {
     double progress = static_cast<double>(i) / (num_points - 1);
     double angle_progress = angle * progress * direction_factor;
-    double current_psi = start_state.psi + angle_progress;
+    double current_psi = start_yaw + angle_progress;
     double angle_from_center = current_psi - M_PI / 2.0 * direction_factor;
 
     geometry_msgs::msg::Point point;
-    point.x = center_x + actual_radius * std::cos(angle_from_center);
-    point.y = center_y + actual_radius * std::sin(angle_from_center);
+    point.x = center_x + radius * std::cos(angle_from_center);
+    point.y = center_y + radius * std::sin(angle_from_center);
     point.z = 0.0;
-
-    // std::cerr << "Point " << i << ": progress=" << progress << ", angle_progress=" <<
-    // angle_progress << ", current_psi=" << current_psi << std::endl; std::cerr << "
-    // angle_from_center=" << angle_from_center << std::endl; std::cerr << "  Global: (" << point.x
-    // << ", " << point.y << ")" << std::endl;
 
     points.push_back(point);
   }
 
   // 終端状態
-  double final_psi = start_state.psi + angle * direction_factor;
-  double final_curvature = (1.0 / actual_radius) * direction_factor;
-  VehicleState end_state(points.back().x, points.back().y, final_psi, final_curvature);
+  double final_psi = start_yaw + angle * direction_factor;
+  double final_curvature = (1.0 / radius) * direction_factor;
 
-  std::cerr << "Final state: (" << end_state.x << ", " << end_state.y << "), psi=" << end_state.psi
-            << " rad, kappa=" << end_state.kappa << std::endl;
+  geometry_msgs::msg::Pose end_pose;
+  end_pose.position = points.back();
+  end_pose.orientation = tf2::toMsg(tf2::Quaternion(tf2::Vector3(0, 0, 1), final_psi));
+
+  std::cerr << "Final pose: (" << end_pose.position.x << ", " << end_pose.position.y
+            << "), psi=" << final_psi << " rad, curvature=" << final_curvature << std::endl;
   std::cerr << "=========================================" << std::endl;
 
-  return {points, end_state};
+  return {points, end_pose};
 }
 
 /**
  * @brief エグジットクロソイドセグメントを生成
  */
-std::pair<std::vector<geometry_msgs::msg::Point>, VehicleState> generateClothoidExit(
-  const ClothoidSegment & segment, const VehicleState & start_state, int num_points)
+std::pair<std::vector<geometry_msgs::msg::Point>, geometry_msgs::msg::Pose> generateClothoidExit(
+  const ClothoidSegment & segment, const geometry_msgs::msg::Pose & start_pose, int num_points)
 {
   double L = segment.L;
+  double start_yaw = tf2::getYaw(start_pose.orientation);
 
   std::vector<geometry_msgs::msg::Point> points;
 
+  // 前のセグメント（円弧）の曲率を計算
+  double start_curvature = -1.0 / segment.radius;
+
   std::cerr << "\n=== Clothoid Exit Point Generation ===" << std::endl;
-  std::cerr << "Start state: (" << start_state.x << ", " << start_state.y
-            << "), psi=" << start_state.psi << " rad, kappa=" << start_state.kappa << std::endl;
+  std::cerr << "Start pose: (" << start_pose.position.x << ", " << start_pose.position.y
+            << "), psi=" << start_yaw << " rad" << std::endl;
   std::cerr << "Parameters: L=" << L << std::endl;
+  std::cerr << "Start curvature: " << start_curvature << " (1/m)" << std::endl;
   std::cerr << "Number of points: " << num_points << std::endl;
 
   // 数値積分による正確な計算
-  double current_x = start_state.x;
-  double current_y = start_state.y;
-  double current_psi = start_state.psi;
+  double current_x = start_pose.position.x;
+  double current_y = start_pose.position.y;
+  double current_psi = start_yaw;
 
   for (int i = 0; i < num_points; ++i) {
     geometry_msgs::msg::Point point;
@@ -681,11 +663,8 @@ std::pair<std::vector<geometry_msgs::msg::Point>, VehicleState> generateClothoid
     points.push_back(point);
 
     double progress = static_cast<double>(i) / (num_points - 1);
-    double current_curvature = start_state.kappa * (1.0 - progress);
-
-    // std::cerr << "Point " << i << ": progress=" << progress << ", current_curvature=" <<
-    // current_curvature << std::endl; std::cerr << "  current_psi=" << current_psi << std::endl;
-    // std::cerr << "  Global: (" << point.x << ", " << point.y << ")" << std::endl;
+    // Exit Clothoid: 曲率を線形に0まで減少させる
+    double current_curvature = start_curvature * (1.0 - progress);
 
     if (i < num_points - 1) {
       double ds = L / (num_points - 1);  // 微小区間
@@ -694,20 +673,21 @@ std::pair<std::vector<geometry_msgs::msg::Point>, VehicleState> generateClothoid
       current_x += std::cos(current_psi) * ds;
       current_y += std::sin(current_psi) * ds;
       current_psi += current_curvature * ds;
-
-      // std::cerr << "  ds=" << ds << ", updated position: (" << current_x << ", " << current_y
-      //           << "), updated_psi=" << current_psi << std::endl;
     }
   }
 
   // 終端状態
-  VehicleState end_state(current_x, current_y, current_psi, 0.0);
+  geometry_msgs::msg::Pose end_pose;
+  end_pose.position.x = current_x;
+  end_pose.position.y = current_y;
+  end_pose.position.z = start_pose.position.z;
+  end_pose.orientation = tf2::toMsg(tf2::Quaternion(tf2::Vector3(0, 0, 1), current_psi));
 
-  std::cerr << "Final state: (" << end_state.x << ", " << end_state.y << "), psi=" << end_state.psi
-            << " rad, kappa=" << end_state.kappa << std::endl;
+  std::cerr << "Final pose: (" << end_pose.position.x << ", " << end_pose.position.y
+            << "), psi=" << current_psi << " rad (final curvature should be 0)" << std::endl;
   std::cerr << "=========================================" << std::endl;
 
-  return {points, end_state};
+  return {points, end_pose};
 }
 
 /**
@@ -742,33 +722,33 @@ std::vector<geometry_msgs::msg::Point> generateClothoidPath(
     adjusted_points.push_back(points);
   }
 
-  // 初期状態の設定（start_poseから直接取得）
-  double start_yaw = tf2::getYaw(start_pose.orientation);
-  VehicleState current_state(start_pose.position.x, start_pose.position.y, start_yaw, 0.0);
+  // 初期状態の設定
+  geometry_msgs::msg::Pose current_pose = start_pose;
 
   std::vector<geometry_msgs::msg::Point> all_points;
 
   for (size_t i = 0; i < segments.size(); ++i) {
     std::vector<geometry_msgs::msg::Point> segment_points;
-    VehicleState end_state;
+    geometry_msgs::msg::Pose end_pose;
 
     int num_points = adjusted_points[i];
 
     if (segments[i].type == ClothoidSegment::CLOTHOID_ENTRY) {
       std::cerr << "clothoid_entry" << std::endl;
-      auto result = generateClothoidEntry(segments[i], current_state, num_points);
+      auto result = generateClothoidEntry(segments[i], current_pose, num_points);
       segment_points = result.first;
-      end_state = result.second;
+      end_pose = result.second;
     } else if (segments[i].type == ClothoidSegment::CIRCULAR_ARC) {
       std::cerr << "circular_arc" << std::endl;
-      auto result = generateCircularSegment(segments[i], current_state, num_points);
+      auto result = generateCircularSegment(segments[i], current_pose, num_points);
       segment_points = result.first;
-      end_state = result.second;
+      end_pose = result.second;
     } else if (segments[i].type == ClothoidSegment::CLOTHOID_EXIT) {
       std::cerr << "exit_clothoid" << std::endl;
-      auto result = generateClothoidExit(segments[i], current_state, num_points);
+      // 前のセグメントがある場合はそのポインタを渡す
+      auto result = generateClothoidExit(segments[i], current_pose, num_points);
       segment_points = result.first;
-      end_state = result.second;
+      end_pose = result.second;
     }
 
     // 重複点を避けて結合
@@ -777,7 +757,7 @@ std::vector<geometry_msgs::msg::Point> generateClothoidPath(
       all_points.push_back(segment_points[j]);
     }
 
-    current_state = end_state;
+    current_pose = end_pose;
   }
 
   return all_points;
@@ -835,6 +815,7 @@ std::vector<geometry_msgs::msg::Point> convertArcToClothoid(
 
     // エントリクロソイド
     ClothoidSegment entry(ClothoidSegment::CLOTHOID_ENTRY, A, L);
+    entry.radius = radius;
     entry.is_clockwise = is_clockwise;
     entry.description = "Entry clothoid (κ: 0 → 1/R)";
     segments.push_back(entry);
@@ -849,6 +830,7 @@ std::vector<geometry_msgs::msg::Point> convertArcToClothoid(
 
     // エグジットクロソイド
     ClothoidSegment exit(ClothoidSegment::CLOTHOID_EXIT, A, L);
+    exit.radius = radius;
     exit.is_clockwise = is_clockwise;
     exit.description = "Exit clothoid (κ: 1/R → 0)";
     segments.push_back(exit);
@@ -898,10 +880,8 @@ std::vector<std::vector<geometry_msgs::msg::Point>> convertMultipleArcsToClothoi
 {
   std::vector<std::vector<geometry_msgs::msg::Point>> corrected_clothoid_paths;
 
-  // セグメント間の連続性を保つための状態管理
-  VehicleState current_segment_state(
-    initial_start_pose.position.x, initial_start_pose.position.y,
-    tf2::getYaw(initial_start_pose.orientation), 0.0);
+  // セグメント間の連続性を保つための姿勢管理
+  geometry_msgs::msg::Pose current_segment_pose = initial_start_pose;
 
   for (size_t i = 0; i < arc_segments.size(); ++i) {
     const auto & segment = arc_segments[i];
@@ -909,26 +889,18 @@ std::vector<std::vector<geometry_msgs::msg::Point>> convertMultipleArcsToClothoi
     std::cerr << "\n--- Converting Arc Segment " << (i + 1) << "/" << arc_segments.size()
               << " with Correction ---" << std::endl;
 
-    // 現在のセグメント状態からのPoseを作成
-    geometry_msgs::msg::Pose segment_start_pose;
-    segment_start_pose.position.x = current_segment_state.x;
-    segment_start_pose.position.y = current_segment_state.y;
-    segment_start_pose.position.z = initial_start_pose.position.z;
-    segment_start_pose.orientation =
-      tf2::toMsg(tf2::Quaternion(tf2::Vector3(0, 0, 1), current_segment_state.psi));
-
     // パラメータの取得
     double A_min = (i < A_values.size()) ? A_values[i] : 50.0;
     double L_min = (i < L_values.size()) ? L_values[i] : 10.0;
 
     // 補正付きクロソイド変換を実行
     auto corrected_clothoid_points = convertArcToClothoidWithCorrection(
-      segment, segment_start_pose, A_min, L_min, num_points_per_segment);
+      segment, current_segment_pose, A_min, L_min, num_points_per_segment);
 
     if (!corrected_clothoid_points.empty()) {
       corrected_clothoid_paths.push_back(corrected_clothoid_points);
 
-      // 次のセグメントのために終点状態を更新
+      // 次のセグメントのために終点姿勢を更新
       if (i < arc_segments.size() - 1) {
         const auto & last_point = corrected_clothoid_points.back();
 
@@ -940,13 +912,15 @@ std::vector<std::vector<geometry_msgs::msg::Point>> convertMultipleArcsToClothoi
           double dy = last_point.y - second_last.y;
           double heading = std::atan2(dy, dx);
 
-          current_segment_state = VehicleState(last_point.x, last_point.y, heading, 0.0);
+          current_segment_pose.position = last_point;
+          current_segment_pose.orientation =
+            tf2::toMsg(tf2::Quaternion(tf2::Vector3(0, 0, 1), heading));
 
-          std::cerr << "Updated state for next segment:" << std::endl;
-          std::cerr << "  Position: (" << current_segment_state.x << ", " << current_segment_state.y
-                    << ")" << std::endl;
-          std::cerr << "  Heading: " << current_segment_state.psi << " rad ("
-                    << current_segment_state.psi * 180.0 / M_PI << " deg)" << std::endl;
+          std::cerr << "Updated pose for next segment:" << std::endl;
+          std::cerr << "  Position: (" << current_segment_pose.position.x << ", "
+                    << current_segment_pose.position.y << ")" << std::endl;
+          std::cerr << "  Heading: " << heading << " rad (" << heading * 180.0 / M_PI << " deg)"
+                    << std::endl;
         }
       }
     } else {
@@ -1218,9 +1192,8 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
   // 各円弧セグメントをクロソイドに変換
   std::vector<std::vector<geometry_msgs::msg::Point>> clothoid_paths;
 
-  // セグメント間の連続性を保つための状態管理
-  VehicleState current_segment_state(
-    start_pose.position.x, start_pose.position.y, tf2::getYaw(start_pose.orientation), 0.0);
+  // セグメント間の連続性を保つための姿勢管理
+  geometry_msgs::msg::Pose current_segment_pose = start_pose;
 
   for (size_t i = 0; i < circular_path.segments.size(); ++i) {
     const auto & segment = circular_path.segments[i];
@@ -1229,11 +1202,12 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
               << " ---" << std::endl;
 
     // セグメントの開始状態をデバッグ出力
-    std::cerr << "Segment " << (i + 1) << " start state:" << std::endl;
-    std::cerr << "  Position: (" << current_segment_state.x << ", " << current_segment_state.y
-              << ")" << std::endl;
-    std::cerr << "  Heading: " << current_segment_state.psi << " rad ("
-              << current_segment_state.psi * 180.0 / M_PI << " deg)" << std::endl;
+    double current_yaw = tf2::getYaw(current_segment_pose.orientation);
+    std::cerr << "Segment " << (i + 1) << " start pose:" << std::endl;
+    std::cerr << "  Position: (" << current_segment_pose.position.x << ", "
+              << current_segment_pose.position.y << ")" << std::endl;
+    std::cerr << "  Heading: " << current_yaw << " rad (" << current_yaw * 180.0 / M_PI << " deg)"
+              << std::endl;
 
     // 車両パラメータから最適なクロソイドパラメータを計算
     const double circular_steer_angle = std::atan(wheel_base / segment.radius);
@@ -1246,22 +1220,14 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
     std::cerr << "  L_min: " << L_min << " m" << std::endl;
     std::cerr << "  Segment radius: " << segment.radius << " m" << std::endl;
 
-    // 現在のセグメント状態からのPoseを作成
-    geometry_msgs::msg::Pose segment_start_pose;
-    segment_start_pose.position.x = current_segment_state.x;
-    segment_start_pose.position.y = current_segment_state.y;
-    segment_start_pose.position.z = start_pose.position.z;
-    segment_start_pose.orientation =
-      tf2::toMsg(tf2::Quaternion(tf2::Vector3(0, 0, 1), current_segment_state.psi));
-
     // クロソイド変換を実行
     auto clothoid_points = convertArcToClothoidWithCorrection(
-      segment, segment_start_pose, A_min, L_min, points_per_segment);
+      segment, current_segment_pose, A_min, L_min, points_per_segment);
 
     if (!clothoid_points.empty()) {
       clothoid_paths.push_back(clothoid_points);
 
-      // 次のセグメントのために終点状態を更新
+      // 次のセグメントのために終点姿勢を更新
       if (i < circular_path.segments.size() - 1) {
         const auto & last_point = clothoid_points.back();
 
@@ -1272,13 +1238,15 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
           double dy = last_point.y - second_last.y;
           double heading = std::atan2(dy, dx);
 
-          current_segment_state = VehicleState(last_point.x, last_point.y, heading, 0.0);
+          current_segment_pose.position = last_point;
+          current_segment_pose.orientation =
+            tf2::toMsg(tf2::Quaternion(tf2::Vector3(0, 0, 1), heading));
 
-          std::cerr << "Updated state for next segment:" << std::endl;
-          std::cerr << "  Position: (" << current_segment_state.x << ", " << current_segment_state.y
-                    << ")" << std::endl;
-          std::cerr << "  Heading: " << current_segment_state.psi << " rad ("
-                    << current_segment_state.psi * 180.0 / M_PI << " deg)" << std::endl;
+          std::cerr << "Updated pose for next segment:" << std::endl;
+          std::cerr << "  Position: (" << current_segment_pose.position.x << ", "
+                    << current_segment_pose.position.y << ")" << std::endl;
+          std::cerr << "  Heading: " << heading << " rad (" << heading * 180.0 / M_PI << " deg)"
+                    << std::endl;
         }
       }
     } else {
