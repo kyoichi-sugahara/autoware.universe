@@ -1310,7 +1310,7 @@ void StartPlannerModule::updatePullOutStatus()
     if (parameters_->enable_back) {
       return searchPullOutStartPoseCandidates(start_pose_candidates_path);
     }
-    return {*refined_start_pose};
+    return {current_pose};
   });
 
   if (!status_.backward_driving_complete) {

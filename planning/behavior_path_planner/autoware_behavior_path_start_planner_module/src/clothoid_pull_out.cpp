@@ -603,12 +603,14 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       ? 0.0
       : autoware::motion_utils::calcLateralOffset(centerline_path.points, start_pose.position);
   std::cerr << "Lateral offset: " << lateral_offset << std::endl;
-  // const std::vector<double> max_steer_angle_degs = {20.0, 30.0, 40.0};
+  const std::vector<double> max_steer_angle_degs = {10.0, 20.0};
+  const std::vector<double> max_steer_angle = {
+    max_steer_angle_degs[0] * M_PI / 180.0, max_steer_angle_degs[1] * M_PI / 180.0};
+  // const std::vector<double> max_steer_angle_degs = {20.0, 30.0, 40.0, 50.0, 60.0};
   // const std::vector<double> max_steer_angle = {
   //   max_steer_angle_degs[0] * M_PI / 180.0, max_steer_angle_degs[1] * M_PI / 180.0,
-  //   max_steer_angle_degs[2] * M_PI / 180.0};
-  const std::vector<double> max_steer_angle_degs = {20.0};
-  const std::vector<double> max_steer_angle = {max_steer_angle_degs[0] * M_PI / 180.0};
+  //   max_steer_angle_degs[2] * M_PI / 180.0, max_steer_angle_degs[3] * M_PI / 180.0,
+  //   max_steer_angle_degs[4] * M_PI / 180.0};
 
   const double max_steer_angle_rate_deg_per_sec = 10.0;  // Assume a constant rate for simplicity
   const double max_steer_angle_rate = max_steer_angle_rate_deg_per_sec * M_PI / 180.0;
@@ -686,7 +688,9 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
 
     // circular_pathが空の場合は処理を終了
     if (circular_path.segments.empty()) {
-      return std::nullopt;
+      std::cerr << "No circular path segments found for steer angle " << steer_angle * 180.0 / M_PI
+                << " deg." << std::endl;
+      continue;
     }
 
     // 車両パラメータから最適なクロソイドパラメータを計算
@@ -776,7 +780,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
         }
 
         // 速度設定（一定速度）
-        path_point.point.longitudinal_velocity_mps = 5.0;  // 5 m/s
+        path_point.point.longitudinal_velocity_mps = velocity;  // 5 m/s
         path_point.point.lateral_velocity_mps = 0.0;
         path_point.point.heading_rate_rps = 0.0;
         path_point.point.is_final = (i == all_clothoid_points.size() - 1);
@@ -815,7 +819,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
 
       // 速度と加速度のペア設定
       // TODO(Sugahara): set parameter properly
-      pull_out_path.pairs_terminal_velocity_and_accel.push_back(std::make_pair(5.0, 1.0));
+      pull_out_path.pairs_terminal_velocity_and_accel.push_back(std::make_pair(velocity, 1.0));
 
       // target_poseからcenter lineのpathに接続する処理を追加
       if (!centerline_path.points.empty()) {
@@ -842,13 +846,14 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
             pull_out_path.partial_paths.clear();
             pull_out_path.partial_paths.push_back(combined_path);
 
-            // end_poseを最終点に更新
-            if (!combined_path.points.empty()) {
-              pull_out_path.end_pose = combined_path.points.back().point.pose;
-            }
+            // end_poseは元のtarget_pose（クロソイド経路の終点）のままにしておく
+            // これにより、start_plannerモジュールがtarget_poseを通過した時点で適切に終了する
+            // pull_out_path.end_pose = target_pose; // 既に設定済み
 
             std::cerr << "Successfully connected to centerline path. Combined path points: "
                       << combined_path.points.size() << std::endl;
+            std::cerr << "Pull-out end pose remains at target_pose for proper module termination"
+                      << std::endl;
           }
         }
       }

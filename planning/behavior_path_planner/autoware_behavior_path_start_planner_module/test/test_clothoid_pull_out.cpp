@@ -211,7 +211,12 @@ TEST_F(TestClothoidPullOut, GenerateValidClothoidPullOutPath)
       .orientation(
         geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(0.709650).w(
           0.704554));
-
+  // const auto start_pose =
+  //   geometry_msgs::build<geometry_msgs::msg::Pose>()
+  //     .position(geometry_msgs::build<geometry_msgs::msg::Point>().x(299.462).y(354.701).z(100.000))
+  //     .orientation(
+  //       geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(-0.769919).w(
+  //         0.638141));
   const auto goal_pose =
     geometry_msgs::build<geometry_msgs::msg::Pose>()
       .position(geometry_msgs::build<geometry_msgs::msg::Point>().x(365.658).y(507.253).z(100.000))
@@ -223,6 +228,7 @@ TEST_F(TestClothoidPullOut, GenerateValidClothoidPullOutPath)
   planner_data->init_parameters(*node_);
   StartPlannerTestHelper::set_odometry(planner_data, start_pose);
   StartPlannerTestHelper::set_route(planner_data, 4619, 4635);
+  // StartPlannerTestHelper::set_route(planner_data, 675, 720);
   // Plan the pull out path
   PlannerDebugData debug_data;
   std::cerr << "Planning clothoid pull out path..." << std::endl;
@@ -876,10 +882,17 @@ TEST_F(TestClothoidPullOut, DISABLED_PlotCircularPathGeneration)
   // GenerateValidClothoidPullOutPathと同じ条件を使用
   const auto start_pose =
     geometry_msgs::build<geometry_msgs::msg::Pose>()
-      .position(geometry_msgs::build<geometry_msgs::msg::Point>().x(362.181).y(362.164).z(100.000))
+      .position(geometry_msgs::build<geometry_msgs::msg::Point>().x(299.462).y(354.701).z(100.000))
       .orientation(
-        geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(0.709650).w(
-          0.704554));
+        geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(-0.769919).w(
+          0.638141));
+
+  const auto goal_pose =
+    geometry_msgs::build<geometry_msgs::msg::Pose>()
+      .position(geometry_msgs::build<geometry_msgs::msg::Point>().x(271.076).y(314.85).z(100.000))
+      .orientation(
+        geometry_msgs::build<geometry_msgs::msg::Quaternion>().x(0.0).y(0.0).z(-0.709257).w(
+          0.70495));
 
   auto planner_data = std::make_shared<PlannerData>();
   planner_data->init_parameters(*node_);
