@@ -312,7 +312,15 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
       ? 0.0
       : autoware::motion_utils::calcLateralOffset(centerline_path.points, start_pose.position);
 
-  const double minimum_radius = 13.46;
+  const double max_steer_angle_deg = 20.0;
+  const double max_steer_angle = max_steer_angle_deg * M_PI / 180.0;
+  const double max_steer_angle_rate_deg_per_sec = 10.0;
+  const double max_steer_angle_rate = max_steer_angle_rate_deg_per_sec * M_PI / 180.0;
+  const double velocity = 1.0;
+  const double wheel_base = planner_data->parameters.vehicle_info.wheel_base_m;
+  // const double minimum_radius = 13.46;
+  const double minimum_radius = wheel_base / std::tan(max_steer_angle);
+  std::cerr << "minimum_radius: " << minimum_radius << std::endl;
 
   // longitudinal necessary distance for pull out
   const double longitudinal_distance =
@@ -379,7 +387,50 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
   std::vector<std::pair<double, double>> path_points;
   const int points_per_segment = 50;
 
+  // 角度変化の計算
+  double total_angle_change = 0.0;
+  std::cerr << "=== Arc Segment Analysis ===" << std::endl;
+
   for (const auto & segment : circular_path.segments) {
+    const double circular_steer_angle = std::atan(wheel_base / segment.radius);
+    const double circular_steer_angle_deg = circular_steer_angle * 180.0 / M_PI;
+    std::cerr << "circular_steer_angle_deg: " << circular_steer_angle_deg << std::endl;
+    const double minimum_steer_time = circular_steer_angle / max_steer_angle_rate;
+    const double L_min = velocity * minimum_steer_time;
+    const double A_min = std::sqrt(segment.radius * L_min);
+    const double alpha_clothoid = (L_min * L_min) / (2.0 * A_min * A_min);
+    std::cerr << "L_min: " << L_min << std::endl;
+    std::cerr << "A_min: " << A_min << std::endl;
+    std::cerr << "alpha_clothoid: " << alpha_clothoid << std::endl;
+
+    // 各セグメントの角度変化を計算
+    double start_angle = segment.getStartAngle();
+    double end_angle = segment.getEndAngle();
+    double segment_angle_change;
+
+    if (segment.is_clockwise) {
+      segment_angle_change = end_angle - start_angle;
+      if (segment_angle_change > 0) {
+        segment_angle_change -= 2 * M_PI;
+      }
+    } else {
+      segment_angle_change = end_angle - start_angle;
+      if (segment_angle_change < 0) {
+        segment_angle_change += 2 * M_PI;
+      }
+    }
+
+    std::cerr << "Segment angle change: " << segment_angle_change << " rad ("
+              << segment_angle_change * 180.0 / M_PI << " deg)" << std::endl;
+    std::cerr << "Direction: " << (segment.is_clockwise ? "clockwise" : "counter-clockwise")
+              << std::endl;
+    std::cerr << "Radius: " << segment.radius << " m" << std::endl;
+    std::cerr << "Arc length: " << std::abs(segment_angle_change) * segment.radius << " m"
+              << std::endl;
+    std::cerr << "---" << std::endl;
+
+    total_angle_change += segment_angle_change;
+
     for (int i = 0; i < points_per_segment; ++i) {
       if (!path_points.empty() && i == 0) {
         continue;
@@ -387,8 +438,6 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
 
       double progress = static_cast<double>(i) / (points_per_segment - 1);
 
-      double start_angle = segment.getStartAngle();
-      double end_angle = segment.getEndAngle();
       double current_angle;
 
       if (segment.is_clockwise) {
@@ -409,6 +458,11 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
       path_points.push_back(std::make_pair(point.x, point.y));
     }
   }
+
+  std::cerr << "=== Total Angle Change ===" << std::endl;
+  std::cerr << "Total angle change: " << total_angle_change << " rad ("
+            << total_angle_change * 180.0 / M_PI << " deg)" << std::endl;
+  std::cerr << "===========================" << std::endl;
 
   // 統計情報を出力
   std::cerr << "=== Circular Path Information ===" << std::endl;
