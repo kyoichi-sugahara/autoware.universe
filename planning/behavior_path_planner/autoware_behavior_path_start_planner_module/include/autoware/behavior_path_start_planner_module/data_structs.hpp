@@ -134,6 +134,7 @@ struct StartPlannerParameters
   bool enable_geometric_pull_out{false};
   double geometric_collision_check_distance_from_end{0.0};
   bool divide_pull_out_path{false};
+  bool enable_clothoid_pull_out{false};
   ParallelParkingParameters parallel_parking_parameters{};
   // search start pose backward
   std::string search_priority;  // "efficient_path" or "short_back_distance"

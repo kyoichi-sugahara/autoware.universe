@@ -77,6 +77,9 @@ StartPlannerModule::StartPlannerModule(
   if (parameters_->enable_geometric_pull_out) {
     start_planners_.push_back(std::make_shared<GeometricPullOut>(node, *parameters, time_keeper_));
   }
+  if (parameters_->enable_clothoid_pull_out) {
+    start_planners_.push_back(std::make_shared<ClothoidPullOut>(node, *parameters, time_keeper_));
+  }
   if (start_planners_.empty()) {
     RCLCPP_ERROR(getLogger(), "Not found enabled planner");
   }
