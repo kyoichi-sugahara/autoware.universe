@@ -657,16 +657,17 @@ std::pair<std::vector<geometry_msgs::msg::Point>, geometry_msgs::msg::Pose> gene
 {
   double L = segment.L;
   double start_yaw = tf2::getYaw(start_pose.orientation);
+  double direction_factor = segment.is_clockwise ? -1.0 : 1.0;
 
   std::vector<geometry_msgs::msg::Point> points;
 
-  // 前のセグメント（円弧）の曲率を計算
-  double start_curvature = -1.0 / segment.radius;
+  // 前のセグメント（円弧）の曲率を計算（回転方向を考慮）
+  double start_curvature = (1.0 / segment.radius) * direction_factor;
 
   std::cerr << "\n=== Clothoid Exit Point Generation ===" << std::endl;
   std::cerr << "Start pose: (" << start_pose.position.x << ", " << start_pose.position.y
             << "), psi=" << start_yaw << " rad" << std::endl;
-  std::cerr << "Parameters: L=" << L << std::endl;
+  std::cerr << "Parameters: L=" << L << ", direction_factor=" << direction_factor << std::endl;
   std::cerr << "Start curvature: " << start_curvature << " (1/m)" << std::endl;
   std::cerr << "Number of points: " << num_points << std::endl;
 
