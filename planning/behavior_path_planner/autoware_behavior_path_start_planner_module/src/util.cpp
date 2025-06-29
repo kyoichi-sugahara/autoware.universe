@@ -727,4 +727,48 @@ std::vector<double> calcCurvatureFromTrajectory(
   return curvatures;
 }
 
+std::vector<double> calcCurvatureFromPoints(const std::vector<geometry_msgs::msg::Point> & points)
+{
+  using autoware_utils::calc_curvature;
+
+  std::vector<double> curvatures;
+
+  if (points.size() < 3) {
+    // 点が3つ未満の場合は曲率を計算できない
+    curvatures.resize(points.size(), 0.0);
+    return curvatures;
+  }
+
+  curvatures.reserve(points.size());
+
+  for (size_t i = 0; i < points.size(); ++i) {
+    try {
+      if (i == 0) {
+        // 最初の点：次の2点を使用
+        const auto & p1 = points[0];
+        const auto & p2 = points[1];
+        const auto & p3 = points[2];
+        curvatures.push_back(calc_curvature(p1, p2, p3));
+      } else if (i == points.size() - 1) {
+        // 最後の点：前の2点を使用
+        const auto & p1 = points[i - 2];
+        const auto & p2 = points[i - 1];
+        const auto & p3 = points[i];
+        curvatures.push_back(calc_curvature(p1, p2, p3));
+      } else {
+        // 中間の点：前後の点を使用
+        const auto & p1 = points[i - 1];
+        const auto & p2 = points[i];
+        const auto & p3 = points[i + 1];
+        curvatures.push_back(calc_curvature(p1, p2, p3));
+      }
+    } catch (const std::runtime_error & e) {
+      // 点が近すぎる場合は曲率を0とする
+      curvatures.push_back(0.0);
+    }
+  }
+
+  return curvatures;
+}
+
 }  // namespace autoware::behavior_path_planner::start_planner_utils
