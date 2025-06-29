@@ -421,8 +421,8 @@ std::pair<std::vector<geometry_msgs::msg::Point>, VehicleState> generateClothoid
       point.y = start_state.y;
       point.z = 0.0;
 
-      std::cerr << "Point " << i << ": s=" << s << " (start point)" << std::endl;
-      std::cerr << "  Global: (" << point.x << ", " << point.y << ")" << std::endl;
+      // std::cerr << "Point " << i << ": s=" << s << " (start point)" << std::endl;
+      // std::cerr << "  Global: (" << point.x << ", " << point.y << ")" << std::endl;
     }
 
     points.push_back(point);
@@ -542,8 +542,8 @@ std::pair<std::vector<geometry_msgs::msg::Point>, VehicleState> generateClothoid
       current_y += std::sin(current_psi) * ds;
       current_psi += current_curvature * ds;
 
-      std::cerr << "  ds=" << ds << ", updated position: (" << current_x << ", " << current_y
-                << "), updated_psi=" << current_psi << std::endl;
+      // std::cerr << "  ds=" << ds << ", updated position: (" << current_x << ", " << current_y
+      //           << "), updated_psi=" << current_psi << std::endl;
     }
   }
 
@@ -820,13 +820,6 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
             << start_pose.orientation.w << ")" << std::endl;
   std::cerr << "  yaw: " << start_yaw << " rad (" << start_yaw * 180.0 / M_PI << " deg)"
             << std::endl;
-  std::cerr << "longitudinal_distance_vehicle: " << longitudinal_distance_vehicle << " m"
-            << std::endl;
-  std::cerr << "lateral_distance_vehicle: " << lateral_distance_vehicle << " m" << std::endl;
-  std::cerr << "angle_diff: " << angle_diff << " rad (" << angle_diff * 180.0 / M_PI << " deg)"
-            << std::endl;
-  std::cerr << "minimum_radius: " << minimum_radius << " m" << std::endl;
-  std::cerr << "============================================" << std::endl;
 
   // calc_circular_pathを直接呼び出し
   const auto circular_path = start_planner_utils::calc_circular_path(
@@ -873,13 +866,6 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
       }
     }
 
-    std::cerr << "Segment angle change: " << segment_angle_change << " rad ("
-              << segment_angle_change * 180.0 / M_PI << " deg)" << std::endl;
-    std::cerr << "Radius: " << segment.radius << " m" << std::endl;
-    std::cerr << "Arc length: " << std::abs(segment_angle_change) * segment.radius << " m"
-              << std::endl;
-    std::cerr << "---" << std::endl;
-
     total_angle_change += segment_angle_change;
 
     for (int i = 0; i < points_per_segment; ++i) {
@@ -917,7 +903,6 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
 
   // 統計情報を出力
   std::cerr << "=== Circular Path Information ===" << std::endl;
-  std::cerr << "Number of segments: " << circular_path.segments.size() << std::endl;
   std::cerr << "Number of points: " << path_points.size() << std::endl;
   std::cerr << "Total path length: " << circular_path.calculateTotalLength() << " m" << std::endl;
 
@@ -1056,16 +1041,10 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
     }
   }
 
-  std::cerr << "\n=== Clothoid Conversion Summary ===" << std::endl;
-  std::cerr << "Total arc segments: " << circular_path.segments.size() << std::endl;
-  std::cerr << "Successfully converted: " << clothoid_paths.size() << std::endl;
-
   int total_clothoid_points = 0;
   for (const auto & path : clothoid_paths) {
     total_clothoid_points += path.size();
   }
-  std::cerr << "Total clothoid points: " << total_clothoid_points << std::endl;
-  std::cerr << "===============================" << std::endl;
 
   // プロット作成
   pybind11::scoped_interpreter guard{};
