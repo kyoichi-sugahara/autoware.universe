@@ -203,7 +203,7 @@ private:
   }
 };
 
-TEST_F(TestClothoidPullOut, DISABLED_GenerateValidClothoidPullOutPath)
+TEST_F(TestClothoidPullOut, GenerateValidClothoidPullOutPath)
 {
   const auto start_pose =
     geometry_msgs::build<geometry_msgs::msg::Pose>()
@@ -292,49 +292,6 @@ TEST_F(TestClothoidPullOut, DISABLED_GenerateValidClothoidPullOutPath)
   plt.show(Args(), Kwargs("block"_a = true));
 
   std::cerr << "=======================================" << std::endl;
-}
-
-// フレネル積分の近似計算
-std::pair<double, double> fresnel(double t)
-{
-  // フレネル積分の級数展開による近似
-  // C(t) = ∫[0,t] cos(π/2 * u²) du = t - (π/2)²t⁵/40 + (π/2)⁴t⁹/3456 - ...
-  // S(t) = ∫[0,t] sin(π/2 * u²) du = (π/2)t³/6 - (π/2)³t⁷/336 + (π/2)⁵t¹¹/42240 - ...
-
-  if (std::abs(t) < 1e-10) {
-    return {0.0, t};
-  }
-
-  const double pi_half = M_PI / 2.0;
-  const double t2 = t * t;
-  const double t4 = t2 * t2;
-
-  // 簡単な近似（最初の数項のみ）
-  double C = t;
-  double S = 0.0;
-
-  if (std::abs(t) > 1e-6) {
-    // C(t) = t - (π/2)²t⁵/40 + (π/2)⁴t⁹/3456 - ...
-    double pi_half_2 = pi_half * pi_half;      // (π/2)²
-    double pi_half_4 = pi_half_2 * pi_half_2;  // (π/2)⁴
-
-    double t5 = t4 * t;
-    double t9 = t4 * t4 * t;
-
-    C = t - pi_half_2 * t5 / 40.0 + pi_half_4 * t9 / 3456.0;
-
-    // S(t) = (π/2)t³/6 - (π/2)³t⁷/336 + (π/2)⁵t¹¹/42240 - ...
-    double pi_half_3 = pi_half_2 * pi_half;  // (π/2)³
-    double pi_half_5 = pi_half_4 * pi_half;  // (π/2)⁵
-
-    double t3 = t2 * t;
-    double t7 = t4 * t3;
-    double t11 = t4 * t4 * t3;
-
-    S = pi_half * t3 / 6.0 - pi_half_3 * t7 / 336.0 + pi_half_5 * t11 / 42240.0;
-  }
-
-  return {S, C};
 }
 
 /**
@@ -914,7 +871,7 @@ std::vector<std::vector<geometry_msgs::msg::Point>> convertMultipleArcsToClothoi
   return corrected_clothoid_paths;
 }
 
-TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
+TEST_F(TestClothoidPullOut, DISABLED_PlotCircularPathGeneration)
 {
   // GenerateValidClothoidPullOutPathと同じ条件を使用
   const auto start_pose =
