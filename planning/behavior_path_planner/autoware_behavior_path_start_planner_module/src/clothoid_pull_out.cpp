@@ -584,6 +584,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       ? 0.0
       : autoware::motion_utils::calcLateralOffset(centerline_path.points, start_pose.position);
   std::cerr << "Lateral offset: " << lateral_offset << std::endl;
+  // TODO(Sugahara): define as parameter
   const std::vector<double> max_steer_angle_degs = {10.0, 20.0};
   const std::vector<double> max_steer_angle = {
     max_steer_angle_degs[0] * M_PI / 180.0, max_steer_angle_degs[1] * M_PI / 180.0};
@@ -595,77 +596,26 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
 
   const double max_steer_angle_rate_deg_per_sec = 10.0;  // Assume a constant rate for simplicity
   const double max_steer_angle_rate = max_steer_angle_rate_deg_per_sec * M_PI / 180.0;
+  // TODO(Sugahara): define as parameter
   const double velocity = 1.0;  // Assume a constant velocity for the pull-out maneuver
   const double wheel_base = planner_data->parameters.vehicle_info.wheel_base_m;
 
   for (const auto & steer_angle : max_steer_angle) {
     // Calculate minimum radius based on the maximum steer angle
     const double minimum_radius = wheel_base / std::tan(steer_angle);
-    // std::cerr << "Minimum radius for steer angle " << steer_angle * 180.0 / M_PI
-    //           << " deg: " << minimum_radius << std::endl;
 
-    // Calculate longitudinal necessary distance for pull out
     const double longitudinal_distance =
       start_planner_utils::calc_necessary_longitudinal_distance(-lateral_offset, minimum_radius);
-    // std::cerr << "Longitudinal distance for steer angle " << steer_angle * 180.0 / M_PI
-    //           << " deg: " << longitudinal_distance << std::endl;
-    // target pose on the target lane
-    // Get target pose from centerline path at longitudinal_distance ahead
-    Pose target_pose = start_pose;
-    if (!centerline_path.points.empty()) {
-      // Find the point on centerline path that is longitudinal_distance ahead
-      const auto start_idx =
-        autoware::motion_utils::findNearestIndex(centerline_path.points, start_pose.position);
-      double accumulated_distance = 0.0;
-      size_t target_idx = start_idx;
 
-      for (size_t i = start_idx; i < centerline_path.points.size() - 1; ++i) {
-        const double segment_distance = autoware_utils::calc_distance2d(
-          centerline_path.points[i].point.pose.position,
-          centerline_path.points[i + 1].point.pose.position);
-        accumulated_distance += segment_distance;
+    const Pose target_pose = start_planner_utils::findTargetPoseAlongPath(
+      centerline_path, start_pose, longitudinal_distance);
 
-        if (accumulated_distance >= longitudinal_distance) {
-          target_idx = i + 1;
-          break;
-        }
-      }
+    const auto relative_pose_info =
+      start_planner_utils::calculateRelativePoseInVehicleCoordinate(start_pose, target_pose);
 
-      if (target_idx < centerline_path.points.size()) {
-        target_pose = centerline_path.points[target_idx].point.pose;
-      }
-    }
-
-    // std::cerr << "start_pose: " << start_pose.position.x << ", " << start_pose.position.y << ", "
-    //           << tf2::getYaw(start_pose.orientation) << std::endl;
-    // std::cerr << "target_pose: " << target_pose.position.x << ", " << target_pose.position.y <<
-    // ", "
-    //           << tf2::getYaw(target_pose.orientation) << std::endl;
-
-    const double dx = target_pose.position.x - start_pose.position.x;
-    const double dy = target_pose.position.y - start_pose.position.y;
-    const double start_yaw = tf2::getYaw(start_pose.orientation);
-    const double target_yaw = tf2::getYaw(target_pose.orientation);
-
-    // Transform to vehicle coordinate system (x: forward, y: left)
-    const double longitudinal_distance_vehicle =
-      dx * std::cos(start_yaw) + dy * std::sin(start_yaw);
-    const double lateral_distance_vehicle = -dx * std::sin(start_yaw) + dy * std::cos(start_yaw);
-
-    // Calculate angle difference
-    double angle_diff = target_yaw - start_yaw;
-    // Normalize angle to [-pi, pi]
-    while (angle_diff > M_PI) angle_diff -= 2.0 * M_PI;
-    while (angle_diff < -M_PI) angle_diff += 2.0 * M_PI;
-    // std::cerr << "Vehicle coordinate relative position:" << std::endl;
-    // std::cerr << "  Longitudinal (forward): " << longitudinal_distance_vehicle << " m" <<
-    // std::endl; std::cerr << "  Lateral (left): " << lateral_distance_vehicle << " m" <<
-    // std::endl; std::cerr << "  Angle difference: " << angle_diff << " rad (" << angle_diff *
-    // 180.0 / M_PI
-    //           << " deg)" << std::endl;
     const auto circular_path = start_planner_utils::calc_circular_path(
-      start_pose, longitudinal_distance_vehicle, lateral_distance_vehicle, angle_diff,
-      minimum_radius);
+      start_pose, relative_pose_info.longitudinal_distance_vehicle,
+      relative_pose_info.lateral_distance_vehicle, relative_pose_info.angle_diff, minimum_radius);
 
     // circular_pathが空の場合は処理を終了
     if (circular_path.segments.empty()) {

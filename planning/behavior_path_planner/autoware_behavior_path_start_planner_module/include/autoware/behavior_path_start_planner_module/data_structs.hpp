@@ -229,6 +229,16 @@ struct CompositeArcPath
 };
 
 /**
+ * @brief Structure to hold relative pose information in vehicle coordinate system
+ */
+struct RelativePoseInfo
+{
+  double longitudinal_distance_vehicle;  // Longitudinal distance in vehicle coordinate [m]
+  double lateral_distance_vehicle;       // Lateral distance in vehicle coordinate [m]
+  double angle_diff;                     // Angle difference [rad]
+};
+
+/**
  * @brief Clothoid segment structure for smooth path transitions
  */
 struct ClothoidSegment

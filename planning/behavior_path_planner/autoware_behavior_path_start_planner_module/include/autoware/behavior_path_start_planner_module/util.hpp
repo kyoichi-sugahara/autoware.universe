@@ -70,6 +70,13 @@ std::vector<double> calcCurvatureFromTrajectory(
 
 std::vector<double> calcCurvatureFromPoints(const std::vector<geometry_msgs::msg::Point> & points);
 
+Pose findTargetPoseAlongPath(
+  const PathWithLaneId & centerline_path, const Pose & start_pose,
+  const double longitudinal_distance);
+
+RelativePoseInfo calculateRelativePoseInVehicleCoordinate(
+  const Pose & start_pose, const Pose & target_pose);
+
 }  // namespace autoware::behavior_path_planner::start_planner_utils
 
 #endif  // AUTOWARE__BEHAVIOR_PATH_START_PLANNER_MODULE__UTIL_HPP_
