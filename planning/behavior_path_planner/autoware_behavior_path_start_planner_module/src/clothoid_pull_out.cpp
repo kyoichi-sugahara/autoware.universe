@@ -814,8 +814,46 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       pull_out_path.end_pose = target_pose;
 
       // 速度と加速度のペア設定
+      // TODO(Sugahara): set parameter properly
       pull_out_path.pairs_terminal_velocity_and_accel.push_back(std::make_pair(5.0, 1.0));
 
+      // target_poseからcenter lineのpathに接続する処理を追加
+      if (!centerline_path.points.empty()) {
+        // target_poseの位置でcenterline_pathから接続点を見つける
+        const auto target_idx =
+          autoware::motion_utils::findNearestIndex(centerline_path.points, target_pose.position);
+
+        // target_poseから先のcenterline pathを取得
+        if (target_idx < centerline_path.points.size()) {
+          PathWithLaneId centerline_extension;
+          centerline_extension.header = centerline_path.header;
+
+          // target_poseから先の点をcenterline_extensionに追加
+          for (size_t i = target_idx; i < centerline_path.points.size(); ++i) {
+            centerline_extension.points.push_back(centerline_path.points[i]);
+          }
+
+          // centerline extensionが存在する場合、既存のpathと結合
+          if (!centerline_extension.points.empty()) {
+            // 重複点を避けて結合
+            auto combined_path = utils::combinePath(path_with_lane_id, centerline_extension);
+
+            // 結合されたpathでPullOutPathを更新
+            pull_out_path.partial_paths.clear();
+            pull_out_path.partial_paths.push_back(combined_path);
+
+            // end_poseを最終点に更新
+            if (!combined_path.points.empty()) {
+              pull_out_path.end_pose = combined_path.points.back().point.pose;
+            }
+
+            std::cerr << "Successfully connected to centerline path. Combined path points: "
+                      << combined_path.points.size() << std::endl;
+          }
+        }
+      }
+
+      // TODO(Sugahara): check lane departure
       return pull_out_path;
     }
   }

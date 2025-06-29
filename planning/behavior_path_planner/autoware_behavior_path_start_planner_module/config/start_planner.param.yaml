@@ -44,6 +44,7 @@
       lane_departure_check_expansion_margin: 0.0
       backward_velocity: -1.0
       geometric_pull_out_max_steer_angle_margin_scale: 0.72
+      enable_clothoid_pull_out: true
       # search start pose backward
       enable_back: true
       search_priority: "efficient_path"  # "efficient_path" or "short_back_distance"
