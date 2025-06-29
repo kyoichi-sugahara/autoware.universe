@@ -24,6 +24,7 @@
 #include "autoware_utils/geometry/boost_polygon_utils.hpp"
 
 #include <autoware/motion_utils/trajectory/path_shift.hpp>
+#include <autoware_lanelet2_extension/utility/query.hpp>
 #include <autoware_lanelet2_extension/utility/utilities.hpp>
 
 #include <geometry_msgs/msg/point.hpp>
@@ -780,9 +781,27 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
         path_point.point.heading_rate_rps = 0.0;
         path_point.point.is_final = (i == all_clothoid_points.size() - 1);
 
-        // レーンID設定（現在のレーンのIDを使用）
-        if (!road_lanes.empty()) {
-          path_point.lane_ids.push_back(road_lanes[0].id());
+        lanelet::Lanelet closest_lanelet{};
+        bool found_containing_lane = false;
+
+        for (const auto & lane : road_lanes) {
+          if (lanelet::utils::isInLanelet(path_point.point.pose, lane)) {
+            path_point.lane_ids.push_back(lane.id());
+            found_containing_lane = true;
+          }
+        }
+
+        if (!found_containing_lane) {
+          if (lanelet::utils::query::getClosestLanelet(
+                road_lanes, path_point.point.pose, &closest_lanelet)) {
+            path_point.lane_ids = {closest_lanelet.id()};
+          } else if (i > 0) {
+            // 前の点のlane_idsを継承
+            path_point.lane_ids = path_with_lane_id.points[i - 1].lane_ids;
+          } else if (!road_lanes.empty()) {
+            // 最後のフォールバック
+            path_point.lane_ids.push_back(road_lanes[0].id());
+          }
         }
 
         path_with_lane_id.points.push_back(path_point);
