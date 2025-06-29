@@ -68,6 +68,8 @@ autoware_planning_msgs::msg::Trajectory convertCircularPathToTrajectory(
 std::vector<double> calcCurvatureFromTrajectory(
   const autoware_planning_msgs::msg::Trajectory & trajectory);
 
+std::vector<double> calcCurvatureFromPoints(const std::vector<geometry_msgs::msg::Point> & points);
+
 }  // namespace autoware::behavior_path_planner::start_planner_utils
 
 #endif  // AUTOWARE__BEHAVIOR_PATH_START_PLANNER_MODULE__UTIL_HPP_

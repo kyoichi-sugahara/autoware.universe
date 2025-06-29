@@ -32,6 +32,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iomanip>
 #include <iostream>
 #include <limits>
 #include <memory>
@@ -1254,11 +1255,6 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
     }
   }
 
-  int total_clothoid_points = 0;
-  for (const auto & path : clothoid_paths) {
-    total_clothoid_points += path.size();
-  }
-
   // プロット作成
   pybind11::scoped_interpreter guard{};
   auto plt = matplotlibcpp17::pyplot::import();
@@ -1374,8 +1370,6 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
   std::cerr << "\n=== Path Statistics Summary ===" << std::endl;
   std::cerr << "Circular path: " << path_points.size() << " points, "
             << static_cast<int>(circular_path.calculateTotalLength()) << " m" << std::endl;
-  std::cerr << "Clothoid path: " << total_clothoid_points << " points, " << clothoid_paths.size()
-            << " segments" << std::endl;
   std::cerr << "===============================" << std::endl;
 
   plt.show(Args(), Kwargs("block"_a = true));
@@ -1426,6 +1420,54 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
   }
 
   std::cerr << "=======================================" << std::endl;
+
+  // ============================================================================
+  // クロソイド経路の曲率計算
+  // ============================================================================
+  std::cerr << "\n=== Clothoid Path Curvature Analysis ===" << std::endl;
+
+  // clothoid_pathsを結合
+  std::vector<geometry_msgs::msg::Point> combined_clothoid_path;
+  for (size_t i = 0; i < clothoid_paths.size(); ++i) {
+    const auto & clothoid_path = clothoid_paths[i];
+
+    // 最初のセグメント以外は開始点を除いて結合（重複回避）
+    size_t start_idx = (i == 0) ? 0 : 1;
+    for (size_t j = start_idx; j < clothoid_path.size(); ++j) {
+      combined_clothoid_path.push_back(clothoid_path[j]);
+    }
+  }
+
+  std::cerr << "Combined clothoid path: " << combined_clothoid_path.size() << " points"
+            << std::endl;
+
+  if (combined_clothoid_path.size() >= 3) {
+    // 結合されたクロソイド経路の曲率を計算
+    auto combined_curvatures =
+      autoware::behavior_path_planner::start_planner_utils::calcCurvatureFromPoints(
+        combined_clothoid_path);
+
+    std::cerr << "\n=== Combined Clothoid Path Curvature Debug ===" << std::endl;
+    std::cerr << "Total points: " << combined_clothoid_path.size() << std::endl;
+    std::cerr << "Curvature values count: " << combined_curvatures.size() << std::endl;
+
+    // 各点の曲率をデバッグプリント
+    for (size_t i = 0; i < combined_curvatures.size(); ++i) {
+      const auto & point = combined_clothoid_path[i];
+      const double curvature = combined_curvatures[i];
+
+      std::cerr << "Point[" << i << "]: "
+                << "pos=(" << std::fixed << std::setprecision(3) << point.x << ", " << point.y
+                << "), "
+                << "curvature=" << std::setprecision(6) << curvature << " (1/m)" << std::endl;
+    }
+
+  } else {
+    std::cerr << "Combined clothoid path has insufficient points for curvature calculation"
+              << std::endl;
+  }
+
+  std::cerr << "=========================================" << std::endl;
 }
 
 }  // namespace autoware::behavior_path_planner
