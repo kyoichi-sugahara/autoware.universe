@@ -52,25 +52,6 @@ namespace autoware::behavior_path_planner
 {
 using start_planner_utils::getPullOutLanes;
 
-// クロソイドセグメント構造体の定義
-struct ClothoidSegment
-{
-  enum Type { CLOTHOID_ENTRY, CIRCULAR_ARC, CLOTHOID_EXIT };
-
-  Type type;
-  double A;           // クロソイドパラメータ
-  double L;           // 弧長
-  double radius;      // 半径（円弧セグメント用）
-  double angle;       // 角度（円弧セグメント用）
-  bool is_clockwise;  // 回転方向
-  std::string description;
-
-  explicit ClothoidSegment(Type t, double a = 0.0, double l = 0.0)
-  : type(t), A(a), L(l), radius(0.0), angle(0.0), is_clockwise(true)
-  {
-  }
-};
-
 /**
  * @brief 剛体変換（回転・平行移動・スケーリング）のみでクロソイドを補正
  * @param clothoid_points クロソイド変換後の点列
