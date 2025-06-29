@@ -31,6 +31,7 @@
 #include <tf2/utils.h>
 
 #include <algorithm>
+#include <cmath>
 #include <iostream>
 #include <limits>
 #include <memory>
@@ -276,6 +277,387 @@ TEST_F(TestClothoidPullOut, DISABLED_GenerateValidClothoidPullOutPath)
   plt.show(Args(), Kwargs("block"_a = true));
 }
 
+// フレネル積分の近似計算
+std::pair<double, double> fresnel(double t)
+{
+  // フレネル積分の級数展開による近似
+  const int max_terms = 50;
+  const double t2 = t * t;
+  const double pi_2 = M_PI / 2.0;
+
+  double S = 0.0, C = 0.0;
+  double term_S = t, term_C = 1.0;
+
+  for (int n = 0; n < max_terms; ++n) {
+    if (n > 0) {
+      term_S *= -t2 * t2 / ((4 * n + 1) * (4 * n + 2) * (2 * n + 1));
+      term_C *= -t2 * t2 / ((4 * n - 1) * (4 * n) * (2 * n));
+    }
+
+    S += term_S * pi_2 / (4 * n + 3);
+    C += term_C * pi_2 / (4 * n + 1);
+
+    if (std::abs(term_S) < 1e-12 && std::abs(term_C) < 1e-12) break;
+  }
+
+  return {S, C};
+}
+
+/**
+ * @brief クロソイドセグメント情報
+ */
+struct ClothoidSegment
+{
+  enum Type { CLOTHOID_ENTRY, CIRCULAR_ARC, CLOTHOID_EXIT };
+
+  Type type;
+  double A;           // クロソイドパラメータ
+  double L;           // 弧長
+  double radius;      // 半径（円弧セグメント用）
+  double angle;       // 角度（円弧セグメント用）
+  bool is_clockwise;  // 回転方向
+  std::string description;
+
+  explicit ClothoidSegment(Type t, double a = 0.0, double l = 0.0)
+  : type(t), A(a), L(l), radius(0.0), angle(0.0), is_clockwise(true)
+  {
+  }
+};
+
+/**
+ * @brief 車両の状態（位置、姿勢、曲率）
+ */
+struct VehicleState
+{
+  double x, y;   // 位置
+  double psi;    // 姿勢角 [rad]
+  double kappa;  // 曲率 [1/m]
+
+  explicit VehicleState(double x_ = 0.0, double y_ = 0.0, double psi_ = 0.0, double kappa_ = 0.0)
+  : x(x_), y(y_), psi(psi_), kappa(kappa_)
+  {
+  }
+};
+
+/**
+ * @brief エントリクロソイドセグメントを生成
+ */
+std::pair<std::vector<geometry_msgs::msg::Point>, VehicleState> generateClothoidEntry(
+  const ClothoidSegment & segment, const VehicleState & start_state, int num_points)
+{
+  double A = segment.A;
+  double L = segment.L;
+  double direction_factor = segment.is_clockwise ? -1.0 : 1.0;
+
+  std::vector<geometry_msgs::msg::Point> points;
+
+  for (int i = 0; i < num_points; ++i) {
+    double s = L * i / (num_points - 1);
+
+    geometry_msgs::msg::Point point;
+
+    if (A > 0 && s > 0) {
+      // フレネル積分による座標計算
+      double t = s / (A * std::sqrt(M_PI));
+      auto fresnel_result = fresnel(t);
+      double S_f = fresnel_result.first;
+      double C_f = fresnel_result.second;
+
+      double x_local = A * std::sqrt(M_PI) * C_f;
+      double y_local = A * std::sqrt(M_PI) * S_f * direction_factor;
+
+      double cos_start = std::cos(start_state.psi);
+      double sin_start = std::sin(start_state.psi);
+
+      point.x = start_state.x + x_local * cos_start - y_local * sin_start;
+      point.y = start_state.y + x_local * sin_start + y_local * cos_start;
+      point.z = 0.0;
+    } else {
+      point.x = start_state.x;
+      point.y = start_state.y;
+      point.z = 0.0;
+    }
+
+    points.push_back(point);
+  }
+
+  // 終端状態
+  double final_curvature = (L / (A * A)) * direction_factor;
+  double final_psi = start_state.psi + (L * L / (2.0 * A * A)) * direction_factor;
+  VehicleState end_state(points.back().x, points.back().y, final_psi, final_curvature);
+
+  return {points, end_state};
+}
+
+/**
+ * @brief 円弧セグメントを生成
+ */
+std::pair<std::vector<geometry_msgs::msg::Point>, VehicleState> generateCircularSegment(
+  const ClothoidSegment & segment, const VehicleState & start_state, int num_points)
+{
+  double radius = segment.radius;
+  double angle = segment.angle;
+  double direction_factor = segment.is_clockwise ? -1.0 : 1.0;
+
+  // 実際の半径を計算
+  double actual_radius =
+    (std::abs(start_state.kappa) > 1e-10) ? 1.0 / std::abs(start_state.kappa) : radius;
+
+  std::vector<geometry_msgs::msg::Point> points;
+
+  // 円弧中心計算
+  double center_x = start_state.x - actual_radius * std::sin(start_state.psi) * direction_factor;
+  double center_y = start_state.y + actual_radius * std::cos(start_state.psi) * direction_factor;
+
+  for (int i = 0; i < num_points; ++i) {
+    double progress = static_cast<double>(i) / (num_points - 1);
+    double angle_progress = angle * progress * direction_factor;
+    double current_psi = start_state.psi + angle_progress;
+    double angle_from_center = current_psi - M_PI / 2.0 * direction_factor;
+
+    geometry_msgs::msg::Point point;
+    point.x = center_x + actual_radius * std::cos(angle_from_center);
+    point.y = center_y + actual_radius * std::sin(angle_from_center);
+    point.z = 0.0;
+
+    points.push_back(point);
+  }
+
+  // 終端状態
+  double final_psi = start_state.psi + angle * direction_factor;
+  double final_curvature = (1.0 / actual_radius) * direction_factor;
+  VehicleState end_state(points.back().x, points.back().y, final_psi, final_curvature);
+
+  return {points, end_state};
+}
+
+/**
+ * @brief エグジットクロソイドセグメントを生成
+ */
+std::pair<std::vector<geometry_msgs::msg::Point>, VehicleState> generateClothoidExit(
+  const ClothoidSegment & segment, const VehicleState & start_state, int num_points)
+{
+  double L = segment.L;
+
+  std::vector<geometry_msgs::msg::Point> points;
+
+  // 数値積分による正確な計算
+  double current_x = start_state.x;
+  double current_y = start_state.y;
+  double current_psi = start_state.psi;
+
+  for (int i = 0; i < num_points; ++i) {
+    geometry_msgs::msg::Point point;
+    point.x = current_x;
+    point.y = current_y;
+    point.z = 0.0;
+    points.push_back(point);
+
+    if (i < num_points - 1) {
+      double progress = static_cast<double>(i + 1) / (num_points - 1);
+      double ds = L / (num_points - 1);  // 微小区間
+
+      // 現在の曲率（線形減少）
+      double current_curvature = start_state.kappa * (1.0 - progress);
+
+      // 数値積分による座標更新
+      current_x += std::cos(current_psi) * ds;
+      current_y += std::sin(current_psi) * ds;
+      current_psi += current_curvature * ds;
+    }
+  }
+
+  // 終端状態
+  VehicleState end_state(current_x, current_y, current_psi, 0.0);
+
+  return {points, end_state};
+}
+
+/**
+ * @brief クロソイド経路の座標点列を生成
+ */
+std::vector<geometry_msgs::msg::Point> generateClothoidPath(
+  const ArcSegment & arc_segment, const std::vector<ClothoidSegment> & segments,
+  int num_points_per_segment, const geometry_msgs::msg::Pose & start_pose)
+{
+  // 元の円弧の弧長を計算
+  double original_arc_length = arc_segment.calculateArcLength();
+
+  // 各セグメントの理論弧長を計算
+  std::vector<double> theoretical_lengths;
+  for (const auto & segment : segments) {
+    if (
+      segment.type == ClothoidSegment::CLOTHOID_ENTRY ||
+      segment.type == ClothoidSegment::CLOTHOID_EXIT) {
+      theoretical_lengths.push_back(segment.L);
+    } else if (segment.type == ClothoidSegment::CIRCULAR_ARC) {
+      theoretical_lengths.push_back(segment.radius * segment.angle);
+    }
+  }
+
+  double total_theoretical_length = 0.0;
+  for (double length : theoretical_lengths) {
+    total_theoretical_length += length;
+  }
+
+  std::cerr << "\n=== Arc Length Analysis ===" << std::endl;
+  std::cerr << "Original arc length: " << original_arc_length << " m" << std::endl;
+  std::cerr << "Theoretical clothoid path length: " << total_theoretical_length << " m"
+            << std::endl;
+  std::cerr << "Length difference: " << std::abs(original_arc_length - total_theoretical_length)
+            << " m" << std::endl;
+  std::cerr << "Relative error: "
+            << std::abs(original_arc_length - total_theoretical_length) / original_arc_length *
+                 100.0
+            << "%" << std::endl;
+
+  // セグメント毎の点数を弧長に比例して調整
+  int total_points = num_points_per_segment * segments.size();
+  std::vector<int> adjusted_points;
+  for (double length : theoretical_lengths) {
+    int points = std::max(10, static_cast<int>(total_points * length / total_theoretical_length));
+    adjusted_points.push_back(points);
+  }
+
+  // 初期状態の設定（start_poseから直接取得）
+  double start_yaw = tf2::getYaw(start_pose.orientation);
+  VehicleState current_state(start_pose.position.x, start_pose.position.y, start_yaw, 0.0);
+
+  std::cerr << "\n=== Initial State (from start_pose) ===" << std::endl;
+  std::cerr << "Position: (" << current_state.x << ", " << current_state.y << ")" << std::endl;
+  std::cerr << "Heading: " << current_state.psi << " rad (" << current_state.psi * 180.0 / M_PI
+            << " deg)" << std::endl;
+  std::cerr << "=======================================" << std::endl;
+
+  std::vector<geometry_msgs::msg::Point> all_points;
+
+  for (size_t i = 0; i < segments.size(); ++i) {
+    std::cerr << "  Segment " << (i + 1) << "/" << segments.size() << ": ";
+
+    std::vector<geometry_msgs::msg::Point> segment_points;
+    VehicleState end_state;
+
+    int num_points = adjusted_points[i];
+
+    if (segments[i].type == ClothoidSegment::CLOTHOID_ENTRY) {
+      std::cerr << "clothoid_entry" << std::endl;
+      auto result = generateClothoidEntry(segments[i], current_state, num_points);
+      segment_points = result.first;
+      end_state = result.second;
+    } else if (segments[i].type == ClothoidSegment::CIRCULAR_ARC) {
+      std::cerr << "circular_arc" << std::endl;
+      auto result = generateCircularSegment(segments[i], current_state, num_points);
+      segment_points = result.first;
+      end_state = result.second;
+    } else if (segments[i].type == ClothoidSegment::CLOTHOID_EXIT) {
+      std::cerr << "exit_clothoid" << std::endl;
+      auto result = generateClothoidExit(segments[i], current_state, num_points);
+      segment_points = result.first;
+      end_state = result.second;
+    }
+
+    // 重複点を避けて結合
+    size_t start_idx = (all_points.empty()) ? 0 : 1;
+    for (size_t j = start_idx; j < segment_points.size(); ++j) {
+      all_points.push_back(segment_points[j]);
+    }
+
+    current_state = end_state;
+
+    std::cerr << "    Points generated: " << segment_points.size() << std::endl;
+    std::cerr << "    End config: x=" << end_state.x << ", y=" << end_state.y
+              << ", ψ=" << end_state.psi * 180.0 / M_PI << "°" << std::endl;
+  }
+
+  return all_points;
+}
+
+/**
+ * @brief ArcSegmentをクロソイド曲線に変換する
+ */
+std::vector<geometry_msgs::msg::Point> convertArcToClothoid(
+  const ArcSegment & arc_segment, const geometry_msgs::msg::Pose & start_pose, double A_min = 50.0,
+  double L_min = 10.0, int num_points_per_segment = 50)
+{
+  std::cerr << "\n=== Arc to Clothoid Conversion ===" << std::endl;
+
+  // 円弧情報の抽出
+  double start_angle = arc_segment.getStartAngle();
+  double end_angle = arc_segment.getEndAngle();
+  double total_angle = std::abs(end_angle - start_angle);
+
+  // 角度差の正規化（2πを超える場合の調整）
+  if (total_angle > 2.0 * M_PI) {
+    total_angle = 2.0 * M_PI - std::fmod(total_angle, 2.0 * M_PI);
+  }
+
+  double radius = arc_segment.radius;
+  bool is_clockwise = arc_segment.is_clockwise;
+
+  // クロソイドパラメータ
+  double A = A_min;
+  double L = L_min;
+  double alpha_clothoid = (L * L) / (2.0 * A * A);  // 単一クロソイドの角度変化
+
+  std::cerr << "Clothoid parameters:" << std::endl;
+  std::cerr << "  A: " << A << std::endl;
+  std::cerr << "  L: " << L << " m" << std::endl;
+  std::cerr << "  Single clothoid angle α: " << alpha_clothoid * 180.0 / M_PI << "° ("
+            << alpha_clothoid << " rad)" << std::endl;
+  std::cerr << "  2 * α: " << 2.0 * alpha_clothoid * 180.0 / M_PI << "° (" << 2.0 * alpha_clothoid
+            << " rad)" << std::endl;
+
+  // Case分類（Case Aのみ実装）
+  std::cerr << "\nCase Classification:" << std::endl;
+  std::cerr << "  Condition: total_angle >= 2*α_clothoid?" << std::endl;
+  std::cerr << "  " << total_angle * 180.0 / M_PI << "° >= " << 2.0 * alpha_clothoid * 180.0 / M_PI
+            << "° → " << (total_angle >= 2.0 * alpha_clothoid ? "true" : "false") << std::endl;
+
+  std::vector<ClothoidSegment> segments;
+
+  if (total_angle >= 2.0 * alpha_clothoid) {
+    // Case A: CAC(A, L, θ)
+    double theta_arc = total_angle - 2.0 * alpha_clothoid;
+    std::cerr << "  → CASE A: Standard CAC sequence" << std::endl;
+    std::cerr << "    θ_arc (circular arc angle): " << theta_arc * 180.0 / M_PI << "° ("
+              << theta_arc << " rad)" << std::endl;
+
+    // エントリクロソイド
+    ClothoidSegment entry(ClothoidSegment::CLOTHOID_ENTRY, A, L);
+    entry.is_clockwise = is_clockwise;
+    entry.description = "Entry clothoid (κ: 0 → 1/R)";
+    segments.push_back(entry);
+
+    // 円弧セグメント
+    ClothoidSegment circular(ClothoidSegment::CIRCULAR_ARC);
+    circular.radius = radius;
+    circular.angle = theta_arc;
+    circular.is_clockwise = is_clockwise;
+    circular.description = "Circular arc (κ = 1/R = " + std::to_string(1.0 / radius) + ")";
+    segments.push_back(circular);
+
+    // エグジットクロソイド
+    ClothoidSegment exit(ClothoidSegment::CLOTHOID_EXIT, A, L);
+    exit.is_clockwise = is_clockwise;
+    exit.description = "Exit clothoid (κ: 1/R → 0)";
+    segments.push_back(exit);
+  } else {
+    std::cerr << "Case B is not implemented. Please use Case A conditions." << std::endl;
+    return {};
+  }
+
+  // クロソイド経路生成
+  std::vector<geometry_msgs::msg::Point> clothoid_path =
+    generateClothoidPath(arc_segment, segments, num_points_per_segment, start_pose);
+
+  std::cerr << "Clothoid conversion completed!" << std::endl;
+  std::cerr << "  Case: A" << std::endl;
+  std::cerr << "  Segments: " << segments.size() << std::endl;
+  std::cerr << "  Points: " << clothoid_path.size() << std::endl;
+
+  return clothoid_path;
+}
+
 TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
 {
   // GenerateValidClothoidPullOutPathと同じ条件を使用
@@ -375,10 +757,34 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
   std::cerr << "  Angle difference: " << angle_diff << " rad (" << angle_diff * 180.0 / M_PI
             << " deg)" << std::endl;
 
+  // calc_circular_pathの入力パラメータをデバッグ出力
+  std::cerr << "\n=== calc_circular_path Input Parameters ===" << std::endl;
+  std::cerr << "start_pose:" << std::endl;
+  std::cerr << "  position: (" << start_pose.position.x << ", " << start_pose.position.y << ", "
+            << start_pose.position.z << ")" << std::endl;
+  std::cerr << "  orientation (quaternion): (" << start_pose.orientation.x << ", "
+            << start_pose.orientation.y << ", " << start_pose.orientation.z << ", "
+            << start_pose.orientation.w << ")" << std::endl;
+  std::cerr << "  yaw: " << start_yaw << " rad (" << start_yaw * 180.0 / M_PI << " deg)"
+            << std::endl;
+  std::cerr << "longitudinal_distance_vehicle: " << longitudinal_distance_vehicle << " m"
+            << std::endl;
+  std::cerr << "lateral_distance_vehicle: " << lateral_distance_vehicle << " m" << std::endl;
+  std::cerr << "angle_diff: " << angle_diff << " rad (" << angle_diff * 180.0 / M_PI << " deg)"
+            << std::endl;
+  std::cerr << "minimum_radius: " << minimum_radius << " m" << std::endl;
+  std::cerr << "============================================" << std::endl;
+
   // calc_circular_pathを直接呼び出し
   const auto circular_path = start_planner_utils::calc_circular_path(
     start_pose, longitudinal_distance_vehicle, lateral_distance_vehicle, angle_diff,
     minimum_radius);
+
+  // 生成された円弧経路の基本情報をデバッグ出力
+  std::cerr << "\n=== calc_circular_path Output ===" << std::endl;
+  std::cerr << "Number of segments generated: " << circular_path.segments.size() << std::endl;
+  std::cerr << "Total path length: " << circular_path.calculateTotalLength() << " m" << std::endl;
+  std::cerr << "=================================" << std::endl;
 
   // 円弧経路が生成されたことを確認
   ASSERT_FALSE(circular_path.segments.empty()) << "Circular path generation failed.";
@@ -487,6 +893,163 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
   }
   std::cerr << "=================================" << std::endl;
 
+  // ============================================================================
+  // クロソイド変換処理を追加
+  // ============================================================================
+  std::cerr << "\n=== Starting Clothoid Conversion ===" << std::endl;
+
+  // start_poseと円弧セグメントの開始点比較
+  if (!circular_path.segments.empty()) {
+    const auto & first_segment = circular_path.segments[0];
+    auto arc_start_point = first_segment.getPointAtAngle(first_segment.getStartAngle());
+
+    std::cerr << "\n=== Start Point Comparison ===" << std::endl;
+    std::cerr << "Original start_pose:" << std::endl;
+    std::cerr << "  x: " << start_pose.position.x << std::endl;
+    std::cerr << "  y: " << start_pose.position.y << std::endl;
+    std::cerr << "  z: " << start_pose.position.z << std::endl;
+    std::cerr << "  yaw: " << start_yaw << " rad (" << start_yaw * 180.0 / M_PI << " deg)"
+              << std::endl;
+
+    std::cerr << "First arc segment start_point:" << std::endl;
+    std::cerr << "  x: " << arc_start_point.x << std::endl;
+    std::cerr << "  y: " << arc_start_point.y << std::endl;
+    std::cerr << "  z: " << arc_start_point.z << std::endl;
+    std::cerr << "  start_angle: " << first_segment.getStartAngle() << " rad ("
+              << first_segment.getStartAngle() * 180.0 / M_PI << " deg)" << std::endl;
+
+    // 距離差を計算
+    double distance_diff = std::sqrt(
+      std::pow(arc_start_point.x - start_pose.position.x, 2) +
+      std::pow(arc_start_point.y - start_pose.position.y, 2) +
+      std::pow(arc_start_point.z - start_pose.position.z, 2));
+    std::cerr << "Distance difference: " << distance_diff << " m" << std::endl;
+
+    // 角度差を計算
+    double angle_diff_start = first_segment.getStartAngle() - start_yaw;
+    while (angle_diff_start > M_PI) angle_diff_start -= 2.0 * M_PI;
+    while (angle_diff_start < -M_PI) angle_diff_start += 2.0 * M_PI;
+    std::cerr << "Angle difference: " << angle_diff_start << " rad ("
+              << angle_diff_start * 180.0 / M_PI << " deg)" << std::endl;
+
+    // 各円弧セグメントの詳細情報を出力
+    std::cerr << "\n=== Arc Segment Details ===" << std::endl;
+    for (size_t i = 0; i < circular_path.segments.size(); ++i) {
+      const auto & segment = circular_path.segments[i];
+      std::cerr << "Segment " << (i + 1) << ":" << std::endl;
+      std::cerr << "  Center: (" << segment.center.x << ", " << segment.center.y << ")"
+                << std::endl;
+      std::cerr << "  Radius: " << segment.radius << std::endl;
+      std::cerr << "  Start angle: " << segment.getStartAngle() << " rad ("
+                << segment.getStartAngle() * 180.0 / M_PI << " deg)" << std::endl;
+      std::cerr << "  End angle: " << segment.getEndAngle() << " rad ("
+                << segment.getEndAngle() * 180.0 / M_PI << " deg)" << std::endl;
+      std::cerr << "  Is clockwise: " << (segment.is_clockwise ? "true" : "false") << std::endl;
+
+      auto seg_start_point = segment.getPointAtAngle(segment.getStartAngle());
+      auto seg_end_point = segment.getPointAtAngle(segment.getEndAngle());
+      std::cerr << "  Start point: (" << seg_start_point.x << ", " << seg_start_point.y << ")"
+                << std::endl;
+      std::cerr << "  End point: (" << seg_end_point.x << ", " << seg_end_point.y << ")"
+                << std::endl;
+
+      if (i == 0) {
+        // 最初のセグメントの開始点とstart_poseの距離差
+        double seg_distance_diff = std::sqrt(
+          std::pow(seg_start_point.x - start_pose.position.x, 2) +
+          std::pow(seg_start_point.y - start_pose.position.y, 2));
+        std::cerr << "  Distance from original start_pose: " << seg_distance_diff << " m"
+                  << std::endl;
+      }
+      std::cerr << std::endl;
+    }
+    std::cerr << "===============================" << std::endl;
+  }
+
+  // 各円弧セグメントをクロソイドに変換
+  std::vector<std::vector<geometry_msgs::msg::Point>> clothoid_paths;
+
+  // セグメント間の連続性を保つための状態管理
+  VehicleState current_segment_state(
+    start_pose.position.x, start_pose.position.y, tf2::getYaw(start_pose.orientation), 0.0);
+
+  for (size_t i = 0; i < circular_path.segments.size(); ++i) {
+    const auto & segment = circular_path.segments[i];
+
+    std::cerr << "\n--- Converting Arc Segment " << (i + 1) << "/" << circular_path.segments.size()
+              << " ---" << std::endl;
+
+    // セグメントの開始状態をデバッグ出力
+    std::cerr << "Segment " << (i + 1) << " start state:" << std::endl;
+    std::cerr << "  Position: (" << current_segment_state.x << ", " << current_segment_state.y
+              << ")" << std::endl;
+    std::cerr << "  Heading: " << current_segment_state.psi << " rad ("
+              << current_segment_state.psi * 180.0 / M_PI << " deg)" << std::endl;
+
+    // 車両パラメータから最適なクロソイドパラメータを計算
+    const double circular_steer_angle = std::atan(wheel_base / segment.radius);
+    const double minimum_steer_time = circular_steer_angle / max_steer_angle_rate;
+    const double L_min = velocity * minimum_steer_time;
+    const double A_min = std::sqrt(segment.radius * L_min);
+
+    std::cerr << "Calculated clothoid parameters for segment " << (i + 1) << ":" << std::endl;
+    std::cerr << "  A_min: " << A_min << std::endl;
+    std::cerr << "  L_min: " << L_min << " m" << std::endl;
+    std::cerr << "  Segment radius: " << segment.radius << " m" << std::endl;
+
+    // 現在のセグメント状態からのPoseを作成
+    geometry_msgs::msg::Pose segment_start_pose;
+    segment_start_pose.position.x = current_segment_state.x;
+    segment_start_pose.position.y = current_segment_state.y;
+    segment_start_pose.position.z = start_pose.position.z;
+    segment_start_pose.orientation =
+      tf2::toMsg(tf2::Quaternion(tf2::Vector3(0, 0, 1), current_segment_state.psi));
+
+    // クロソイド変換を実行
+    auto clothoid_points =
+      convertArcToClothoid(segment, segment_start_pose, A_min, L_min, points_per_segment);
+
+    if (!clothoid_points.empty()) {
+      clothoid_paths.push_back(clothoid_points);
+      std::cerr << "Successfully converted segment " << (i + 1) << " to clothoid with "
+                << clothoid_points.size() << " points" << std::endl;
+
+      // 次のセグメントのために終点状態を更新
+      if (i < circular_path.segments.size() - 1) {
+        const auto & last_point = clothoid_points.back();
+
+        // 終点での進行方向を計算（最後の2点から）
+        if (clothoid_points.size() >= 2) {
+          const auto & second_last = clothoid_points[clothoid_points.size() - 2];
+          double dx = last_point.x - second_last.x;
+          double dy = last_point.y - second_last.y;
+          double heading = std::atan2(dy, dx);
+
+          current_segment_state = VehicleState(last_point.x, last_point.y, heading, 0.0);
+
+          std::cerr << "Updated state for next segment:" << std::endl;
+          std::cerr << "  Position: (" << current_segment_state.x << ", " << current_segment_state.y
+                    << ")" << std::endl;
+          std::cerr << "  Heading: " << current_segment_state.psi << " rad ("
+                    << current_segment_state.psi * 180.0 / M_PI << " deg)" << std::endl;
+        }
+      }
+    } else {
+      std::cerr << "Failed to convert segment " << (i + 1) << " to clothoid" << std::endl;
+    }
+  }
+
+  std::cerr << "\n=== Clothoid Conversion Summary ===" << std::endl;
+  std::cerr << "Total arc segments: " << circular_path.segments.size() << std::endl;
+  std::cerr << "Successfully converted: " << clothoid_paths.size() << std::endl;
+
+  int total_clothoid_points = 0;
+  for (const auto & path : clothoid_paths) {
+    total_clothoid_points += path.size();
+  }
+  std::cerr << "Total clothoid points: " << total_clothoid_points << std::endl;
+  std::cerr << "===============================" << std::endl;
+
   // プロット作成
   pybind11::scoped_interpreter guard{};
   auto plt = matplotlibcpp17::pyplot::import();
@@ -511,19 +1074,55 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
   plot_footprint(ax, start_pose, planner_data->parameters.vehicle_info, "green", 0.3);
   plot_footprint(ax, target_pose, planner_data->parameters.vehicle_info, "red", 0.3);
 
-  // 円弧経路の点をプロット
+  // 元の円弧経路の点をプロット
   std::vector<double> xs, ys;
   for (const auto & point : path_points) {
     xs.push_back(point.first);
     ys.push_back(point.second);
   }
 
-  // 経路点を線で接続
+  // 円弧経路を線で接続
   ax.plot(
-    Args(xs, ys), Kwargs("color"_a = "blue", "linewidth"_a = 2.0, "label"_a = "circular path"));
+    Args(xs, ys),
+    Kwargs("color"_a = "blue", "linewidth"_a = 2.0, "label"_a = "circular path", "alpha"_a = 0.7));
 
-  // 経路点を点でマーク
+  // 円弧経路を点でマーク
   ax.scatter(Args(xs, ys), Kwargs("color"_a = "blue", "s"_a = 10, "alpha"_a = 0.6));
+
+  // クロソイド経路をプロット
+  for (size_t i = 0; i < clothoid_paths.size(); ++i) {
+    const auto & clothoid_path = clothoid_paths[i];
+
+    std::vector<double> clothoid_xs, clothoid_ys;
+    for (const auto & point : clothoid_path) {
+      clothoid_xs.push_back(point.x);
+      clothoid_ys.push_back(point.y);
+    }
+
+    // クロソイド経路を異なる色で描画（線分を削除して点のみ表示）
+    std::string color = (i % 2 == 0) ? "red" : "purple";
+    std::string label = (i == 0) ? "clothoid path" : "";
+
+    // 線分描画をコメントアウト
+    // ax.plot(
+    //   Args(clothoid_xs, clothoid_ys),
+    //   Kwargs("color"_a = color, "linewidth"_a = 3.0, "label"_a = label, "alpha"_a = 0.8));
+
+    // クロソイド経路の点をscatterで描画
+    ax.scatter(
+      Args(clothoid_xs, clothoid_ys),
+      Kwargs("color"_a = color, "s"_a = 15, "label"_a = label, "alpha"_a = 0.8));
+
+    // クロソイド経路の開始点と終了点をマーク
+    if (!clothoid_path.empty()) {
+      ax.plot(
+        Args(clothoid_path.front().x, clothoid_path.front().y),
+        Kwargs("marker"_a = "o", "color"_a = color, "markersize"_a = 8, "alpha"_a = 0.9));
+      ax.plot(
+        Args(clothoid_path.back().x, clothoid_path.back().y),
+        Kwargs("marker"_a = "s", "color"_a = color, "markersize"_a = 8, "alpha"_a = 0.9));
+    }
+  }
 
   // 円弧セグメントの中心点をプロット
   for (size_t i = 0; i < circular_path.segments.size(); ++i) {
@@ -545,9 +1144,60 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
   ax.set_ylim(Args(y_min, y_max));
 
   ax.set_aspect(Args("equal"));
-  ax.set_title(Args("Circular Path Generation Test"));
+  ax.set_title(Args("Circular Path vs Clothoid Path Comparison"));
   ax.legend();
+
+  // グリッドを追加して視認性を向上
+  ax.grid(Args(true), Kwargs("alpha"_a = 0.3));
+
   plt.show(Args(), Kwargs("block"_a = true));
+
+  // ============================================================================
+  // クロソイド経路の品質評価
+  // ============================================================================
+  std::cerr << "\n=== Clothoid Path Quality Analysis ===" << std::endl;
+
+  for (size_t i = 0; i < clothoid_paths.size(); ++i) {
+    const auto & clothoid_path = clothoid_paths[i];
+    const auto & original_segment = circular_path.segments[i];
+
+    if (clothoid_path.size() < 2) continue;
+
+    std::cerr << "\nSegment " << (i + 1) << " Analysis:" << std::endl;
+
+    // 経路長の比較
+    double clothoid_length = 0.0;
+    for (size_t j = 1; j < clothoid_path.size(); ++j) {
+      double dx = clothoid_path[j].x - clothoid_path[j - 1].x;
+      double dy = clothoid_path[j].y - clothoid_path[j - 1].y;
+      clothoid_length += std::sqrt(dx * dx + dy * dy);
+    }
+
+    double original_length = original_segment.calculateArcLength();
+    double length_error = std::abs(clothoid_length - original_length) / original_length * 100.0;
+
+    std::cerr << "  Path length comparison:" << std::endl;
+    std::cerr << "    Original arc: " << original_length << " m" << std::endl;
+    std::cerr << "    Clothoid: " << clothoid_length << " m" << std::endl;
+    std::cerr << "    Relative error: " << length_error << "%" << std::endl;
+
+    // 開始点と終了点の比較
+    auto original_start = original_segment.getPointAtAngle(original_segment.getStartAngle());
+    auto original_end = original_segment.getPointAtAngle(original_segment.getEndAngle());
+
+    double start_error = std::sqrt(
+      std::pow(clothoid_path.front().x - original_start.x, 2) +
+      std::pow(clothoid_path.front().y - original_start.y, 2));
+    double end_error = std::sqrt(
+      std::pow(clothoid_path.back().x - original_end.x, 2) +
+      std::pow(clothoid_path.back().y - original_end.y, 2));
+
+    std::cerr << "  Position accuracy:" << std::endl;
+    std::cerr << "    Start point error: " << start_error << " m" << std::endl;
+    std::cerr << "    End point error: " << end_error << " m" << std::endl;
+  }
+
+  std::cerr << "=======================================" << std::endl;
 }
 
 }  // namespace autoware::behavior_path_planner
