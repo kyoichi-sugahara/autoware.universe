@@ -771,4 +771,57 @@ std::vector<double> calcCurvatureFromPoints(const std::vector<geometry_msgs::msg
   return curvatures;
 }
 
+Pose findTargetPoseAlongPath(
+  const PathWithLaneId & centerline_path, const Pose & start_pose,
+  const double longitudinal_distance)
+{
+  Pose target_pose = start_pose;
+  if (!centerline_path.points.empty()) {
+    // Find the point on centerline path that is longitudinal_distance ahead
+    const auto start_idx =
+      autoware::motion_utils::findNearestIndex(centerline_path.points, start_pose.position);
+    double accumulated_distance = 0.0;
+    size_t target_idx = start_idx;
+
+    for (size_t i = start_idx; i < centerline_path.points.size() - 1; ++i) {
+      const double segment_distance = autoware_utils::calc_distance2d(
+        centerline_path.points[i].point.pose.position,
+        centerline_path.points[i + 1].point.pose.position);
+      accumulated_distance += segment_distance;
+
+      if (accumulated_distance >= longitudinal_distance) {
+        target_idx = i + 1;
+        break;
+      }
+    }
+
+    if (target_idx < centerline_path.points.size()) {
+      target_pose = centerline_path.points[target_idx].point.pose;
+    }
+  }
+
+  return target_pose;
+}
+
+RelativePoseInfo calculateRelativePoseInVehicleCoordinate(
+  const Pose & start_pose, const Pose & target_pose)
+{
+  const double dx = target_pose.position.x - start_pose.position.x;
+  const double dy = target_pose.position.y - start_pose.position.y;
+  const double start_yaw = tf2::getYaw(start_pose.orientation);
+  const double target_yaw = tf2::getYaw(target_pose.orientation);
+
+  // Transform to vehicle coordinate system (x: forward, y: left)
+  const double longitudinal_distance_vehicle = dx * std::cos(start_yaw) + dy * std::sin(start_yaw);
+  const double lateral_distance_vehicle = -dx * std::sin(start_yaw) + dy * std::cos(start_yaw);
+
+  // Calculate angle difference
+  double angle_diff = target_yaw - start_yaw;
+  // Normalize angle to [-pi, pi]
+  while (angle_diff > M_PI) angle_diff -= 2.0 * M_PI;
+  while (angle_diff < -M_PI) angle_diff += 2.0 * M_PI;
+
+  return {longitudinal_distance_vehicle, lateral_distance_vehicle, angle_diff};
+}
+
 }  // namespace autoware::behavior_path_planner::start_planner_utils
