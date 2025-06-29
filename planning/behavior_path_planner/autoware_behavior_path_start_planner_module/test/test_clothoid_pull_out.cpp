@@ -359,13 +359,13 @@ struct ClothoidSegment
 };
 
 /**
- * @brief クロソイド変換後の点を元の円弧の終点と一致するように補正する
+ * @brief 剛体変換（回転・平行移動・スケーリング）のみでクロソイドを補正
  * @param clothoid_points クロソイド変換後の点列
  * @param original_segment 元の円弧セグメント
  * @param start_pose セグメントの開始姿勢
  * @return 補正後の点列
  */
-std::vector<geometry_msgs::msg::Point> correctClothoidEndpoint(
+std::vector<geometry_msgs::msg::Point> correctClothoidByRigidTransform(
   const std::vector<geometry_msgs::msg::Point> & clothoid_points,
   const ArcSegment & original_segment, const geometry_msgs::msg::Pose & start_pose)
 {
@@ -373,140 +373,101 @@ std::vector<geometry_msgs::msg::Point> correctClothoidEndpoint(
     return clothoid_points;
   }
 
-  std::vector<geometry_msgs::msg::Point> corrected_points = clothoid_points;
+  std::cerr << "\n=== Rigid Transform Correction ===" << std::endl;
 
-  // 元の円弧の終点を取得
-  auto original_end = original_segment.getPointAtAngle(original_segment.getEndAngle());
+  // 1. 現在のクロソイドの幾何学的特性を取得
+  auto clothoid_start = clothoid_points.front();
+  auto clothoid_end = clothoid_points.back();
 
-  // クロソイド変換後の終点
-  const auto & clothoid_end = clothoid_points.back();
+  // 目標の開始・終了位置を取得
+  auto target_start = start_pose.position;
+  auto target_end = original_segment.getPointAtAngle(original_segment.getEndAngle());
 
-  // 終点での補正量を計算
-  double end_error_x = original_end.x - clothoid_end.x;
-  double end_error_y = original_end.y - clothoid_end.y;
-
-  std::cerr << "\n=== Endpoint Correction Analysis ===" << std::endl;
-  std::cerr << "Original endpoint: (" << original_end.x << ", " << original_end.y << ")"
+  std::cerr << "Target start: (" << target_start.x << ", " << target_start.y << ")" << std::endl;
+  std::cerr << "Target end: (" << target_end.x << ", " << target_end.y << ")" << std::endl;
+  std::cerr << "Clothoid start: (" << clothoid_start.x << ", " << clothoid_start.y << ")"
             << std::endl;
-  std::cerr << "Clothoid endpoint: (" << clothoid_end.x << ", " << clothoid_end.y << ")"
-            << std::endl;
-  std::cerr << "End error vector: (" << end_error_x << ", " << end_error_y << ")" << std::endl;
-  std::cerr << "End error magnitude: "
-            << std::sqrt(end_error_x * end_error_x + end_error_y * end_error_y) << " m"
-            << std::endl;
+  std::cerr << "Clothoid end: (" << clothoid_end.x << ", " << clothoid_end.y << ")" << std::endl;
 
-  // 円弧中心
-  double center_x = original_segment.center.x;
-  double center_y = original_segment.center.y;
-  // double radius = original_segment.radius;
+  // 2. 方向ベクトルを計算
+  double clothoid_dx = clothoid_end.x - clothoid_start.x;
+  double clothoid_dy = clothoid_end.y - clothoid_start.y;
+  double clothoid_length = std::sqrt(clothoid_dx * clothoid_dx + clothoid_dy * clothoid_dy);
 
-  // 補正量を円周方向と半径方向に分解
-  // 終点での半径ベクトル（中心から終点への方向）
-  double radial_x = original_end.x - center_x;
-  double radial_y = original_end.y - center_y;
-  double radial_length = std::sqrt(radial_x * radial_x + radial_y * radial_y);
+  double target_dx = target_end.x - target_start.x;
+  double target_dy = target_end.y - target_start.y;
+  double target_length = std::sqrt(target_dx * target_dx + target_dy * target_dy);
 
-  // 正規化された半径方向ベクトル
-  double radial_unit_x = radial_x / radial_length;
-  double radial_unit_y = radial_y / radial_length;
+  std::cerr << "Clothoid vector: (" << clothoid_dx << ", " << clothoid_dy
+            << "), length: " << clothoid_length << std::endl;
+  std::cerr << "Target vector: (" << target_dx << ", " << target_dy
+            << "), length: " << target_length << std::endl;
 
-  // 正規化された円周方向ベクトル（半径方向に垂直）
-  double tangential_unit_x, tangential_unit_y;
-  if (original_segment.is_clockwise) {
-    tangential_unit_x = radial_unit_y;  // 90度時計回り回転
-    tangential_unit_y = -radial_unit_x;
-  } else {
-    tangential_unit_x = -radial_unit_y;  // 90度反時計回り回転
-    tangential_unit_y = radial_unit_x;
+  // 3. スケーリング係数を計算
+  double scale_factor = (clothoid_length > 1e-10) ? target_length / clothoid_length : 1.0;
+  std::cerr << "Scale factor: " << scale_factor << std::endl;
+
+  // 4. 回転角度を計算
+  double clothoid_angle = std::atan2(clothoid_dy, clothoid_dx);
+  double target_angle = std::atan2(target_dy, target_dx);
+  double rotation_angle = target_angle - clothoid_angle;
+
+  // 角度を [-π, π] の範囲に正規化
+  while (rotation_angle > M_PI) rotation_angle -= 2 * M_PI;
+  while (rotation_angle < -M_PI) rotation_angle += 2 * M_PI;
+
+  std::cerr << "Clothoid angle: " << clothoid_angle * 180.0 / M_PI << " deg" << std::endl;
+  std::cerr << "Target angle: " << target_angle * 180.0 / M_PI << " deg" << std::endl;
+  std::cerr << "Rotation angle: " << rotation_angle * 180.0 / M_PI << " deg" << std::endl;
+
+  // 5. 変換行列の要素を計算
+  double cos_theta = std::cos(rotation_angle);
+  double sin_theta = std::sin(rotation_angle);
+
+  // 6. 剛体変換を適用
+  std::vector<geometry_msgs::msg::Point> corrected_points;
+  corrected_points.reserve(clothoid_points.size());
+
+  for (size_t i = 0; i < clothoid_points.size(); ++i) {
+    geometry_msgs::msg::Point corrected_point;
+
+    // 始点を原点に移動
+    double rel_x = clothoid_points[i].x - clothoid_start.x;
+    double rel_y = clothoid_points[i].y - clothoid_start.y;
+
+    // スケーリング
+    rel_x *= scale_factor;
+    rel_y *= scale_factor;
+
+    // 回転
+    double rotated_x = cos_theta * rel_x - sin_theta * rel_y;
+    double rotated_y = sin_theta * rel_x + cos_theta * rel_y;
+
+    // 目標始点に平行移動
+    corrected_point.x = rotated_x + target_start.x;
+    corrected_point.y = rotated_y + target_start.y;
+    corrected_point.z = clothoid_points[i].z;  // Z座標はそのまま
+
+    corrected_points.push_back(corrected_point);
   }
 
-  // 補正量の円周方向と半径方向成分を計算
-  double radial_correction = end_error_x * radial_unit_x + end_error_y * radial_unit_y;
-  double tangential_correction = end_error_x * tangential_unit_x + end_error_y * tangential_unit_y;
+  // 7. 変換結果の検証
+  auto final_start = corrected_points.front();
+  auto final_end = corrected_points.back();
 
-  std::cerr << "Radial unit vector: (" << radial_unit_x << ", " << radial_unit_y << ")"
-            << std::endl;
-  std::cerr << "Tangential unit vector: (" << tangential_unit_x << ", " << tangential_unit_y << ")"
-            << std::endl;
-  std::cerr << "Radial correction: " << radial_correction << " m" << std::endl;
-  std::cerr << "Tangential correction: " << tangential_correction << " m" << std::endl;
+  double start_error = std::sqrt(
+    (final_start.x - target_start.x) * (final_start.x - target_start.x) +
+    (final_start.y - target_start.y) * (final_start.y - target_start.y));
 
-  // 総点数を取得
-  size_t total_points = clothoid_points.size();
-  std::cerr << "Total clothoid points: " << total_points << std::endl;
+  double end_error = std::sqrt(
+    (final_end.x - target_end.x) * (final_end.x - target_end.x) +
+    (final_end.y - target_end.y) * (final_end.y - target_end.y));
 
-  // 各点を補正
-  for (size_t i = 1; i < corrected_points.size(); ++i) {  // 始点(i=0)は補正しない
-    double progress = static_cast<double>(i) / static_cast<double>(total_points - 1);
-
-    // 現在の点における円弧上の対応点を推定
-    // 円弧の開始角度から終了角度まで線形補間
-    double start_angle = original_segment.getStartAngle();
-    double end_angle = original_segment.getEndAngle();
-
-    double current_angle;
-    if (original_segment.is_clockwise) {
-      double angle_diff = end_angle - start_angle;
-      if (angle_diff > 0) angle_diff -= 2 * M_PI;
-      current_angle = start_angle + angle_diff * progress;
-    } else {
-      double angle_diff = end_angle - start_angle;
-      if (angle_diff < 0) angle_diff += 2 * M_PI;
-      current_angle = start_angle + angle_diff * progress;
-    }
-
-    // 現在の点における半径方向と円周方向ベクトル
-    double current_radial_x = std::cos(current_angle);
-    double current_radial_y = std::sin(current_angle);
-
-    double current_tangential_x, current_tangential_y;
-    if (original_segment.is_clockwise) {
-      current_tangential_x = current_radial_y;
-      current_tangential_y = -current_radial_x;
-    } else {
-      current_tangential_x = -current_radial_y;
-      current_tangential_y = current_radial_x;
-    }
-
-    // 補正量を進行度に比例して適用（index比例）
-    double correction_factor = progress;  // 線形補正 (0から1まで)
-
-    // 滑らかな補正のためにsin関数を使用（オプション）
-    // double correction_factor = std::sin(progress * M_PI / 2.0);  // より滑らかな補正
-
-    double applied_radial_correction = radial_correction * correction_factor;
-    double applied_tangential_correction = tangential_correction * correction_factor;
-
-    // 補正を適用
-    corrected_points[i].x += applied_radial_correction * current_radial_x +
-                             applied_tangential_correction * current_tangential_x;
-    corrected_points[i].y += applied_radial_correction * current_radial_y +
-                             applied_tangential_correction * current_tangential_y;
-
-    // デバッグ出力（最初の数点と最後の数点のみ）
-    if (i <= 3 || i >= clothoid_points.size() - 3) {
-      std::cerr << "Point " << i << "/" << (total_points - 1) << ": progress=" << progress
-                << ", correction_factor=" << correction_factor << std::endl;
-      std::cerr << "  Original: (" << clothoid_points[i].x << ", " << clothoid_points[i].y << ")"
-                << std::endl;
-      std::cerr << "  Corrected: (" << corrected_points[i].x << ", " << corrected_points[i].y << ")"
-                << std::endl;
-      std::cerr << "  Applied radial: " << applied_radial_correction
-                << ", tangential: " << applied_tangential_correction << std::endl;
-    }
-  }
-
-  // 最終確認：補正後の終点誤差
-  const auto & final_corrected_end = corrected_points.back();
-  double final_error_x = original_end.x - final_corrected_end.x;
-  double final_error_y = original_end.y - final_corrected_end.y;
-  double final_error_magnitude =
-    std::sqrt(final_error_x * final_error_x + final_error_y * final_error_y);
-
-  std::cerr << "Final corrected endpoint: (" << final_corrected_end.x << ", "
-            << final_corrected_end.y << ")" << std::endl;
-  std::cerr << "Remaining error: " << final_error_magnitude << " m" << std::endl;
-  std::cerr << "=========================================" << std::endl;
+  std::cerr << "Final start: (" << final_start.x << ", " << final_start.y << ")" << std::endl;
+  std::cerr << "Final end: (" << final_end.x << ", " << final_end.y << ")" << std::endl;
+  std::cerr << "Start error: " << start_error << " m" << std::endl;
+  std::cerr << "End error: " << end_error << " m" << std::endl;
+  std::cerr << "====================================" << std::endl;
 
   return corrected_points;
 }
@@ -871,8 +832,8 @@ std::vector<geometry_msgs::msg::Point> convertArcToClothoid(
  * @brief 改良版のクロソイド変換関数（終点補正付き）
  */
 std::vector<geometry_msgs::msg::Point> convertArcToClothoidWithCorrection(
-  const ArcSegment & arc_segment, const geometry_msgs::msg::Pose & start_pose, double A_min = 50.0,
-  double L_min = 10.0, int num_points_per_segment = 50)
+  const ArcSegment & arc_segment, const geometry_msgs::msg::Pose & start_pose, double A_min,
+  double L_min, int num_points_per_segment = 50)
 {
   // 元のクロソイド変換を実行
   auto clothoid_points =
@@ -886,7 +847,7 @@ std::vector<geometry_msgs::msg::Point> convertArcToClothoidWithCorrection(
   std::cerr << "\n=== Applying Endpoint Correction ===" << std::endl;
 
   // 終点補正を適用
-  auto corrected_points = correctClothoidEndpoint(clothoid_points, arc_segment, start_pose);
+  auto corrected_points = correctClothoidByRigidTransform(clothoid_points, arc_segment, start_pose);
 
   return corrected_points;
 }
@@ -1189,9 +1150,8 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
     std::cerr << "  Segment radius: " << segment.radius << " m" << std::endl;
 
     // クロソイド変換を実行
-    // auto clothoid_points = convertArcToClothoidWithCorrection(
-    auto clothoid_points =
-      convertArcToClothoid(segment, current_segment_pose, A_min, L_min, points_per_segment);
+    auto clothoid_points = convertArcToClothoidWithCorrection(
+      segment, current_segment_pose, A_min, L_min, points_per_segment);
 
     if (!clothoid_points.empty()) {
       clothoid_paths.push_back(clothoid_points);
