@@ -20,10 +20,13 @@
 #include "autoware_utils/system/time_keeper.hpp"
 
 #include <autoware/boundary_departure_checker/boundary_departure_checker.hpp>
+#include <autoware/route_handler/route_handler.hpp>
 
 #include <autoware_internal_planning_msgs/msg/path_with_lane_id.hpp>
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/pose.hpp>
+
+#include <lanelet2_core/LaneletMap.h>
 
 #include <memory>
 #include <utility>
@@ -32,6 +35,7 @@
 namespace autoware::behavior_path_planner
 {
 using autoware::boundary_departure_checker::BoundaryDepartureChecker;
+using autoware_internal_planning_msgs::msg::PathWithLaneId;
 
 // Forward declarations for clothoid-related structures
 struct ArcSegment;
@@ -62,6 +66,21 @@ std::vector<geometry_msgs::msg::Point> convertArcToClothoid(
 std::vector<geometry_msgs::msg::Point> convertArcToClothoidWithCorrection(
   const ArcSegment & arc_segment, const geometry_msgs::msg::Pose & start_pose, double A_min,
   double L_min, int num_points_per_segment = 50);
+
+/**
+ * @brief クロソイドパスからPathWithLaneIdを生成する関数
+ * @param clothoid_paths クロソイドパスの配列
+ * @param target_pose 目標姿勢
+ * @param velocity 速度
+ * @param road_lanes 道路レーン情報
+ * @param route_handler ルートハンドラー
+ * @return PathWithLaneId
+ */
+PathWithLaneId createPathWithLaneIdFromClothoidPaths(
+  const std::vector<std::vector<geometry_msgs::msg::Point>> & clothoid_paths,
+  const geometry_msgs::msg::Pose & target_pose, double velocity,
+  const lanelet::ConstLanelets & road_lanes,
+  const std::shared_ptr<autoware::route_handler::RouteHandler> & route_handler);
 
 class ClothoidPullOut : public PullOutPlannerBase
 {
