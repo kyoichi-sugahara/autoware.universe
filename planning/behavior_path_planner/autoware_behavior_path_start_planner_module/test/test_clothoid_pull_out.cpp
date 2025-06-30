@@ -496,24 +496,9 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
     }
   }
 
-  std::cerr << "=== Total Angle Change ===" << std::endl;
-  std::cerr << "Total angle change: " << total_angle_change << " rad ("
-            << total_angle_change * 180.0 / M_PI << " deg)" << std::endl;
-  std::cerr << "===========================" << std::endl;
-
-  // 統計情報を出力
-  std::cerr << "=== Circular Path Information ===" << std::endl;
-  std::cerr << "Number of points: " << path_points.size() << std::endl;
-  std::cerr << "Total path length: " << circular_path.calculateTotalLength() << " m" << std::endl;
-
   // 曲率情報を計算・出力
   const auto trajectory = start_planner_utils::convertCircularPathToTrajectory(circular_path);
   const auto curvatures = start_planner_utils::calcCurvatureFromTrajectory(trajectory);
-
-  // ============================================================================
-  // クロソイド変換処理を追加
-  // ============================================================================
-  std::cerr << "\n=== Starting Clothoid Conversion ===" << std::endl;
 
   // 各円弧セグメントをクロソイドに変換
   std::vector<std::vector<geometry_msgs::msg::Point>> clothoid_paths;
@@ -524,27 +509,14 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
   for (size_t i = 0; i < circular_path.segments.size(); ++i) {
     const auto & segment = circular_path.segments[i];
 
-    std::cerr << "\n--- Converting Arc Segment " << (i + 1) << "/" << circular_path.segments.size()
-              << " ---" << std::endl;
-
     // セグメントの開始状態をデバッグ出力
     double current_yaw = tf2::getYaw(current_segment_pose.orientation);
-    std::cerr << "Segment " << (i + 1) << " start pose:" << std::endl;
-    std::cerr << "  Position: (" << current_segment_pose.position.x << ", "
-              << current_segment_pose.position.y << ")" << std::endl;
-    std::cerr << "  Heading: " << current_yaw << " rad (" << current_yaw * 180.0 / M_PI << " deg)"
-              << std::endl;
 
     // 車両パラメータから最適なクロソイドパラメータを計算
     const double circular_steer_angle = std::atan(wheel_base / segment.radius);
     const double minimum_steer_time = circular_steer_angle / max_steer_angle_rate;
     const double L_min = velocity * minimum_steer_time;
     const double A_min = std::sqrt(segment.radius * L_min);
-
-    std::cerr << "Calculated clothoid parameters for segment " << (i + 1) << ":" << std::endl;
-    std::cerr << "  A_min: " << A_min << std::endl;
-    std::cerr << "  L_min: " << L_min << " m" << std::endl;
-    std::cerr << "  Segment radius: " << segment.radius << " m" << std::endl;
 
     // クロソイド変換を実行
     auto clothoid_points = convertArcToClothoidWithCorrection(
@@ -611,82 +583,64 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
   std::vector<double> arc_lengths_changes;
   bool has_curvature_data = false;
 
-  if (combined_clothoid_path.size() >= 3) {
-    // 結合されたクロソイド経路の曲率を計算
-    auto combined_curvatures =
-      autoware::behavior_path_planner::start_planner_utils::calcCurvatureFromPoints(
-        combined_clothoid_path);
+  // 結合されたクロソイド経路の曲率を計算
+  auto combined_curvatures =
+    autoware::behavior_path_planner::start_planner_utils::calcCurvatureFromPoints(
+      combined_clothoid_path);
 
-    std::cerr << "\n=== Combined Clothoid Path Curvature Debug ===" << std::endl;
-    std::cerr << "Total points: " << combined_clothoid_path.size() << std::endl;
-    std::cerr << "Curvature values count: " << combined_curvatures.size() << std::endl;
+  std::cerr << "\n=== Combined Clothoid Path Curvature Debug ===" << std::endl;
+  std::cerr << "Total points: " << combined_clothoid_path.size() << std::endl;
+  std::cerr << "Curvature values count: " << combined_curvatures.size() << std::endl;
 
-    // 各点の曲率をデバッグプリント
-    for (size_t i = 0; i < combined_curvatures.size(); ++i) {
-      const auto & point = combined_clothoid_path[i];
-      const double curvature = combined_curvatures[i];
+  // 各点の曲率をデバッグプリント
+  for (size_t i = 0; i < combined_curvatures.size(); ++i) {
+    const auto & point = combined_clothoid_path[i];
+    const double curvature = combined_curvatures[i];
 
-      std::cerr << "Point[" << i << "]: "
-                << "pos=(" << std::fixed << std::setprecision(3) << point.x << ", " << point.y
-                << "), "
-                << "curvature=" << std::setprecision(6) << curvature << " (1/m)" << std::endl;
-    }
-
-    // 曲率統計の計算
-    double max_curvature =
-      *std::max_element(combined_curvatures.begin(), combined_curvatures.end());
-    double min_curvature =
-      *std::min_element(combined_curvatures.begin(), combined_curvatures.end());
-    double avg_curvature =
-      std::accumulate(combined_curvatures.begin(), combined_curvatures.end(), 0.0) /
-      combined_curvatures.size();
-    double sum_abs_curvature = 0.0;
-    for (const auto & curvature : combined_curvatures) {
-      sum_abs_curvature += std::abs(curvature);
-    }
-    double avg_abs_curvature = sum_abs_curvature / combined_curvatures.size();
-
-    std::cerr << "\n=== Combined Path Curvature Statistics ===" << std::endl;
-    std::cerr << "Max curvature: " << max_curvature << " (1/m)" << std::endl;
-    std::cerr << "Min curvature: " << min_curvature << " (1/m)" << std::endl;
-    std::cerr << "Average curvature: " << avg_curvature << " (1/m)" << std::endl;
-    std::cerr << "Average absolute curvature: " << avg_abs_curvature << " (1/m)" << std::endl;
-
-    // 弧長を計算
-    arc_lengths.push_back(0.0);
-    double cumulative_length = 0.0;
-    for (size_t i = 1; i < combined_clothoid_path.size(); ++i) {
-      double dx = combined_clothoid_path[i].x - combined_clothoid_path[i - 1].x;
-      double dy = combined_clothoid_path[i].y - combined_clothoid_path[i - 1].y;
-      cumulative_length += std::sqrt(dx * dx + dy * dy);
-      arc_lengths.push_back(cumulative_length);
-    }
-
-    // 曲率値をコピー
-    for (size_t i = 0; i < combined_curvatures.size(); ++i) {
-      curvature_values.push_back(combined_curvatures[i]);
-    }
-
-    // 曲率変化率を計算
-    for (size_t i = 1; i < combined_curvatures.size(); ++i) {
-      curvature_changes.push_back(combined_curvatures[i] - combined_curvatures[i - 1]);
-      arc_lengths_changes.push_back(arc_lengths[i]);
-    }
-
-    has_curvature_data = true;
-    std::cerr << "\n=== Plotting Curvature vs Arc Length ===" << std::endl;
-    std::cerr << "Total arc length: " << cumulative_length << " m" << std::endl;
-    std::cerr << "Number of curvature points: " << curvature_values.size() << std::endl;
-  } else {
-    std::cerr << "Combined clothoid path has insufficient points for curvature calculation"
-              << std::endl;
+    std::cerr << "Point[" << i << "]: "
+              << "pos=(" << std::fixed << std::setprecision(3) << point.x << ", " << point.y
+              << "), "
+              << "curvature=" << std::setprecision(6) << curvature << " (1/m)" << std::endl;
   }
 
+  // 曲率統計の計算
+  double max_curvature = *std::max_element(combined_curvatures.begin(), combined_curvatures.end());
+  double min_curvature = *std::min_element(combined_curvatures.begin(), combined_curvatures.end());
+  double avg_curvature =
+    std::accumulate(combined_curvatures.begin(), combined_curvatures.end(), 0.0) /
+    combined_curvatures.size();
+  double sum_abs_curvature = 0.0;
+  for (const auto & curvature : combined_curvatures) {
+    sum_abs_curvature += std::abs(curvature);
+  }
+
+  // 弧長を計算
+  arc_lengths.push_back(0.0);
+  double cumulative_length = 0.0;
+  for (size_t i = 1; i < combined_clothoid_path.size(); ++i) {
+    double dx = combined_clothoid_path[i].x - combined_clothoid_path[i - 1].x;
+    double dy = combined_clothoid_path[i].y - combined_clothoid_path[i - 1].y;
+    cumulative_length += std::sqrt(dx * dx + dy * dy);
+    arc_lengths.push_back(cumulative_length);
+  }
+
+  // 曲率値をコピー
+  for (size_t i = 0; i < combined_curvatures.size(); ++i) {
+    curvature_values.push_back(combined_curvatures[i]);
+  }
+
+  // 曲率変化率を計算
+  for (size_t i = 1; i < combined_curvatures.size(); ++i) {
+    curvature_changes.push_back(combined_curvatures[i] - combined_curvatures[i - 1]);
+    arc_lengths_changes.push_back(arc_lengths[i]);
+  }
+
+  has_curvature_data = true;
+
   // 横並びプロット作成: 左に経路、右に曲率分析
-  auto [fig, axes] = plt.subplots(1, 3, Kwargs("figsize"_a = std::make_tuple(18, 6)));
+  auto [fig, axes] = plt.subplots(1, 2, Kwargs("figsize"_a = std::make_tuple(18, 6)));
   auto & ax_path = axes[0];
   auto & ax_curvature = axes[1];
-  auto & ax_curvature_change = axes[2];
 
   // ============================================================================
   // 左側: 経路プロット
@@ -705,10 +659,6 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
   ax_path.plot(
     Args(target_pose.position.x, target_pose.position.y),
     Kwargs("marker"_a = "x", "label"_a = "target", "markersize"_a = 20, "color"_a = "red"));
-
-  // フットプリントをプロット
-  plot_footprint(ax_path, start_pose, planner_data->parameters.vehicle_info, "green", 0.3);
-  plot_footprint(ax_path, target_pose, planner_data->parameters.vehicle_info, "red", 0.3);
 
   // 元の円弧経路の点をプロット
   std::vector<double> xs, ys;
@@ -797,43 +747,12 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
     ax_curvature.grid(Args(true), Kwargs("alpha"_a = 0.3));
     ax_curvature.legend();
 
-    // 曲率変化率をプロット
-    if (!curvature_changes.empty()) {
-      ax_curvature_change.plot(
-        Args(arc_lengths_changes, curvature_changes),
-        Kwargs("color"_a = "red", "linewidth"_a = 2.0, "label"_a = "Curvature Change Rate"));
-
-      ax_curvature_change.set_xlabel(Args("Arc Length [m]"));
-      ax_curvature_change.set_ylabel(Args("Curvature Change [1/m per step]"));
-      ax_curvature_change.set_title(Args("Curvature Change Rate"));
-      ax_curvature_change.grid(Args(true), Kwargs("alpha"_a = 0.3));
-      ax_curvature_change.legend();
-
-      // 曲率変化の統計を表示
-      double max_change = *std::max_element(curvature_changes.begin(), curvature_changes.end());
-      double min_change = *std::min_element(curvature_changes.begin(), curvature_changes.end());
-      double avg_change = std::accumulate(curvature_changes.begin(), curvature_changes.end(), 0.0) /
-                          curvature_changes.size();
-
-      std::cerr << "\n=== Curvature Change Rate Statistics ===" << std::endl;
-      std::cerr << "Max change: " << max_change << " (1/m per step)" << std::endl;
-      std::cerr << "Min change: " << min_change << " (1/m per step)" << std::endl;
-      std::cerr << "Average change: " << avg_change << " (1/m per step)" << std::endl;
-    } else {
-      ax_curvature_change.text(
-        Args(0.5, 0.5, "No curvature change data"), Kwargs("ha"_a = "center", "va"_a = "center"));
-      ax_curvature_change.set_title(Args("Curvature Change Rate (No Data)"));
-    }
   } else {
     // 曲率データがない場合のメッセージ表示
     ax_curvature.text(
       Args(0.5, 0.5, "Insufficient points for\ncurvature calculation"),
       Kwargs("ha"_a = "center", "va"_a = "center"));
     ax_curvature.set_title(Args("Curvature Analysis (No Data)"));
-
-    ax_curvature_change.text(
-      Args(0.5, 0.5, "No curvature change data"), Kwargs("ha"_a = "center", "va"_a = "center"));
-    ax_curvature_change.set_title(Args("Curvature Change Rate (No Data)"));
   }
 
   // 統計情報をコンソールに出力
@@ -845,53 +764,6 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
   // レイアウトを調整して表示
   fig.tight_layout();
   plt.show(Args(), Kwargs("block"_a = true));
-
-  // ============================================================================
-  // クロソイド経路の品質評価
-  // ============================================================================
-  std::cerr << "\n=== Clothoid Path Quality Analysis ===" << std::endl;
-
-  for (size_t i = 0; i < clothoid_paths.size(); ++i) {
-    const auto & clothoid_path = clothoid_paths[i];
-    const auto & original_segment = circular_path.segments[i];
-
-    if (clothoid_path.size() < 2) continue;
-
-    std::cerr << "\nSegment " << (i + 1) << " Analysis:" << std::endl;
-
-    // 経路長の比較
-    double clothoid_length = 0.0;
-    for (size_t j = 1; j < clothoid_path.size(); ++j) {
-      double dx = clothoid_path[j].x - clothoid_path[j - 1].x;
-      double dy = clothoid_path[j].y - clothoid_path[j - 1].y;
-      clothoid_length += std::sqrt(dx * dx + dy * dy);
-    }
-
-    double original_length = original_segment.calculateArcLength();
-    double length_error = std::abs(clothoid_length - original_length) / original_length * 100.0;
-
-    std::cerr << "  Path length comparison:" << std::endl;
-    std::cerr << "    Original arc: " << original_length << " m" << std::endl;
-    std::cerr << "    Clothoid: " << clothoid_length << " m" << std::endl;
-    std::cerr << "    Relative error: " << length_error << "%" << std::endl;
-
-    // 開始点と終了点の比較
-    auto original_start = original_segment.getPointAtAngle(original_segment.getStartAngle());
-    auto original_end = original_segment.getPointAtAngle(original_segment.getEndAngle());
-
-    double start_error = std::sqrt(
-      std::pow(clothoid_path.front().x - original_start.x, 2) +
-      std::pow(clothoid_path.front().y - original_start.y, 2));
-    double end_error = std::sqrt(
-      std::pow(clothoid_path.back().x - original_end.x, 2) +
-      std::pow(clothoid_path.back().y - original_end.y, 2));
-
-    std::cerr << "  Position accuracy:" << std::endl;
-    std::cerr << "    Start point error: " << start_error << " m" << std::endl;
-    std::cerr << "    End point error: " << end_error << " m" << std::endl;
-  }
-
-  std::cerr << "=======================================" << std::endl;
 }
 
 }  // namespace autoware::behavior_path_planner
