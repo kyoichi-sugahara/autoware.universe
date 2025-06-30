@@ -82,6 +82,17 @@ PathWithLaneId createPathWithLaneIdFromClothoidPaths(
   const lanelet::ConstLanelets & road_lanes,
   const std::shared_ptr<autoware::route_handler::RouteHandler> & route_handler);
 
+/**
+ * @brief センターラインパスとクロソイドパスを結合する関数
+ * @param clothoid_path クロソイドパス
+ * @param centerline_path センターラインパス
+ * @param target_pose 目標姿勢
+ * @return 結合されたPathWithLaneId
+ */
+PathWithLaneId combinePathWithCenterline(
+  const PathWithLaneId & clothoid_path, const PathWithLaneId & centerline_path,
+  const geometry_msgs::msg::Pose & target_pose);
+
 class ClothoidPullOut : public PullOutPlannerBase
 {
 public:
