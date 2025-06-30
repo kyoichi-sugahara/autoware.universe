@@ -695,25 +695,27 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     PathWithLaneId path_with_lane_id = createPathWithLaneIdFromClothoidPaths(
       clothoid_paths, target_pose, velocity, road_lanes, route_handler);
 
-    // 有効なパスが生成された場合のみ処理を続行
-    if (!path_with_lane_id.points.empty()) {
-      // PullOutPathを作成
-      PullOutPath pull_out_path;
-      pull_out_path.start_pose = start_pose;
-      pull_out_path.end_pose = target_pose;
-
-      // 速度と加速度のペア設定
-      // TODO(Sugahara): set parameter properly
-      pull_out_path.pairs_terminal_velocity_and_accel.push_back(std::make_pair(velocity, 1.0));
-
-      // センターラインパスとの結合（空チェックは関数内で実行）
-      auto combined_path =
-        combinePathWithCenterline(path_with_lane_id, centerline_path, target_pose);
-      pull_out_path.partial_paths.push_back(combined_path);
-
-      // TODO(Sugahara): check lane departure
-      return pull_out_path;
+    if (path_with_lane_id.points.empty()) {
+      std::cerr << "No clothoid path found for steer angle " << steer_angle * 180.0 / M_PI
+                << " deg." << std::endl;
+      continue;
     }
+
+    // PullOutPathを作成
+    PullOutPath pull_out_path;
+    pull_out_path.start_pose = start_pose;
+    pull_out_path.end_pose = target_pose;
+
+    // 速度と加速度のペア設定
+    // TODO(Sugahara): set parameter properly
+    pull_out_path.pairs_terminal_velocity_and_accel.push_back(std::make_pair(velocity, 1.0));
+
+    // センターラインパスとの結合（空チェックは関数内で実行）
+    auto combined_path = combinePathWithCenterline(path_with_lane_id, centerline_path, target_pose);
+    pull_out_path.partial_paths.push_back(combined_path);
+
+    // TODO(Sugahara): check lane departure
+    return pull_out_path;
   }
 
   // 経路が生成できなかった場合
