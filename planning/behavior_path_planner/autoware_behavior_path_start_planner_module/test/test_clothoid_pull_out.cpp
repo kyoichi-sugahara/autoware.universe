@@ -170,6 +170,49 @@ void plot_footprint(
   axes.fill(Args(xs, ys), Kwargs("color"_a = color, "alpha"_a = alpha));
 }
 
+void plot_velocity_acceleration(
+  matplotlibcpp17::axes::Axes & axes,
+  const autoware_internal_planning_msgs::msg::PathWithLaneId & path)
+{
+  if (path.points.empty()) {
+    axes.text(
+      Args(0.5, 0.5, "No path data available"), Kwargs("ha"_a = "center", "va"_a = "center"));
+    axes.set_title(Args("Velocity & Acceleration (No Data)"));
+    return;
+  }
+
+  std::vector<double> arc_lengths;
+  std::vector<double> velocities;
+
+  // 弧長と速度を計算
+  arc_lengths.push_back(0.0);
+  double cumulative_length = 0.0;
+
+  for (size_t i = 0; i < path.points.size(); ++i) {
+    const auto & point = path.points[i];
+    velocities.push_back(point.point.longitudinal_velocity_mps);
+
+    if (i > 0) {
+      // 弧長を計算
+      double dx = point.point.pose.position.x - path.points[i - 1].point.pose.position.x;
+      double dy = point.point.pose.position.y - path.points[i - 1].point.pose.position.y;
+      cumulative_length += std::sqrt(dx * dx + dy * dy);
+      arc_lengths.push_back(cumulative_length);
+    }
+  }
+
+  // 速度をプロット
+  axes.plot(
+    Args(arc_lengths, velocities),
+    Kwargs("color"_a = "blue", "linewidth"_a = 2.0, "label"_a = "Velocity [m/s]"));
+
+  axes.set_xlabel(Args("Arc Length [m]"));
+  axes.set_ylabel(Args("Velocity [m/s]"));
+  axes.set_title(Args("Velocity Profile"));
+  axes.grid(Args(true), Kwargs("alpha"_a = 0.3));
+  axes.legend();
+}
+
 class TestClothoidPullOut : public ::testing::Test
 {
 public:
@@ -424,12 +467,10 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
   const auto relative_pose_info =
     start_planner_utils::calculateRelativePoseInVehicleCoordinate(start_pose, target_pose);
 
-  // calc_circular_pathを直接呼び出し
   const auto circular_path = start_planner_utils::calc_circular_path(
     start_pose, relative_pose_info.longitudinal_distance_vehicle,
     relative_pose_info.lateral_distance_vehicle, relative_pose_info.angle_diff, minimum_radius);
 
-  // 円弧経路が生成されたことを確認
   ASSERT_FALSE(circular_path.segments.empty()) << "Circular path generation failed.";
 
   // 経路点を生成
@@ -498,11 +539,9 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
     }
   }
 
-  // 曲率情報を計算・出力
   const auto trajectory = start_planner_utils::convertCircularPathToTrajectory(circular_path);
   const auto curvatures = start_planner_utils::calcCurvatureFromTrajectory(trajectory);
 
-  // 各円弧セグメントをクロソイドに変換
   std::vector<std::vector<geometry_msgs::msg::Point>> clothoid_paths;
 
   // セグメント間の連続性を保つための姿勢管理
@@ -551,7 +590,6 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
     }
   }
 
-  // プロット作成 - 左に経路、右に曲率分析を表示
   pybind11::scoped_interpreter guard{};
   auto plt = matplotlibcpp17::pyplot::import();
 
@@ -616,10 +654,11 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
 
   has_curvature_data = true;
 
-  // 横並びプロット作成: 左に経路、右に曲率分析
-  auto [fig, axes] = plt.subplots(1, 2, Kwargs("figsize"_a = std::make_tuple(18, 6)));
+  // 横並びプロット作成: 左に経路、中央に曲率分析、右に速度・加速度
+  auto [fig, axes] = plt.subplots(1, 3, Kwargs("figsize"_a = std::make_tuple(24, 6)));
   auto & ax_path = axes[0];
   auto & ax_curvature = axes[1];
+  auto & ax_velocity = axes[2];
 
   // ============================================================================
   // 左側: 経路プロット
@@ -646,12 +685,6 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
     ys.push_back(point.second);
   }
 
-  // 円弧経路を線で接続
-  ax_path.plot(
-    Args(xs, ys),
-    Kwargs("color"_a = "blue", "linewidth"_a = 2.0, "label"_a = "circular path", "alpha"_a = 0.7));
-
-  // 円弧経路を点でマーク
   ax_path.scatter(Args(xs, ys), Kwargs("color"_a = "blue", "s"_a = 10, "alpha"_a = 0.6));
 
   // クロソイド経路をプロット
@@ -718,7 +751,7 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
   ax_path.legend();
 
   // ============================================================================
-  // 中央・右側: 曲率分析プロット
+  // 中央: 曲率分析プロット
   // ============================================================================
 
   if (has_curvature_data && !curvature_values.empty()) {
@@ -739,6 +772,20 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
       Args(0.5, 0.5, "Insufficient points for\ncurvature calculation"),
       Kwargs("ha"_a = "center", "va"_a = "center"));
     ax_curvature.set_title(Args("Curvature Analysis (No Data)"));
+  }
+
+  // ============================================================================
+  // 右側: 速度・加速度分析プロット
+  // ============================================================================
+
+  if (!path_with_lane_id.points.empty()) {
+    plot_velocity_acceleration(ax_velocity, path_with_lane_id);
+    std::cerr << "Velocity and acceleration plotted for PathWithLaneId" << std::endl;
+  } else {
+    ax_velocity.text(
+      Args(0.5, 0.5, "No PathWithLaneId data\navailable for velocity analysis"),
+      Kwargs("ha"_a = "center", "va"_a = "center"));
+    ax_velocity.set_title(Args("Velocity & Acceleration (No Data)"));
   }
 
   // 統計情報をコンソールに出力
