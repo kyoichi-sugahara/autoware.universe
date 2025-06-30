@@ -67,21 +67,12 @@ std::vector<geometry_msgs::msg::Point> correctClothoidByRigidTransform(
     return clothoid_points;
   }
 
-  std::cerr << "\n=== Rigid Transform Correction ===" << std::endl;
-
-  // 1. 現在のクロソイドの幾何学的特性を取得
   auto clothoid_start = clothoid_points.front();
   auto clothoid_end = clothoid_points.back();
 
   // 目標の開始・終了位置を取得
   auto target_start = start_pose.position;
   auto target_end = original_segment.getPointAtAngle(original_segment.getEndAngle());
-
-  std::cerr << "Target start: (" << target_start.x << ", " << target_start.y << ")" << std::endl;
-  std::cerr << "Target end: (" << target_end.x << ", " << target_end.y << ")" << std::endl;
-  std::cerr << "Clothoid start: (" << clothoid_start.x << ", " << clothoid_start.y << ")"
-            << std::endl;
-  std::cerr << "Clothoid end: (" << clothoid_end.x << ", " << clothoid_end.y << ")" << std::endl;
 
   // 2. 方向ベクトルを計算
   double clothoid_dx = clothoid_end.x - clothoid_start.x;
@@ -444,7 +435,7 @@ std::vector<geometry_msgs::msg::Point> generateClothoidPath(
  */
 std::vector<geometry_msgs::msg::Point> convertArcToClothoid(
   const ArcSegment & arc_segment, const geometry_msgs::msg::Pose & start_pose, double A_min,
-  double L_min, int num_points_per_segment = 50)
+  double L_min, int num_points_per_segment)
 {
   std::cerr << "\n=== Arc to Clothoid Conversion ===" << std::endl;
 
@@ -527,7 +518,7 @@ std::vector<geometry_msgs::msg::Point> convertArcToClothoid(
  */
 std::vector<geometry_msgs::msg::Point> convertArcToClothoidWithCorrection(
   const ArcSegment & arc_segment, const geometry_msgs::msg::Pose & start_pose, double A_min,
-  double L_min, int num_points_per_segment = 50)
+  double L_min, int num_points_per_segment)
 {
   // 元のクロソイド変換を実行
   auto clothoid_points =
@@ -585,7 +576,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       : autoware::motion_utils::calcLateralOffset(centerline_path.points, start_pose.position);
   std::cerr << "Lateral offset: " << lateral_offset << std::endl;
   // TODO(Sugahara): define as parameter
-  const std::vector<double> max_steer_angle_degs = {10.0, 20.0};
+  const std::vector<double> max_steer_angle_degs = {5.0, 10.0, 20.0};
   const std::vector<double> max_steer_angle = {
     max_steer_angle_degs[0] * M_PI / 180.0, max_steer_angle_degs[1] * M_PI / 180.0};
   // const std::vector<double> max_steer_angle_degs = {20.0, 30.0, 40.0, 50.0, 60.0};
@@ -617,7 +608,6 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       start_pose, relative_pose_info.longitudinal_distance_vehicle,
       relative_pose_info.lateral_distance_vehicle, relative_pose_info.angle_diff, minimum_radius);
 
-    // circular_pathが空の場合は処理を終了
     if (circular_path.segments.empty()) {
       std::cerr << "No circular path segments found for steer angle " << steer_angle * 180.0 / M_PI
                 << " deg." << std::endl;
@@ -658,12 +648,6 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
             current_segment_pose.position = last_point;
             current_segment_pose.orientation =
               tf2::toMsg(tf2::Quaternion(tf2::Vector3(0, 0, 1), heading));
-
-            std::cerr << "Updated pose for next segment:" << std::endl;
-            std::cerr << "  Position: (" << current_segment_pose.position.x << ", "
-                      << current_segment_pose.position.y << ")" << std::endl;
-            std::cerr << "  Heading: " << heading << " rad (" << heading * 180.0 / M_PI << " deg)"
-                      << std::endl;
           }
         }
       } else {

@@ -22,13 +22,46 @@
 #include <autoware/boundary_departure_checker/boundary_departure_checker.hpp>
 
 #include <autoware_internal_planning_msgs/msg/path_with_lane_id.hpp>
+#include <geometry_msgs/msg/point.hpp>
+#include <geometry_msgs/msg/pose.hpp>
 
 #include <memory>
+#include <utility>
 #include <vector>
 
 namespace autoware::behavior_path_planner
 {
 using autoware::boundary_departure_checker::BoundaryDepartureChecker;
+
+// Forward declarations for clothoid-related structures
+struct ArcSegment;
+struct ClothoidSegment;
+
+// Function declarations for clothoid processing functions
+std::vector<geometry_msgs::msg::Point> correctClothoidByRigidTransform(
+  const std::vector<geometry_msgs::msg::Point> & clothoid_points,
+  const ArcSegment & original_segment, const geometry_msgs::msg::Pose & start_pose);
+
+std::pair<std::vector<geometry_msgs::msg::Point>, geometry_msgs::msg::Pose> generateClothoidEntry(
+  const ClothoidSegment & segment, const geometry_msgs::msg::Pose & start_pose, int num_points);
+
+std::pair<std::vector<geometry_msgs::msg::Point>, geometry_msgs::msg::Pose> generateCircularSegment(
+  const ClothoidSegment & segment, const geometry_msgs::msg::Pose & start_pose, int num_points);
+
+std::pair<std::vector<geometry_msgs::msg::Point>, geometry_msgs::msg::Pose> generateClothoidExit(
+  const ClothoidSegment & segment, const geometry_msgs::msg::Pose & start_pose, int num_points);
+
+std::vector<geometry_msgs::msg::Point> generateClothoidPath(
+  const std::vector<ClothoidSegment> & segments, int num_points_per_segment,
+  const geometry_msgs::msg::Pose & start_pose);
+
+std::vector<geometry_msgs::msg::Point> convertArcToClothoid(
+  const ArcSegment & arc_segment, const geometry_msgs::msg::Pose & start_pose, double A_min,
+  double L_min, int num_points_per_segment = 50);
+
+std::vector<geometry_msgs::msg::Point> convertArcToClothoidWithCorrection(
+  const ArcSegment & arc_segment, const geometry_msgs::msg::Pose & start_pose, double A_min,
+  double L_min, int num_points_per_segment = 50);
 
 class ClothoidPullOut : public PullOutPlannerBase
 {
