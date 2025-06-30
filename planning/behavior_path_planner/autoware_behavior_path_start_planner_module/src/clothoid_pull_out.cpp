@@ -444,14 +444,33 @@ PathWithLaneId createPathWithLaneIdFromClothoidPaths(
   const lanelet::ConstLanelets & road_lanes,
   const std::shared_ptr<autoware::route_handler::RouteHandler> & route_handler)
 {
+  // クロソイドパスが空の場合は空のPathWithLaneIdを返す
+  if (clothoid_paths.empty()) {
+    PathWithLaneId empty_path;
+    empty_path.header = route_handler->getRouteHeader();
+    return empty_path;
+  }
+
   // 全てのクロソイドパスを結合
   std::vector<geometry_msgs::msg::Point> all_clothoid_points;
   for (const auto & path : clothoid_paths) {
+    // パスが空でない場合のみ処理
+    if (path.empty()) {
+      continue;
+    }
+
     // 最初のパス以外は最初の点をスキップ（重複回避）
     size_t start_idx = (all_clothoid_points.empty()) ? 0 : 1;
     for (size_t j = start_idx; j < path.size(); ++j) {
       all_clothoid_points.push_back(path[j]);
     }
+  }
+
+  // 結合後も空の場合は空のPathWithLaneIdを返す
+  if (all_clothoid_points.empty()) {
+    PathWithLaneId empty_path;
+    empty_path.header = route_handler->getRouteHeader();
+    return empty_path;
   }
 
   // PathWithLaneIdを作成
@@ -515,6 +534,43 @@ PathWithLaneId createPathWithLaneIdFromClothoidPaths(
   }
 
   return path_with_lane_id;
+}
+
+/**
+ * @brief センターラインパスとクロソイドパスを結合する関数
+ */
+PathWithLaneId combinePathWithCenterline(
+  const PathWithLaneId & clothoid_path, const PathWithLaneId & centerline_path,
+  const geometry_msgs::msg::Pose & target_pose)
+{
+  // センターラインパスが空の場合はクロソイドパスをそのまま返す
+  if (centerline_path.points.empty()) {
+    return clothoid_path;
+  }
+
+  // target_poseの位置でcenterline_pathから接続点を見つける
+  const auto target_idx =
+    autoware::motion_utils::findNearestIndex(centerline_path.points, target_pose.position);
+
+  // target_poseから先のcenterline pathを取得
+  if (target_idx < centerline_path.points.size()) {
+    PathWithLaneId centerline_extension;
+    centerline_extension.header = centerline_path.header;
+
+    // target_poseから先の点をcenterline_extensionに追加
+    for (size_t i = target_idx; i < centerline_path.points.size(); ++i) {
+      centerline_extension.points.push_back(centerline_path.points[i]);
+    }
+
+    // centerline extensionが存在する場合、既存のpathと結合
+    if (!centerline_extension.points.empty()) {
+      // 重複点を避けて結合
+      return utils::combinePath(clothoid_path, centerline_extension);
+    }
+  }
+
+  // 結合できない場合はクロソイドパスをそのまま返す
+  return clothoid_path;
 }
 
 ClothoidPullOut::ClothoidPullOut(
@@ -635,15 +691,14 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       }
     }
 
-    // クロソイドパスが生成された場合、PathWithLaneIdを作成
-    if (!clothoid_paths.empty()) {
-      // PathWithLaneIdを作成
-      PathWithLaneId path_with_lane_id = createPathWithLaneIdFromClothoidPaths(
-        clothoid_paths, target_pose, velocity, road_lanes, route_handler);
+    // PathWithLaneIdを作成（空チェックは関数内で実行）
+    PathWithLaneId path_with_lane_id = createPathWithLaneIdFromClothoidPaths(
+      clothoid_paths, target_pose, velocity, road_lanes, route_handler);
 
+    // 有効なパスが生成された場合のみ処理を続行
+    if (!path_with_lane_id.points.empty()) {
       // PullOutPathを作成
       PullOutPath pull_out_path;
-      pull_out_path.partial_paths.push_back(path_with_lane_id);
       pull_out_path.start_pose = start_pose;
       pull_out_path.end_pose = target_pose;
 
@@ -651,33 +706,10 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       // TODO(Sugahara): set parameter properly
       pull_out_path.pairs_terminal_velocity_and_accel.push_back(std::make_pair(velocity, 1.0));
 
-      // target_poseからcenter lineのpathに接続する処理を追加
-      if (!centerline_path.points.empty()) {
-        // target_poseの位置でcenterline_pathから接続点を見つける
-        const auto target_idx =
-          autoware::motion_utils::findNearestIndex(centerline_path.points, target_pose.position);
-
-        // target_poseから先のcenterline pathを取得
-        if (target_idx < centerline_path.points.size()) {
-          PathWithLaneId centerline_extension;
-          centerline_extension.header = centerline_path.header;
-
-          // target_poseから先の点をcenterline_extensionに追加
-          for (size_t i = target_idx; i < centerline_path.points.size(); ++i) {
-            centerline_extension.points.push_back(centerline_path.points[i]);
-          }
-
-          // centerline extensionが存在する場合、既存のpathと結合
-          if (!centerline_extension.points.empty()) {
-            // 重複点を避けて結合
-            auto combined_path = utils::combinePath(path_with_lane_id, centerline_extension);
-
-            // 結合されたpathでPullOutPathを更新
-            pull_out_path.partial_paths.clear();
-            pull_out_path.partial_paths.push_back(combined_path);
-          }
-        }
-      }
+      // センターラインパスとの結合（空チェックは関数内で実行）
+      auto combined_path =
+        combinePathWithCenterline(path_with_lane_id, centerline_path, target_pose);
+      pull_out_path.partial_paths.push_back(combined_path);
 
       // TODO(Sugahara): check lane departure
       return pull_out_path;
