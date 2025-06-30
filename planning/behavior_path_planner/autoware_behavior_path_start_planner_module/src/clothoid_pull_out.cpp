@@ -650,18 +650,17 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       continue;
     }
 
-    // 車両パラメータから最適なクロソイドパラメータを計算
-    const double circular_steer_angle = std::atan(wheel_base / minimum_radius);
-    const double minimum_steer_time = circular_steer_angle / max_steer_angle_rate;
-    const double L_min = velocity * minimum_steer_time;
-    const double A_min = std::sqrt(minimum_radius * L_min);
-
     // セグメント間の連続性を保つための姿勢管理
     geometry_msgs::msg::Pose current_segment_pose = start_pose;
     std::vector<std::vector<geometry_msgs::msg::Point>> clothoid_paths;
 
     for (size_t i = 0; i < circular_path.segments.size(); ++i) {
       const auto & segment = circular_path.segments[i];
+      // 車両パラメータから最適なクロソイドパラメータを計算
+      const double circular_steer_angle = std::atan(wheel_base / minimum_radius);
+      const double minimum_steer_time = circular_steer_angle / max_steer_angle_rate;
+      const double L_min = velocity * minimum_steer_time;
+      const double A_min = std::sqrt(minimum_radius * L_min);
 
       // クロソイド変換を実行
       auto clothoid_points =
@@ -691,7 +690,6 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       }
     }
 
-    // PathWithLaneIdを作成（空チェックは関数内で実行）
     PathWithLaneId path_with_lane_id = createPathWithLaneIdFromClothoidPaths(
       clothoid_paths, target_pose, velocity, road_lanes, route_handler);
 
