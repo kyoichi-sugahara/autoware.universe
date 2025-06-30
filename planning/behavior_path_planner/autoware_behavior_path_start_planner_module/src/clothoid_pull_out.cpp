@@ -537,6 +537,94 @@ std::vector<geometry_msgs::msg::Point> convertArcToClothoidWithCorrection(
   return corrected_points;
 }
 
+/**
+ * @brief クロソイドパスからPathWithLaneIdを生成する関数
+ * @param clothoid_paths クロソイドパスの配列
+ * @param target_pose 目標姿勢
+ * @param velocity 速度
+ * @param road_lanes 道路レーン情報
+ * @param route_handler ルートハンドラー
+ * @return PathWithLaneId
+ */
+PathWithLaneId createPathWithLaneIdFromClothoidPaths(
+  const std::vector<std::vector<geometry_msgs::msg::Point>> & clothoid_paths,
+  const geometry_msgs::msg::Pose & target_pose, double velocity,
+  const lanelet::ConstLanelets & road_lanes,
+  const std::shared_ptr<autoware::route_handler::RouteHandler> & route_handler)
+{
+  // 全てのクロソイドパスを結合
+  std::vector<geometry_msgs::msg::Point> all_clothoid_points;
+  for (const auto & path : clothoid_paths) {
+    // 最初のパス以外は最初の点をスキップ（重複回避）
+    size_t start_idx = (all_clothoid_points.empty()) ? 0 : 1;
+    for (size_t j = start_idx; j < path.size(); ++j) {
+      all_clothoid_points.push_back(path[j]);
+    }
+  }
+
+  // PathWithLaneIdを作成
+  PathWithLaneId path_with_lane_id;
+  path_with_lane_id.header = route_handler->getRouteHeader();
+
+  // 各座標点をPathPointWithLaneIdに変換
+  for (size_t i = 0; i < all_clothoid_points.size(); ++i) {
+    PathPointWithLaneId path_point;
+
+    // 座標設定
+    path_point.point.pose.position = all_clothoid_points[i];
+
+    // 向きを計算（次の点への方向）
+    if (i < all_clothoid_points.size() - 1) {
+      const double dx = all_clothoid_points[i + 1].x - all_clothoid_points[i].x;
+      const double dy = all_clothoid_points[i + 1].y - all_clothoid_points[i].y;
+      const double yaw = std::atan2(dy, dx);
+
+      // quaternionを直接設定
+      path_point.point.pose.orientation.x = 0.0;
+      path_point.point.pose.orientation.y = 0.0;
+      path_point.point.pose.orientation.z = std::sin(yaw / 2.0);
+      path_point.point.pose.orientation.w = std::cos(yaw / 2.0);
+    } else {
+      // 最後の点は目標姿勢と同じ向き
+      path_point.point.pose.orientation = target_pose.orientation;
+    }
+
+    // 速度設定（一定速度）
+    path_point.point.longitudinal_velocity_mps = velocity;
+    path_point.point.lateral_velocity_mps = 0.0;
+    path_point.point.heading_rate_rps = 0.0;
+    path_point.point.is_final = (i == all_clothoid_points.size() - 1);
+
+    // レーンIDの設定
+    lanelet::Lanelet closest_lanelet{};
+    bool found_containing_lane = false;
+
+    for (const auto & lane : road_lanes) {
+      if (lanelet::utils::isInLanelet(path_point.point.pose, lane)) {
+        path_point.lane_ids.push_back(lane.id());
+        found_containing_lane = true;
+      }
+    }
+
+    if (!found_containing_lane) {
+      if (lanelet::utils::query::getClosestLanelet(
+            road_lanes, path_point.point.pose, &closest_lanelet)) {
+        path_point.lane_ids = {closest_lanelet.id()};
+      } else if (i > 0) {
+        // 前の点のlane_idsを継承
+        path_point.lane_ids = path_with_lane_id.points[i - 1].lane_ids;
+      } else if (!road_lanes.empty()) {
+        // 最後のフォールバック
+        path_point.lane_ids.push_back(road_lanes[0].id());
+      }
+    }
+
+    path_with_lane_id.points.push_back(path_point);
+  }
+
+  return path_with_lane_id;
+}
+
 ClothoidPullOut::ClothoidPullOut(
   rclcpp::Node & node, const StartPlannerParameters & parameters,
   std::shared_ptr<autoware_utils::TimeKeeper> time_keeper)
@@ -657,74 +745,9 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
 
     // クロソイドパスが生成された場合、PathWithLaneIdを作成
     if (!clothoid_paths.empty()) {
-      // 全てのクロソイドパスを結合
-      std::vector<geometry_msgs::msg::Point> all_clothoid_points;
-      for (const auto & path : clothoid_paths) {
-        // 最初のパス以外は最初の点をスキップ（重複回避）
-        size_t start_idx = (all_clothoid_points.empty()) ? 0 : 1;
-        for (size_t j = start_idx; j < path.size(); ++j) {
-          all_clothoid_points.push_back(path[j]);
-        }
-      }
-
       // PathWithLaneIdを作成
-      PathWithLaneId path_with_lane_id;
-      path_with_lane_id.header = planner_data->route_handler->getRouteHeader();
-
-      // 各座標点をPathPointWithLaneIdに変換
-      for (size_t i = 0; i < all_clothoid_points.size(); ++i) {
-        PathPointWithLaneId path_point;
-
-        // 座標設定
-        path_point.point.pose.position = all_clothoid_points[i];
-
-        // 向きを計算（次の点への方向）
-        if (i < all_clothoid_points.size() - 1) {
-          const double dx = all_clothoid_points[i + 1].x - all_clothoid_points[i].x;
-          const double dy = all_clothoid_points[i + 1].y - all_clothoid_points[i].y;
-          const double yaw = std::atan2(dy, dx);
-
-          // quaternionを直接設定
-          path_point.point.pose.orientation.x = 0.0;
-          path_point.point.pose.orientation.y = 0.0;
-          path_point.point.pose.orientation.z = std::sin(yaw / 2.0);
-          path_point.point.pose.orientation.w = std::cos(yaw / 2.0);
-        } else {
-          // 最後の点は目標姿勢と同じ向き
-          path_point.point.pose.orientation = target_pose.orientation;
-        }
-
-        // 速度設定（一定速度）
-        path_point.point.longitudinal_velocity_mps = velocity;  // 5 m/s
-        path_point.point.lateral_velocity_mps = 0.0;
-        path_point.point.heading_rate_rps = 0.0;
-        path_point.point.is_final = (i == all_clothoid_points.size() - 1);
-
-        lanelet::Lanelet closest_lanelet{};
-        bool found_containing_lane = false;
-
-        for (const auto & lane : road_lanes) {
-          if (lanelet::utils::isInLanelet(path_point.point.pose, lane)) {
-            path_point.lane_ids.push_back(lane.id());
-            found_containing_lane = true;
-          }
-        }
-
-        if (!found_containing_lane) {
-          if (lanelet::utils::query::getClosestLanelet(
-                road_lanes, path_point.point.pose, &closest_lanelet)) {
-            path_point.lane_ids = {closest_lanelet.id()};
-          } else if (i > 0) {
-            // 前の点のlane_idsを継承
-            path_point.lane_ids = path_with_lane_id.points[i - 1].lane_ids;
-          } else if (!road_lanes.empty()) {
-            // 最後のフォールバック
-            path_point.lane_ids.push_back(road_lanes[0].id());
-          }
-        }
-
-        path_with_lane_id.points.push_back(path_point);
-      }
+      PathWithLaneId path_with_lane_id = createPathWithLaneIdFromClothoidPaths(
+        clothoid_paths, target_pose, velocity, road_lanes, route_handler);
 
       // PullOutPathを作成
       PullOutPath pull_out_path;
