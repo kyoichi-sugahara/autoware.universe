@@ -43,6 +43,7 @@
 #include <vector>
 
 using autoware::behavior_path_planner::ClothoidPullOut;
+using autoware::behavior_path_planner::combinePathWithCenterline;
 using autoware::behavior_path_planner::createPathWithLaneIdFromClothoidPaths;
 using autoware::behavior_path_planner::StartPlannerParameters;
 using autoware::test_utils::get_absolute_path_to_config;
@@ -604,15 +605,11 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
     }
   }
 
-  std::cerr << "Combined clothoid path: " << combined_clothoid_path.size() << " points"
-            << std::endl;
-
   // createPathWithLaneIdFromClothoidPaths関数を呼び出してPathWithLaneIdを生成
   PathWithLaneId path_with_lane_id = createPathWithLaneIdFromClothoidPaths(
     clothoid_paths, target_pose, velocity, road_lanes, route_handler);
 
-  std::cerr << "Generated PathWithLaneId with " << path_with_lane_id.points.size() << " points"
-            << std::endl;
+  auto combined_path = combinePathWithCenterline(path_with_lane_id, centerline_path, target_pose);
 
   // 曲率計算データの準備
   std::vector<double> arc_lengths;
@@ -719,9 +716,7 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
 
   // PathWithLaneIdをプロット
   if (!path_with_lane_id.points.empty()) {
-    plot_path_with_lane_id(ax_path, path_with_lane_id, "green", "PathWithLaneId", 3.0);
-    std::cerr << "PathWithLaneId plotted with " << path_with_lane_id.points.size() << " points"
-              << std::endl;
+    plot_path_with_lane_id(ax_path, combined_path, "green", "PathWithLaneId", 3.0);
   }
 
   // 円弧セグメントの中心点をプロット
@@ -736,10 +731,10 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
 
   // プロット範囲を設定
   const double margin = 20.0;
-  const double x_min = std::min(start_pose.position.x, target_pose.position.x) - margin;
-  const double x_max = std::max(start_pose.position.x, target_pose.position.x) + margin;
-  const double y_min = std::min(start_pose.position.y, target_pose.position.y) - margin;
-  const double y_max = std::max(start_pose.position.y, target_pose.position.y) + margin;
+  const double x_min = std::min(start_pose.position.x, goal_pose.position.x) - margin;
+  const double x_max = std::max(start_pose.position.x, goal_pose.position.x) + margin;
+  const double y_min = std::min(start_pose.position.y, goal_pose.position.y) - margin;
+  const double y_max = std::max(start_pose.position.y, goal_pose.position.y) + margin;
 
   ax_path.set_xlim(Args(x_min, x_max));
   ax_path.set_ylim(Args(y_min, y_max));
