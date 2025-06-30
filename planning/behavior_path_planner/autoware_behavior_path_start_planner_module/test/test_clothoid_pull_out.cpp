@@ -43,8 +43,10 @@
 #include <vector>
 
 using autoware::behavior_path_planner::ClothoidPullOut;
+using autoware::behavior_path_planner::createPathWithLaneIdFromClothoidPaths;
 using autoware::behavior_path_planner::StartPlannerParameters;
 using autoware::test_utils::get_absolute_path_to_config;
+using autoware_internal_planning_msgs::msg::PathWithLaneId;
 using autoware_planning_msgs::msg::LaneletRoute;
 using RouteSections = std::vector<autoware_planning_msgs::msg::LaneletSegment>;
 using autoware::behavior_path_planner::testing::StartPlannerTestHelper;
@@ -509,9 +511,6 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
   for (size_t i = 0; i < circular_path.segments.size(); ++i) {
     const auto & segment = circular_path.segments[i];
 
-    // セグメントの開始状態をデバッグ出力
-    double current_yaw = tf2::getYaw(current_segment_pose.orientation);
-
     // 車両パラメータから最適なクロソイドパラメータを計算
     const double circular_steer_angle = std::atan(wheel_base / segment.radius);
     const double minimum_steer_time = circular_steer_angle / max_steer_angle_rate;
@@ -556,12 +555,6 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
   pybind11::scoped_interpreter guard{};
   auto plt = matplotlibcpp17::pyplot::import();
 
-  // ============================================================================
-  // クロソイド経路の曲率計算（プロット前に実行）
-  // ============================================================================
-  std::cerr << "\n=== Clothoid Path Curvature Analysis ===" << std::endl;
-
-  // clothoid_pathsを結合
   std::vector<geometry_msgs::msg::Point> combined_clothoid_path;
   for (size_t i = 0; i < clothoid_paths.size(); ++i) {
     const auto & clothoid_path = clothoid_paths[i];
@@ -576,6 +569,13 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
   std::cerr << "Combined clothoid path: " << combined_clothoid_path.size() << " points"
             << std::endl;
 
+  // createPathWithLaneIdFromClothoidPaths関数を呼び出してPathWithLaneIdを生成
+  PathWithLaneId path_with_lane_id = createPathWithLaneIdFromClothoidPaths(
+    clothoid_paths, target_pose, velocity, road_lanes, route_handler);
+
+  std::cerr << "Generated PathWithLaneId with " << path_with_lane_id.points.size() << " points"
+            << std::endl;
+
   // 曲率計算データの準備
   std::vector<double> arc_lengths;
   std::vector<double> curvature_values;
@@ -588,10 +588,6 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
     autoware::behavior_path_planner::start_planner_utils::calcCurvatureFromPoints(
       combined_clothoid_path);
 
-  std::cerr << "\n=== Combined Clothoid Path Curvature Debug ===" << std::endl;
-  std::cerr << "Total points: " << combined_clothoid_path.size() << std::endl;
-  std::cerr << "Curvature values count: " << combined_curvatures.size() << std::endl;
-
   // 各点の曲率をデバッグプリント
   for (size_t i = 0; i < combined_curvatures.size(); ++i) {
     const auto & point = combined_clothoid_path[i];
@@ -601,17 +597,6 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
               << "pos=(" << std::fixed << std::setprecision(3) << point.x << ", " << point.y
               << "), "
               << "curvature=" << std::setprecision(6) << curvature << " (1/m)" << std::endl;
-  }
-
-  // 曲率統計の計算
-  double max_curvature = *std::max_element(combined_curvatures.begin(), combined_curvatures.end());
-  double min_curvature = *std::min_element(combined_curvatures.begin(), combined_curvatures.end());
-  double avg_curvature =
-    std::accumulate(combined_curvatures.begin(), combined_curvatures.end(), 0.0) /
-    combined_curvatures.size();
-  double sum_abs_curvature = 0.0;
-  for (const auto & curvature : combined_curvatures) {
-    sum_abs_curvature += std::abs(curvature);
   }
 
   // 弧長を計算
@@ -627,12 +612,6 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
   // 曲率値をコピー
   for (size_t i = 0; i < combined_curvatures.size(); ++i) {
     curvature_values.push_back(combined_curvatures[i]);
-  }
-
-  // 曲率変化率を計算
-  for (size_t i = 1; i < combined_curvatures.size(); ++i) {
-    curvature_changes.push_back(combined_curvatures[i] - combined_curvatures[i - 1]);
-    arc_lengths_changes.push_back(arc_lengths[i]);
   }
 
   has_curvature_data = true;
@@ -703,6 +682,13 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
         Args(clothoid_path.back().x, clothoid_path.back().y),
         Kwargs("marker"_a = "s", "color"_a = color, "markersize"_a = 8, "alpha"_a = 0.9));
     }
+  }
+
+  // PathWithLaneIdをプロット
+  if (!path_with_lane_id.points.empty()) {
+    plot_path_with_lane_id(ax_path, path_with_lane_id, "green", "PathWithLaneId", 3.0);
+    std::cerr << "PathWithLaneId plotted with " << path_with_lane_id.points.size() << " points"
+              << std::endl;
   }
 
   // 円弧セグメントの中心点をプロット
