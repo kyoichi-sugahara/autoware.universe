@@ -411,76 +411,21 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
   const double wheel_base = planner_data->parameters.vehicle_info.wheel_base_m;
   // const double minimum_radius = 13.46;
   const double minimum_radius = wheel_base / std::tan(max_steer_angle);
-  std::cerr << "minimum_radius: " << minimum_radius << std::endl;
 
   // longitudinal necessary distance for pull out
   const double longitudinal_distance =
     start_planner_utils::calc_necessary_longitudinal_distance(-lateral_offset, minimum_radius);
 
-  // target pose calculation
-  Pose target_pose = start_pose;
-  if (!centerline_path.points.empty()) {
-    const auto start_idx =
-      autoware::motion_utils::findNearestIndex(centerline_path.points, start_pose.position);
-    double accumulated_distance = 0.0;
-    size_t target_idx = start_idx;
+  const Pose target_pose = start_planner_utils::findTargetPoseAlongPath(
+    centerline_path, start_pose, longitudinal_distance);
 
-    for (size_t i = start_idx; i < centerline_path.points.size() - 1; ++i) {
-      const double segment_distance = autoware_utils::calc_distance2d(
-        centerline_path.points[i].point.pose.position,
-        centerline_path.points[i + 1].point.pose.position);
-      accumulated_distance += segment_distance;
-
-      if (accumulated_distance >= longitudinal_distance) {
-        target_idx = i + 1;
-        break;
-      }
-    }
-
-    if (target_idx < centerline_path.points.size()) {
-      target_pose = centerline_path.points[target_idx].point.pose;
-    }
-  }
-
-  // Calculate relative position in vehicle coordinate system
-  const double dx = target_pose.position.x - start_pose.position.x;
-  const double dy = target_pose.position.y - start_pose.position.y;
-  const double start_yaw = tf2::getYaw(start_pose.orientation);
-  const double target_yaw = tf2::getYaw(target_pose.orientation);
-
-  // Transform to vehicle coordinate system
-  const double longitudinal_distance_vehicle = dx * std::cos(start_yaw) + dy * std::sin(start_yaw);
-  const double lateral_distance_vehicle = -dx * std::sin(start_yaw) + dy * std::cos(start_yaw);
-
-  // Calculate angle difference
-  double angle_diff = target_yaw - start_yaw;
-  while (angle_diff > M_PI) angle_diff -= 2.0 * M_PI;
-  while (angle_diff < -M_PI) angle_diff += 2.0 * M_PI;
-
-  std::cerr << "=== Test Parameters ===" << std::endl;
-  std::cerr << "Lateral offset: " << lateral_offset << std::endl;
-  std::cerr << "Longitudinal distance: " << longitudinal_distance << std::endl;
-  std::cerr << "Vehicle coordinate relative position:" << std::endl;
-  std::cerr << "  Longitudinal (forward): " << longitudinal_distance_vehicle << " m" << std::endl;
-  std::cerr << "  Lateral (left): " << lateral_distance_vehicle << " m" << std::endl;
-  std::cerr << "  Angle difference: " << angle_diff << " rad (" << angle_diff * 180.0 / M_PI
-            << " deg)" << std::endl;
-
-  // calc_circular_pathの入力パラメータをデバッグ出力
-  std::cerr << "\n=== calc_circular_path Input Parameters ===" << std::endl;
-  std::cerr << "start_pose:" << std::endl;
-  std::cerr << "  position: (" << start_pose.position.x << ", " << start_pose.position.y << ", "
-            << start_pose.position.z << ")" << std::endl;
-  std::cerr << "  orientation (quaternion): (" << start_pose.orientation.x << ", "
-            << start_pose.orientation.y << ", " << start_pose.orientation.z << ", "
-            << start_pose.orientation.w << ")" << std::endl;
-  std::cerr << "  yaw: " << start_yaw << " rad (" << start_yaw * 180.0 / M_PI << " deg)"
-            << std::endl;
+  const auto relative_pose_info =
+    start_planner_utils::calculateRelativePoseInVehicleCoordinate(start_pose, target_pose);
 
   // calc_circular_pathを直接呼び出し
   const auto circular_path = start_planner_utils::calc_circular_path(
-    start_pose, longitudinal_distance_vehicle, lateral_distance_vehicle, angle_diff,
-    minimum_radius);
+    start_pose, relative_pose_info.longitudinal_distance_vehicle,
+    relative_pose_info.lateral_distance_vehicle, relative_pose_info.angle_diff, minimum_radius);
 
   // 円弧経路が生成されたことを確認
   ASSERT_FALSE(circular_path.segments.empty()) << "Circular path generation failed.";
@@ -491,7 +436,6 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
 
   // 角度変化の計算
   double total_angle_change = 0.0;
-  std::cerr << "=== Arc Segment Analysis ===" << std::endl;
 
   for (const auto & segment : circular_path.segments) {
     const double circular_steer_angle = std::atan(wheel_base / segment.radius);
