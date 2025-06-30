@@ -773,8 +773,8 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
   // 右側: 速度・加速度分析プロット
   // ============================================================================
 
-  if (!path_with_lane_id.points.empty()) {
-    plot_velocity_acceleration(ax_velocity, path_with_lane_id);
+  if (!combined_path.points.empty()) {
+    plot_velocity_acceleration(ax_velocity, combined_path);
     std::cerr << "Velocity and acceleration plotted for PathWithLaneId" << std::endl;
   } else {
     ax_velocity.text(
@@ -782,12 +782,6 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
       Kwargs("ha"_a = "center", "va"_a = "center"));
     ax_velocity.set_title(Args("Velocity & Acceleration (No Data)"));
   }
-
-  // 統計情報をコンソールに出力
-  std::cerr << "\n=== Path Statistics Summary ===" << std::endl;
-  std::cerr << "Circular path: " << path_points.size() << " points, "
-            << static_cast<int>(circular_path.calculateTotalLength()) << " m" << std::endl;
-  std::cerr << "===============================" << std::endl;
 
   // レイアウトを調整して表示
   fig.tight_layout();
