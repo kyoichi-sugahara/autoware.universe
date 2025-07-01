@@ -650,7 +650,6 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       continue;
     }
 
-    // セグメント間の連続性を保つための姿勢管理
     geometry_msgs::msg::Pose current_segment_pose = start_pose;
     std::vector<std::vector<geometry_msgs::msg::Point>> clothoid_paths;
 
