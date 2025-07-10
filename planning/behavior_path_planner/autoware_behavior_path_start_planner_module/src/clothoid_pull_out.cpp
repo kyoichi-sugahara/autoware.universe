@@ -433,14 +433,15 @@ std::vector<geometry_msgs::msg::Point> convertArcToClothoidWithCorrection(
  * @brief クロソイドパスからPathWithLaneIdを生成する関数
  * @param clothoid_paths クロソイドパスの配列
  * @param target_pose 目標姿勢
- * @param velocity 速度
+ * @param velocity 初期速度
+ * @param target_velocity 目標速度
  * @param road_lanes 道路レーン情報
  * @param route_handler ルートハンドラー
  * @return PathWithLaneId
  */
 PathWithLaneId createPathWithLaneIdFromClothoidPaths(
   const std::vector<std::vector<geometry_msgs::msg::Point>> & clothoid_paths,
-  const geometry_msgs::msg::Pose & target_pose, double velocity,
+  const geometry_msgs::msg::Pose & target_pose, double velocity, double target_velocity,
   const lanelet::ConstLanelets & road_lanes,
   const std::shared_ptr<autoware::route_handler::RouteHandler> & route_handler)
 {
@@ -473,6 +474,9 @@ PathWithLaneId createPathWithLaneIdFromClothoidPaths(
     return empty_path;
   }
 
+  // 一定加速度の設定（パラメータとして設定可能）
+  const double acceleration = 1.0;  // [m/s^2] - パラメータ化することを推奨
+
   // PathWithLaneIdを作成
   PathWithLaneId path_with_lane_id;
   path_with_lane_id.header = route_handler->getRouteHeader();
@@ -500,8 +504,29 @@ PathWithLaneId createPathWithLaneIdFromClothoidPaths(
       path_point.point.pose.orientation = target_pose.orientation;
     }
 
-    // 速度設定（一定速度）
-    path_point.point.longitudinal_velocity_mps = velocity;
+    // 速度プロファイルの計算（一定加速度で加速）
+    double current_velocity;
+    if (i == 0) {
+      // 最初の点は初期速度
+      current_velocity = velocity;
+    } else {
+      // 累積距離を計算
+      double accumulated_distance = 0.0;
+      for (size_t j = 0; j < i; ++j) {
+        const double dx = all_clothoid_points[j + 1].x - all_clothoid_points[j].x;
+        const double dy = all_clothoid_points[j + 1].y - all_clothoid_points[j].y;
+        accumulated_distance += std::sqrt(dx * dx + dy * dy);
+      }
+
+      // 等加速度運動の公式: v^2 = v0^2 + 2*a*s
+      // ただし、目標速度を超えないように制限
+      double calculated_velocity =
+        std::sqrt(velocity * velocity + 2.0 * acceleration * accumulated_distance);
+      current_velocity = std::min(calculated_velocity, target_velocity);
+    }
+
+    // 速度設定
+    path_point.point.longitudinal_velocity_mps = current_velocity;
     path_point.point.lateral_velocity_mps = 0.0;
     path_point.point.heading_rate_rps = 0.0;
     path_point.point.is_final = (i == all_clothoid_points.size() - 1);
@@ -625,7 +650,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
   const double max_steer_angle_rate = max_steer_angle_rate_deg_per_sec * M_PI / 180.0;
   // TODO(Sugahara): define as parameter
   const double velocity = 1.0;  // Assume a constant velocity for the pull-out maneuver
-  const double wheel_base = planner_data->parameters.vehicle_info.wheel_base_m;
+  const double wheel_base = common_parameters.vehicle_info.wheel_base_m;
 
   for (const auto & steer_angle : max_steer_angle) {
     // Calculate minimum radius based on the maximum steer angle
@@ -689,8 +714,18 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       }
     }
 
+    // 目標速度を取得（centerline_pathからtarget_poseに最も近い点の速度を使用）
+    double target_velocity = velocity;  // デフォルト値
+    if (!centerline_path.points.empty()) {
+      const auto target_idx =
+        autoware::motion_utils::findNearestIndex(centerline_path.points, target_pose.position);
+      if (target_idx < centerline_path.points.size()) {
+        target_velocity = centerline_path.points[target_idx].point.longitudinal_velocity_mps;
+      }
+    }
+
     PathWithLaneId path_with_lane_id = createPathWithLaneIdFromClothoidPaths(
-      clothoid_paths, target_pose, velocity, road_lanes, route_handler);
+      clothoid_paths, target_pose, velocity, target_velocity, road_lanes, route_handler);
 
     if (path_with_lane_id.points.empty()) {
       std::cerr << "No clothoid path found for steer angle " << steer_angle * 180.0 / M_PI
