@@ -202,10 +202,10 @@ void plot_velocity_acceleration(
     }
   }
 
-  // 速度をプロット
-  axes.plot(
+  // 速度を点でプロット
+  axes.scatter(
     Args(arc_lengths, velocities),
-    Kwargs("color"_a = "blue", "linewidth"_a = 2.0, "label"_a = "Velocity [m/s]"));
+    Kwargs("color"_a = "blue", "s"_a = 20, "label"_a = "Velocity [m/s]", "alpha"_a = 0.7));
 
   axes.set_xlabel(Args("Arc Length [m]"));
   axes.set_ylabel(Args("Velocity [m/s]"));
@@ -408,7 +408,7 @@ std::vector<std::vector<geometry_msgs::msg::Point>> convertMultipleArcsToClothoi
   return corrected_clothoid_paths;
 }
 
-TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
+TEST_F(TestClothoidPullOut, DISABLED_PlotCircularPathGeneration)
 {
   const auto start_pose =
     geometry_msgs::build<geometry_msgs::msg::Pose>()
@@ -428,6 +428,394 @@ TEST_F(TestClothoidPullOut, PlotCircularPathGeneration)
   planner_data->init_parameters(*node_);
   StartPlannerTestHelper::set_odometry(planner_data, start_pose);
   StartPlannerTestHelper::set_route(planner_data, 4619, 4635);
+
+  const auto & route_handler = planner_data->route_handler;
+  const auto & common_parameters = planner_data->parameters;
+
+  const double backward_path_length =
+    planner_data->parameters.backward_path_length + 10.0;  // max_back_distance = 10.0と仮定
+  const auto road_lanes = utils::getExtendedCurrentLanes(
+    planner_data, backward_path_length, std::numeric_limits<double>::max(),
+    /*forward_only_in_route*/ true);
+
+  // Generate centerline path from road_lanes
+  const auto centerline_path = utils::getCenterLinePath(
+    *route_handler, road_lanes, start_pose, backward_path_length,
+    std::numeric_limits<double>::max(), common_parameters);
+
+  // Calculate lateral offset
+  const double lateral_offset =
+    centerline_path.points.empty()
+      ? 0.0
+      : autoware::motion_utils::calcLateralOffset(centerline_path.points, start_pose.position);
+
+  const double max_steer_angle_deg = 20.0;
+  const double max_steer_angle = max_steer_angle_deg * M_PI / 180.0;
+  const double max_steer_angle_rate_deg_per_sec = 10.0;
+  const double max_steer_angle_rate = max_steer_angle_rate_deg_per_sec * M_PI / 180.0;
+  const double velocity = 1.0;
+  const double wheel_base = planner_data->parameters.vehicle_info.wheel_base_m;
+  // const double minimum_radius = 13.46;
+  const double minimum_radius = wheel_base / std::tan(max_steer_angle);
+
+  // longitudinal necessary distance for pull out
+  const double longitudinal_distance =
+    start_planner_utils::calc_necessary_longitudinal_distance(-lateral_offset, minimum_radius);
+
+  const Pose target_pose = start_planner_utils::findTargetPoseAlongPath(
+    centerline_path, start_pose, longitudinal_distance);
+
+  const auto relative_pose_info =
+    start_planner_utils::calculateRelativePoseInVehicleCoordinate(start_pose, target_pose);
+
+  const auto circular_path = start_planner_utils::calc_circular_path(
+    start_pose, relative_pose_info.longitudinal_distance_vehicle,
+    relative_pose_info.lateral_distance_vehicle, relative_pose_info.angle_diff, minimum_radius);
+
+  ASSERT_FALSE(circular_path.segments.empty()) << "Circular path generation failed.";
+
+  // 経路点を生成
+  std::vector<std::pair<double, double>> path_points;
+  const int points_per_segment = 50;
+
+  // 角度変化の計算
+  double total_angle_change = 0.0;
+
+  for (const auto & segment : circular_path.segments) {
+    const double circular_steer_angle = std::atan(wheel_base / segment.radius);
+    const double circular_steer_angle_deg = circular_steer_angle * 180.0 / M_PI;
+    std::cerr << "circular_steer_angle_deg: " << circular_steer_angle_deg << std::endl;
+    const double minimum_steer_time = circular_steer_angle / max_steer_angle_rate;
+    const double L_min = velocity * minimum_steer_time;
+    const double A_min = std::sqrt(segment.radius * L_min);
+    const double alpha_clothoid = (L_min * L_min) / (2.0 * A_min * A_min);
+    std::cerr << "L_min: " << L_min << std::endl;
+    std::cerr << "A_min: " << A_min << std::endl;
+    std::cerr << "alpha_clothoid: " << alpha_clothoid << std::endl;
+
+    // 各セグメントの角度変化を計算
+    double start_angle = segment.getStartAngle();
+    double end_angle = segment.getEndAngle();
+    double segment_angle_change;
+
+    if (segment.is_clockwise) {
+      segment_angle_change = end_angle - start_angle;
+      if (segment_angle_change > 0) {
+        segment_angle_change -= 2 * M_PI;
+      }
+    } else {
+      segment_angle_change = end_angle - start_angle;
+      if (segment_angle_change < 0) {
+        segment_angle_change += 2 * M_PI;
+      }
+    }
+
+    total_angle_change += segment_angle_change;
+
+    for (int i = 0; i < points_per_segment; ++i) {
+      if (!path_points.empty() && i == 0) {
+        continue;
+      }
+
+      double progress = static_cast<double>(i) / (points_per_segment - 1);
+
+      double current_angle;
+
+      if (segment.is_clockwise) {
+        double angle_diff_seg = end_angle - start_angle;
+        if (angle_diff_seg > 0) {
+          angle_diff_seg -= 2 * M_PI;
+        }
+        current_angle = start_angle + angle_diff_seg * progress;
+      } else {
+        double angle_diff_seg = end_angle - start_angle;
+        if (angle_diff_seg < 0) {
+          angle_diff_seg += 2 * M_PI;
+        }
+        current_angle = start_angle + angle_diff_seg * progress;
+      }
+
+      auto point = segment.getPointAtAngle(current_angle);
+      path_points.push_back(std::make_pair(point.x, point.y));
+    }
+  }
+
+  const auto trajectory = start_planner_utils::convertCircularPathToTrajectory(circular_path);
+  const auto curvatures = start_planner_utils::calcCurvatureFromTrajectory(trajectory);
+
+  std::vector<std::vector<geometry_msgs::msg::Point>> clothoid_paths;
+
+  // セグメント間の連続性を保つための姿勢管理
+  geometry_msgs::msg::Pose current_segment_pose = start_pose;
+
+  for (size_t i = 0; i < circular_path.segments.size(); ++i) {
+    const auto & segment = circular_path.segments[i];
+
+    // 車両パラメータから最適なクロソイドパラメータを計算
+    const double circular_steer_angle = std::atan(wheel_base / segment.radius);
+    const double minimum_steer_time = circular_steer_angle / max_steer_angle_rate;
+    const double L_min = velocity * minimum_steer_time;
+    const double A_min = std::sqrt(segment.radius * L_min);
+
+    // クロソイド変換を実行
+    auto clothoid_points = convertArcToClothoidWithCorrection(
+      segment, current_segment_pose, A_min, L_min, points_per_segment);
+
+    if (!clothoid_points.empty()) {
+      clothoid_paths.push_back(clothoid_points);
+
+      // 次のセグメントのために終点姿勢を更新
+      if (i < circular_path.segments.size() - 1) {
+        const auto & last_point = clothoid_points.back();
+
+        // 終点での進行方向を計算（最後の2点から）
+        if (clothoid_points.size() >= 2) {
+          const auto & second_last = clothoid_points[clothoid_points.size() - 2];
+          double dx = last_point.x - second_last.x;
+          double dy = last_point.y - second_last.y;
+          double heading = std::atan2(dy, dx);
+
+          current_segment_pose.position = last_point;
+          current_segment_pose.orientation =
+            tf2::toMsg(tf2::Quaternion(tf2::Vector3(0, 0, 1), heading));
+
+          std::cerr << "Updated pose for next segment:" << std::endl;
+          std::cerr << "  Position: (" << current_segment_pose.position.x << ", "
+                    << current_segment_pose.position.y << ")" << std::endl;
+          std::cerr << "  Heading: " << heading << " rad (" << heading * 180.0 / M_PI << " deg)"
+                    << std::endl;
+        }
+      }
+    } else {
+      std::cerr << "Failed to convert segment " << (i + 1) << " to clothoid" << std::endl;
+    }
+  }
+
+  pybind11::scoped_interpreter guard{};
+  auto plt = matplotlibcpp17::pyplot::import();
+
+  std::vector<geometry_msgs::msg::Point> combined_clothoid_path;
+  for (size_t i = 0; i < clothoid_paths.size(); ++i) {
+    const auto & clothoid_path = clothoid_paths[i];
+
+    // 最初のセグメント以外は開始点を除いて結合（重複回避）
+    size_t start_idx = (i == 0) ? 0 : 1;
+    for (size_t j = start_idx; j < clothoid_path.size(); ++j) {
+      combined_clothoid_path.push_back(clothoid_path[j]);
+    }
+  }
+
+  // createPathWithLaneIdFromClothoidPaths関数を呼び出してPathWithLaneIdを生成
+  PathWithLaneId path_with_lane_id = createPathWithLaneIdFromClothoidPaths(
+    clothoid_paths, target_pose, velocity, road_lanes, route_handler);
+
+  auto combined_path = combinePathWithCenterline(path_with_lane_id, centerline_path, target_pose);
+
+  // 曲率計算データの準備
+  std::vector<double> arc_lengths;
+  std::vector<double> curvature_values;
+  std::vector<double> curvature_changes;
+  std::vector<double> arc_lengths_changes;
+  bool has_curvature_data = false;
+
+  // 結合されたクロソイド経路の曲率を計算
+  auto combined_curvatures =
+    autoware::behavior_path_planner::start_planner_utils::calcCurvatureFromPoints(
+      combined_clothoid_path);
+
+  // 各点の曲率をデバッグプリント
+  for (size_t i = 0; i < combined_curvatures.size(); ++i) {
+    const auto & point = combined_clothoid_path[i];
+    const double curvature = combined_curvatures[i];
+
+    std::cerr << "Point[" << i << "]: "
+              << "pos=(" << std::fixed << std::setprecision(3) << point.x << ", " << point.y
+              << "), "
+              << "curvature=" << std::setprecision(6) << curvature << " (1/m)" << std::endl;
+  }
+
+  // 弧長を計算
+  arc_lengths.push_back(0.0);
+  double cumulative_length = 0.0;
+  for (size_t i = 1; i < combined_clothoid_path.size(); ++i) {
+    double dx = combined_clothoid_path[i].x - combined_clothoid_path[i - 1].x;
+    double dy = combined_clothoid_path[i].y - combined_clothoid_path[i - 1].y;
+    cumulative_length += std::sqrt(dx * dx + dy * dy);
+    arc_lengths.push_back(cumulative_length);
+  }
+
+  // 曲率値をコピー
+  for (size_t i = 0; i < combined_curvatures.size(); ++i) {
+    curvature_values.push_back(combined_curvatures[i]);
+  }
+
+  has_curvature_data = true;
+
+  // 横並びプロット作成: 左に経路、中央に曲率分析、右に速度・加速度
+  auto [fig, axes] = plt.subplots(1, 3, Kwargs("figsize"_a = std::make_tuple(24, 6)));
+  auto & ax_path = axes[0];
+  auto & ax_curvature = axes[1];
+  auto & ax_velocity = axes[2];
+
+  // ============================================================================
+  // 左側: 経路プロット
+  // ============================================================================
+
+  // レーンレットをプロット
+  const auto & lanelets = planner_data->route_handler->getLaneletMapPtr()->laneletLayer;
+  for (const auto & lanelet : lanelets) {
+    plot_lanelet(ax_path, lanelet);
+  }
+
+  // 開始姿勢と目標姿勢をプロット
+  ax_path.plot(
+    Args(start_pose.position.x, start_pose.position.y),
+    Kwargs("marker"_a = "x", "label"_a = "start", "markersize"_a = 20, "color"_a = "green"));
+  ax_path.plot(
+    Args(target_pose.position.x, target_pose.position.y),
+    Kwargs("marker"_a = "x", "label"_a = "target", "markersize"_a = 20, "color"_a = "red"));
+
+  // 元の円弧経路の点をプロット
+  std::vector<double> xs, ys;
+  for (const auto & point : path_points) {
+    xs.push_back(point.first);
+    ys.push_back(point.second);
+  }
+
+  ax_path.scatter(Args(xs, ys), Kwargs("color"_a = "blue", "s"_a = 10, "alpha"_a = 0.6));
+
+  // クロソイド経路をプロット
+  for (size_t i = 0; i < clothoid_paths.size(); ++i) {
+    const auto & clothoid_path = clothoid_paths[i];
+
+    std::vector<double> clothoid_xs, clothoid_ys;
+    for (const auto & point : clothoid_path) {
+      clothoid_xs.push_back(point.x);
+      clothoid_ys.push_back(point.y);
+    }
+
+    // クロソイド経路を異なる色で描画（線分を削除して点のみ表示）
+    std::string color = (i % 2 == 0) ? "red" : "purple";
+    std::string label = (i == 0) ? "clothoid path" : "";
+
+    // クロソイド経路の点をscatterで描画
+    ax_path.scatter(
+      Args(clothoid_xs, clothoid_ys),
+      Kwargs("color"_a = color, "s"_a = 15, "label"_a = label, "alpha"_a = 0.8));
+
+    // クロソイド経路の開始点と終了点をマーク
+    if (!clothoid_path.empty()) {
+      ax_path.plot(
+        Args(clothoid_path.front().x, clothoid_path.front().y),
+        Kwargs("marker"_a = "o", "color"_a = color, "markersize"_a = 8, "alpha"_a = 0.9));
+      ax_path.plot(
+        Args(clothoid_path.back().x, clothoid_path.back().y),
+        Kwargs("marker"_a = "s", "color"_a = color, "markersize"_a = 8, "alpha"_a = 0.9));
+    }
+  }
+
+  // PathWithLaneIdをプロット
+  if (!path_with_lane_id.points.empty()) {
+    plot_path_with_lane_id(ax_path, combined_path, "green", "PathWithLaneId", 3.0);
+  }
+
+  // 円弧セグメントの中心点をプロット
+  for (size_t i = 0; i < circular_path.segments.size(); ++i) {
+    const auto & segment = circular_path.segments[i];
+    ax_path.plot(
+      Args(segment.center.x, segment.center.y),
+      Kwargs(
+        "marker"_a = "o", "color"_a = "orange", "markersize"_a = 8,
+        "label"_a = (i == 0 ? "arc centers" : "")));
+  }
+
+  // プロット範囲を設定
+  const double margin = 20.0;
+  const double x_min = std::min(start_pose.position.x, goal_pose.position.x) - margin;
+  const double x_max = std::max(start_pose.position.x, goal_pose.position.x) + margin;
+  const double y_min = std::min(start_pose.position.y, goal_pose.position.y) - margin;
+  const double y_max = std::max(start_pose.position.y, goal_pose.position.y) + margin;
+
+  ax_path.set_xlim(Args(x_min, x_max));
+  ax_path.set_ylim(Args(y_min, y_max));
+  ax_path.set_aspect(Args("equal"));
+  ax_path.grid(Args(true), Kwargs("alpha"_a = 0.3));
+  ax_path.set_title(Args("Path Comparison"));
+  ax_path.set_xlabel(Args("X [m]"));
+  ax_path.set_ylabel(Args("Y [m]"));
+  ax_path.legend();
+
+  // ============================================================================
+  // 中央: 曲率分析プロット
+  // ============================================================================
+
+  if (has_curvature_data && !curvature_values.empty()) {
+    // 曲率 vs 弧長をプロット
+    ax_curvature.plot(
+      Args(arc_lengths, curvature_values),
+      Kwargs("color"_a = "blue", "linewidth"_a = 2.0, "label"_a = "Curvature"));
+
+    ax_curvature.set_xlabel(Args("Arc Length [m]"));
+    ax_curvature.set_ylabel(Args("Curvature [1/m]"));
+    ax_curvature.set_title(Args("Clothoid Path Curvature"));
+    ax_curvature.grid(Args(true), Kwargs("alpha"_a = 0.3));
+    ax_curvature.legend();
+
+  } else {
+    // 曲率データがない場合のメッセージ表示
+    ax_curvature.text(
+      Args(0.5, 0.5, "Insufficient points for\ncurvature calculation"),
+      Kwargs("ha"_a = "center", "va"_a = "center"));
+    ax_curvature.set_title(Args("Curvature Analysis (No Data)"));
+  }
+
+  // ============================================================================
+  // 右側: 速度・加速度分析プロット
+  // ============================================================================
+
+  if (!combined_path.points.empty()) {
+    plot_velocity_acceleration(ax_velocity, combined_path);
+    std::cerr << "Velocity and acceleration plotted for PathWithLaneId" << std::endl;
+  } else {
+    ax_velocity.text(
+      Args(0.5, 0.5, "No PathWithLaneId data\navailable for velocity analysis"),
+      Kwargs("ha"_a = "center", "va"_a = "center"));
+    ax_velocity.set_title(Args("Velocity & Acceleration (No Data)"));
+  }
+
+  // レイアウトを調整して表示
+  fig.tight_layout();
+  plt.show(Args(), Kwargs("block"_a = true));
+}
+
+TEST_F(TestClothoidPullOut, PlotPathInShiojiri)
+{
+  const auto start_pose = geometry_msgs::build<geometry_msgs::msg::Pose>()
+                            .position(geometry_msgs::build<geometry_msgs::msg::Point>()
+                                        .x(65398.4296875)
+                                        .y(684.0303955078125)
+                                        .z(758.709))
+                            .orientation(geometry_msgs::build<geometry_msgs::msg::Quaternion>()
+                                           .x(0.0)
+                                           .y(0.0)
+                                           .z(0.020843761943255473)
+                                           .w(0.9997827451942011));
+
+  const auto goal_pose = geometry_msgs::build<geometry_msgs::msg::Pose>()
+                           .position(geometry_msgs::build<geometry_msgs::msg::Point>()
+                                       .x(65478.03515625)
+                                       .y(681.5191040039062)
+                                       .z(757.9382433042615))
+                           .orientation(geometry_msgs::build<geometry_msgs::msg::Quaternion>()
+                                          .x(0.0)
+                                          .y(0.0)
+                                          .z(-0.013419357293476247)
+                                          .w(0.9999099563709873));
+
+  auto planner_data = std::make_shared<PlannerData>();
+  planner_data->init_parameters(*node_);
+  StartPlannerTestHelper::set_odometry(planner_data, start_pose);
+  StartPlannerTestHelper::set_route(planner_data, 94791, 23);
 
   const auto & route_handler = planner_data->route_handler;
   const auto & common_parameters = planner_data->parameters;
