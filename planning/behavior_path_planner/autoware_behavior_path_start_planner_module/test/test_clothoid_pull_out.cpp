@@ -608,8 +608,7 @@ TEST_F(TestClothoidPullOut, DISABLED_PlotCircularPathGeneration)
   // createPathWithLaneIdFromClothoidPaths関数を呼び出してPathWithLaneIdを生成
   auto parameters = StartPlannerParameters::init(*node_);
   PathWithLaneId path_with_lane_id = createPathWithLaneIdFromClothoidPaths(
-    clothoid_paths, target_pose, velocity, velocity, road_lanes, route_handler,
-    parameters.center_line_path_interval);
+    clothoid_paths, target_pose, velocity, velocity, road_lanes, route_handler);
 
   auto combined_path = combinePathWithCenterline(path_with_lane_id, centerline_path, target_pose);
 
@@ -1019,8 +1018,7 @@ TEST_F(TestClothoidPullOut, PlotPathInShiojiri)
   // createPathWithLaneIdFromClothoidPaths関数を呼び出してPathWithLaneIdを生成
   auto parameters = StartPlannerParameters::init(*node_);
   PathWithLaneId path_with_lane_id = createPathWithLaneIdFromClothoidPaths(
-    clothoid_paths, target_pose, velocity, target_velocity, road_lanes, route_handler,
-    parameters.center_line_path_interval);
+    clothoid_paths, target_pose, velocity, target_velocity, road_lanes, route_handler);
 
   auto combined_path = combinePathWithCenterline(path_with_lane_id, centerline_path, target_pose);
 
