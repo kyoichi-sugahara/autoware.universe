@@ -929,8 +929,8 @@ PathWithLaneId StartPlannerModule::getFullPath() const
   // for (size_t i = 0; i < pull_out_path.points.size(); ++i) {
   //   const auto & p = pull_out_path.points[i].point.pose.position;
   //   double yaw = tf2::getYaw(pull_out_path.points[i].point.pose.orientation);
-  //   std::cerr << "[full_path] idx=" << i << " x=" << p.x << " y=" << p.y << " yaw=" << yaw << "
-  //   rad" << std::endl;
+  //   std::cerr << "[full_path] idx=" << i << " x=" << p.x << " y=" << p.y << " yaw=" << yaw
+  //             << " rad" << std::endl;
   // }
   // --- デバッグ出力ここまで ---
 
