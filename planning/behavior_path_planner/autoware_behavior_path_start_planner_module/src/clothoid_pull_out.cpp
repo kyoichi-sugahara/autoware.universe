@@ -496,6 +496,7 @@ std::vector<geometry_msgs::msg::Point> convertArcToClothoidWithCorrection(
  * @param target_pose 目標姿勢
  * @param velocity 初期速度
  * @param target_velocity 目標速度
+ * @param acceleration 加速度
  * @param road_lanes 道路レーン情報
  * @param route_handler ルートハンドラー
  * @param parameters パラメータ
@@ -505,7 +506,7 @@ std::vector<geometry_msgs::msg::Point> convertArcToClothoidWithCorrection(
 PathWithLaneId createPathWithLaneIdFromClothoidPaths(
   const std::vector<std::vector<geometry_msgs::msg::Point>> & clothoid_paths,
   const geometry_msgs::msg::Pose & target_pose, double velocity, double target_velocity,
-  const lanelet::ConstLanelets & road_lanes,
+  double acceleration, const lanelet::ConstLanelets & road_lanes,
   const std::shared_ptr<autoware::route_handler::RouteHandler> & route_handler)
 {
   (void)target_pose;  // unused parameter警告抑制
@@ -538,9 +539,6 @@ PathWithLaneId createPathWithLaneIdFromClothoidPaths(
     empty_path.header = route_handler->getRouteHeader();
     return empty_path;
   }
-
-  // 一定加速度の設定（パラメータとして設定可能）
-  const double acceleration = 3.0;  // [m/s^2] - パラメータ化することを推奨
 
   // PathWithLaneIdを作成
   PathWithLaneId path_with_lane_id;
@@ -647,6 +645,7 @@ PathWithLaneId combinePathWithCenterline(
     std::cerr << "target_pose: " << target_pose.position.x << ", " << target_pose.position.y
               << std::endl;
     // target_poseから先の点をcenterline_extensionに追加
+    // どこまで追加する？？？？
     for (size_t i = target_idx; i < centerline_path.points.size(); ++i) {
       centerline_extension.points.push_back(centerline_path.points[i]);
     }
@@ -759,7 +758,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     pt.point.pose.orientation = start_pose.orientation;  // yawはそのまま
     pt.point.longitudinal_velocity_mps = 1.0;            // 後退速度
     pt.point.is_final = false;
-    pt.lane_ids = backward_lane_ids;  // lane_idを設定
+    setLaneIdsToPathPoint(pt, road_lanes, backward_lane_ids);
     backward_points.push_back(pt);
   }
   // 生成した後退点列を逆順にする
@@ -782,7 +781,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     pt.point.pose.orientation = start_pose.orientation;
     pt.point.longitudinal_velocity_mps = initial_velocity;  // 適切な速度を設定
     pt.point.is_final = false;
-    pt.lane_ids = straight_lane_ids;
+    setLaneIdsToPathPoint(pt, road_lanes);
     straight_forward_points.push_back(pt);
   }
 
@@ -869,11 +868,15 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       }
     }
 
+    // 加速度パラメータの設定
+    const double acceleration = 3.0;  // [m/s^2] TODO(Sugahara): パラメータ化を検討
+
     // =====================================================================
     // クロソイドパスをセンターラインに結合
     // =====================================================================
     PathWithLaneId path_with_lane_id = createPathWithLaneIdFromClothoidPaths(
-      clothoid_paths, target_pose, initial_velocity, target_velocity, road_lanes, route_handler);
+      clothoid_paths, target_pose, initial_velocity, target_velocity, acceleration, road_lanes,
+      route_handler);
 
     // センターラインパスとの結合
     auto combined_path = combinePathWithCenterline(path_with_lane_id, centerline_path, target_pose);
@@ -919,7 +922,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
         pt.point.pose.orientation = autoware_utils::create_quaternion_from_yaw(lerp_yaw[i]);
         pt.point.longitudinal_velocity_mps = lerp_vel[i];
         pt.point.is_final = false;
-        pt.lane_ids = straight_lane_ids;  // Use straight_lane_ids for the combined path
+        setLaneIdsToPathPoint(pt, road_lanes);
         resampled_combined_path.points.push_back(pt);
       }
     }
