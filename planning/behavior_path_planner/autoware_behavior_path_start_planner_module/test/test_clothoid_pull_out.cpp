@@ -606,8 +606,10 @@ TEST_F(TestClothoidPullOut, DISABLED_PlotCircularPathGeneration)
   }
 
   // createPathWithLaneIdFromClothoidPaths関数を呼び出してPathWithLaneIdを生成
+  auto parameters = StartPlannerParameters::init(*node_);
   PathWithLaneId path_with_lane_id = createPathWithLaneIdFromClothoidPaths(
-    clothoid_paths, target_pose, velocity, velocity, road_lanes, route_handler);
+    clothoid_paths, target_pose, velocity, velocity, road_lanes, route_handler,
+    parameters.center_line_path_interval);
 
   auto combined_path = combinePathWithCenterline(path_with_lane_id, centerline_path, target_pose);
 
@@ -730,11 +732,29 @@ TEST_F(TestClothoidPullOut, DISABLED_PlotCircularPathGeneration)
   }
 
   // プロット範囲を設定
-  const double margin = 20.0;
-  const double x_min = std::min(start_pose.position.x, goal_pose.position.x) - margin;
-  const double x_max = std::max(start_pose.position.x, goal_pose.position.x) + margin;
-  const double y_min = std::min(start_pose.position.y, goal_pose.position.y) - margin;
-  const double y_max = std::max(start_pose.position.y, goal_pose.position.y) + margin;
+  const double margin = 5.0;
+
+  // PathWithLaneIdの点から範囲を計算
+  double x_min = std::numeric_limits<double>::max();
+  double x_max = std::numeric_limits<double>::lowest();
+  double y_min = std::numeric_limits<double>::max();
+  double y_max = std::numeric_limits<double>::lowest();
+
+  // PathWithLaneIdの点のみをチェック
+  if (!combined_path.points.empty()) {
+    for (const auto & point : combined_path.points) {
+      x_min = std::min(x_min, point.point.pose.position.x);
+      x_max = std::max(x_max, point.point.pose.position.x);
+      y_min = std::min(y_min, point.point.pose.position.y);
+      y_max = std::max(y_max, point.point.pose.position.y);
+    }
+  }
+
+  // 余裕を追加
+  x_min -= margin;
+  x_max += margin;
+  y_min -= margin;
+  y_max += margin;
 
   ax_path.set_xlim(Args(x_min, x_max));
   ax_path.set_ylim(Args(y_min, y_max));
@@ -997,8 +1017,10 @@ TEST_F(TestClothoidPullOut, PlotPathInShiojiri)
   }
 
   // createPathWithLaneIdFromClothoidPaths関数を呼び出してPathWithLaneIdを生成
+  auto parameters = StartPlannerParameters::init(*node_);
   PathWithLaneId path_with_lane_id = createPathWithLaneIdFromClothoidPaths(
-    clothoid_paths, target_pose, velocity, target_velocity, road_lanes, route_handler);
+    clothoid_paths, target_pose, velocity, target_velocity, road_lanes, route_handler,
+    parameters.center_line_path_interval);
 
   auto combined_path = combinePathWithCenterline(path_with_lane_id, centerline_path, target_pose);
 
@@ -1121,11 +1143,29 @@ TEST_F(TestClothoidPullOut, PlotPathInShiojiri)
   }
 
   // プロット範囲を設定
-  const double margin = 20.0;
-  const double x_min = std::min(start_pose.position.x, goal_pose.position.x) - margin;
-  const double x_max = std::max(start_pose.position.x, goal_pose.position.x) + margin;
-  const double y_min = std::min(start_pose.position.y, goal_pose.position.y) - margin;
-  const double y_max = std::max(start_pose.position.y, goal_pose.position.y) + margin;
+  const double margin = 5.0;
+
+  // PathWithLaneIdの点から範囲を計算
+  double x_min = std::numeric_limits<double>::max();
+  double x_max = std::numeric_limits<double>::lowest();
+  double y_min = std::numeric_limits<double>::max();
+  double y_max = std::numeric_limits<double>::lowest();
+
+  // PathWithLaneIdの点のみをチェック
+  if (!combined_path.points.empty()) {
+    for (const auto & point : combined_path.points) {
+      x_min = std::min(x_min, point.point.pose.position.x);
+      x_max = std::max(x_max, point.point.pose.position.x);
+      y_min = std::min(y_min, point.point.pose.position.y);
+      y_max = std::max(y_max, point.point.pose.position.y);
+    }
+  }
+
+  // 余裕を追加
+  x_min -= margin;
+  x_max += margin;
+  y_min -= margin;
+  y_max += margin;
 
   ax_path.set_xlim(Args(x_min, x_max));
   ax_path.set_ylim(Args(y_min, y_max));

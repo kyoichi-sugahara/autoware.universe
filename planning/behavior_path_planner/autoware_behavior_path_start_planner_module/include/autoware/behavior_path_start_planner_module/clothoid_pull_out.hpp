@@ -81,7 +81,7 @@ PathWithLaneId createPathWithLaneIdFromClothoidPaths(
   const std::vector<std::vector<geometry_msgs::msg::Point>> & clothoid_paths,
   const geometry_msgs::msg::Pose & target_pose, double velocity, double target_velocity,
   const lanelet::ConstLanelets & road_lanes,
-  const std::shared_ptr<autoware::route_handler::RouteHandler> & route_handler);
+  const std::shared_ptr<autoware::route_handler::RouteHandler> & route_handler, double interval);
 
 /**
  * @brief センターラインパスとクロソイドパスを結合する関数
