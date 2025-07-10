@@ -96,6 +96,7 @@ std::vector<geometry_msgs::msg::Point> convertArcToClothoidWithCorrection(
  * @param target_pose 目標姿勢
  * @param velocity 初期速度
  * @param target_velocity 目標速度
+ * @param acceleration 加速度
  * @param road_lanes 道路レーン情報
  * @param route_handler ルートハンドラー
  * @return PathWithLaneId
@@ -103,7 +104,7 @@ std::vector<geometry_msgs::msg::Point> convertArcToClothoidWithCorrection(
 PathWithLaneId createPathWithLaneIdFromClothoidPaths(
   const std::vector<std::vector<geometry_msgs::msg::Point>> & clothoid_paths,
   const geometry_msgs::msg::Pose & target_pose, double velocity, double target_velocity,
-  const lanelet::ConstLanelets & road_lanes,
+  double acceleration, const lanelet::ConstLanelets & road_lanes,
   const std::shared_ptr<autoware::route_handler::RouteHandler> & route_handler);
 
 /**
