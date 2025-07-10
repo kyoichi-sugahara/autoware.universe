@@ -28,6 +28,7 @@
 
 #include <lanelet2_core/LaneletMap.h>
 
+#include <cstdint>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -35,11 +36,33 @@
 namespace autoware::behavior_path_planner
 {
 using autoware::boundary_departure_checker::BoundaryDepartureChecker;
+using autoware_internal_planning_msgs::msg::PathPointWithLaneId;
 using autoware_internal_planning_msgs::msg::PathWithLaneId;
 
 // Forward declarations for clothoid-related structures
 struct ArcSegment;
 struct ClothoidSegment;
+
+/**
+ * @brief 指定されたポーズに対してlane_idsを取得する汎用関数
+ * @param pose 対象のポーズ
+ * @param road_lanes 検索対象のレーン群
+ * @param previous_lane_ids 前の点のlane_ids（継承用、オプション）
+ * @return 取得されたlane_ids
+ */
+std::vector<int64_t> getLaneIdsFromPose(
+  const geometry_msgs::msg::Pose & pose, const lanelet::ConstLanelets & road_lanes,
+  const std::vector<int64_t> & previous_lane_ids = {});
+
+/**
+ * @brief PathPointWithLaneIdにlane_idsを設定する関数
+ * @param point 設定対象のPathPointWithLaneId
+ * @param road_lanes 検索対象のレーン群
+ * @param previous_lane_ids 前の点のlane_ids（継承用、オプション）
+ */
+void setLaneIdsToPathPoint(
+  PathPointWithLaneId & point, const lanelet::ConstLanelets & road_lanes,
+  const std::vector<int64_t> & previous_lane_ids = {});
 
 // Function declarations for clothoid processing functions
 std::vector<geometry_msgs::msg::Point> correctClothoidByRigidTransform(
