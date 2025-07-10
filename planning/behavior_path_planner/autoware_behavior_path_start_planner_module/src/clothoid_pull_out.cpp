@@ -974,6 +974,63 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       }
     }
     // --- resampled_combined_path 先頭10点のデバッグ出力ここまで ---
+
+    // 1. 後退パス生成
+    const double backward_distance = 4.0;  // 例: 4m後退
+    const double interval = 1.0;           // 1.0m間隔
+    // lane_idの決定
+    std::vector<int64_t> default_lane_ids;
+    if (!resampled_combined_path.points.empty()) {
+      default_lane_ids = resampled_combined_path.points.front().lane_ids;
+    } else if (!centerline_path.points.empty()) {
+      default_lane_ids = centerline_path.points.front().lane_ids;
+    } else if (!road_lanes.empty()) {
+      default_lane_ids.push_back(road_lanes.front().id());
+    }
+
+    std::vector<PathPointWithLaneId> backward_points;
+    for (double d = interval; d <= backward_distance + 1e-3; d += interval) {
+      PathPointWithLaneId pt;
+      double yaw = tf2::getYaw(start_pose.orientation);
+      pt.point.pose.position.x = start_pose.position.x - d * std::cos(yaw);
+      pt.point.pose.position.y = start_pose.position.y - d * std::sin(yaw);
+      pt.point.pose.position.z = start_pose.position.z;
+      pt.point.pose.orientation = start_pose.orientation;  // yawはそのまま
+      pt.point.longitudinal_velocity_mps = 1.0;            // 負の値で後退
+      pt.point.is_final = false;
+      pt.lane_ids = default_lane_ids;  // lane_idを設定
+      backward_points.push_back(pt);
+    }
+
+    // 2. 既存resampled_combined_pathの先頭に挿入
+    resampled_combined_path.points.insert(
+      resampled_combined_path.points.begin(), backward_points.begin(), backward_points.end());
+
+    // 3. そのままpartial_pathsにpush
+    // 追加: 先頭10点のデバッグ出力（既存フォーマットに合わせる）
+    {
+      size_t print_num = std::min(size_t(10), resampled_combined_path.points.size());
+      std::cerr << "[Debug] resampled_combined_path 先頭10点 (idx=0～" << (print_num - 1) << ")"
+                << std::endl;
+      for (size_t i = 0; i < print_num; ++i) {
+        const auto & p = resampled_combined_path.points[i].point.pose.position;
+        double yaw = tf2::getYaw(resampled_combined_path.points[i].point.pose.orientation);
+        double dist = 0.0, dx = 0.0, dy = 0.0, dyaw = 0.0, dyaw_deg = 0.0;
+        if (i > 0) {
+          const auto & p_prev = resampled_combined_path.points[i - 1].point.pose.position;
+          dx = p.x - p_prev.x;
+          dy = p.y - p_prev.y;
+          dist = std::hypot(dx, dy);
+          double prev_yaw =
+            tf2::getYaw(resampled_combined_path.points[i - 1].point.pose.orientation);
+          dyaw = angles::shortest_angular_distance(prev_yaw, yaw);
+          dyaw_deg = dyaw * 180.0 / M_PI;
+        }
+        std::cerr << "  idx=" << i << ": x=" << p.x << ", y=" << p.y << ", yaw=" << yaw << " rad"
+                  << ", dist_from_prev=" << dist << ", dx=" << dx << ", dy=" << dy
+                  << ", dyaw=" << dyaw << " rad (" << dyaw_deg << " deg)" << std::endl;
+      }
+    }
     pull_out_path.partial_paths.push_back(resampled_combined_path);
 
     // TODO(Sugahara): check lane departure
