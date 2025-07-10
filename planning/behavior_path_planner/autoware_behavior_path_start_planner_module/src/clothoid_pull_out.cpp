@@ -38,6 +38,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <iostream>
 #include <limits>
 #include <memory>
@@ -54,6 +55,60 @@ using lanelet::utils::getArcCoordinates;
 namespace autoware::behavior_path_planner
 {
 using start_planner_utils::getPullOutLanes;
+
+/**
+ * @brief 指定されたポーズに対してlane_idsを取得する汎用関数
+ * 他のbehavior_path_plannerモジュールの実装を参考にした汎用的なlane_ids取得関数
+ * @param pose 対象のポーズ
+ * @param road_lanes 検索対象のレーン群
+ * @param previous_lane_ids 前の点のlane_ids（継承用、オプション）
+ * @return 取得されたlane_ids
+ */
+std::vector<int64_t> getLaneIdsFromPose(
+  const geometry_msgs::msg::Pose & pose, const lanelet::ConstLanelets & road_lanes,
+  const std::vector<int64_t> & previous_lane_ids)
+{
+  std::vector<int64_t> lane_ids;
+
+  // 1. まず、ポーズが含まれるレーンを全て探す
+  bool found_containing_lane = false;
+  for (const auto & lane : road_lanes) {
+    if (lanelet::utils::isInLanelet(pose, lane)) {
+      lane_ids.push_back(lane.id());
+      found_containing_lane = true;
+    }
+  }
+
+  // 2. 含まれるレーンが見つからない場合のフォールバック処理
+  if (!found_containing_lane) {
+    // 2.1 最近接レーンを探す
+    lanelet::Lanelet closest_lanelet{};
+    if (lanelet::utils::query::getClosestLanelet(road_lanes, pose, &closest_lanelet)) {
+      lane_ids = {closest_lanelet.id()};
+    } else if (!previous_lane_ids.empty()) {
+      // 2.2 最近接レーンも見つからない場合、前の点のlane_idsを継承
+      lane_ids = previous_lane_ids;
+    } else if (!road_lanes.empty()) {
+      // 2.3 最後のフォールバック：最初のレーンを使用
+      lane_ids.push_back(road_lanes.front().id());
+    }
+  }
+
+  return lane_ids;
+}
+
+/**
+ * @brief PathPointWithLaneIdにlane_idsを設定する関数
+ * @param point 設定対象のPathPointWithLaneId
+ * @param road_lanes 検索対象のレーン群
+ * @param previous_lane_ids 前の点のlane_ids（継承用、オプション）
+ */
+void setLaneIdsToPathPoint(
+  PathPointWithLaneId & point, const lanelet::ConstLanelets & road_lanes,
+  const std::vector<int64_t> & previous_lane_ids)
+{
+  point.lane_ids = getLaneIdsFromPose(point.point.pose, road_lanes, previous_lane_ids);
+}
 
 /**
  * @brief 剛体変換（回転・平行移動・スケーリング）のみでクロソイドを補正
@@ -446,6 +501,7 @@ std::vector<geometry_msgs::msg::Point> convertArcToClothoidWithCorrection(
  * @param parameters パラメータ
  * @return PathWithLaneId
  */
+// std::optional<PathWithLaneId> でよさそう
 PathWithLaneId createPathWithLaneIdFromClothoidPaths(
   const std::vector<std::vector<geometry_msgs::msg::Point>> & clothoid_paths,
   const geometry_msgs::msg::Pose & target_pose, double velocity, double target_velocity,
@@ -469,6 +525,7 @@ PathWithLaneId createPathWithLaneIdFromClothoidPaths(
     }
 
     // 最初のパス以外は最初の点をスキップ（重複回避）
+    // スキップしていいの？
     size_t start_idx = (all_clothoid_points.empty()) ? 0 : 1;
     for (size_t j = start_idx; j < path.size(); ++j) {
       all_clothoid_points.push_back(path[j]);
@@ -497,6 +554,7 @@ PathWithLaneId createPathWithLaneIdFromClothoidPaths(
     path_point.point.pose.position = all_clothoid_points[i];
 
     // 向きを計算（次の点への方向）
+    // 計算方法怪しい？
     if (i < all_clothoid_points.size() - 1) {
       const double dx = all_clothoid_points[i + 1].x - all_clothoid_points[i].x;
       const double dy = all_clothoid_points[i + 1].y - all_clothoid_points[i].y;
@@ -550,31 +608,14 @@ PathWithLaneId createPathWithLaneIdFromClothoidPaths(
     path_point.point.longitudinal_velocity_mps = current_velocity;
     path_point.point.lateral_velocity_mps = 0.0;
     path_point.point.heading_rate_rps = 0.0;
-    path_point.point.is_final = (i == all_clothoid_points.size() - 1);
+    path_point.point.is_final = false;
 
     // レーンIDの設定
-    lanelet::Lanelet closest_lanelet{};
-    bool found_containing_lane = false;
-
-    for (const auto & lane : road_lanes) {
-      if (lanelet::utils::isInLanelet(path_point.point.pose, lane)) {
-        path_point.lane_ids.push_back(lane.id());
-        found_containing_lane = true;
-      }
+    std::vector<int64_t> previous_lane_ids;
+    if (i > 0) {
+      previous_lane_ids = path_with_lane_id.points[i - 1].lane_ids;
     }
-
-    if (!found_containing_lane) {
-      if (lanelet::utils::query::getClosestLanelet(
-            road_lanes, path_point.point.pose, &closest_lanelet)) {
-        path_point.lane_ids = {closest_lanelet.id()};
-      } else if (i > 0) {
-        // 前の点のlane_idsを継承
-        path_point.lane_ids = path_with_lane_id.points[i - 1].lane_ids;
-      } else if (!road_lanes.empty()) {
-        // 最後のフォールバック
-        path_point.lane_ids.push_back(road_lanes[0].id());
-      }
-    }
+    setLaneIdsToPathPoint(path_point, road_lanes, previous_lane_ids);
 
     path_with_lane_id.points.push_back(path_point);
   }
@@ -607,9 +648,6 @@ PathWithLaneId combinePathWithCenterline(
               << std::endl;
     // target_poseから先の点をcenterline_extensionに追加
     for (size_t i = target_idx; i < centerline_path.points.size(); ++i) {
-      std::cerr << "Adding point to centerline extension: "
-                << centerline_path.points[i].point.pose.position.x << ", "
-                << centerline_path.points[i].point.pose.position.y << std::endl;
       centerline_extension.points.push_back(centerline_path.points[i]);
     }
 
@@ -733,7 +771,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
   std::vector<PathPointWithLaneId> straight_forward_points;
   const double point_interval = parameters_.center_line_path_interval;
   const int num_points = static_cast<int>(initial_forward_straight_distance / point_interval);
-  const std::vector<lanelet::Id> straight_lane_ids = {road_lanes.front().id()};
+  const std::vector<int64_t> straight_lane_ids = {road_lanes.front().id()};
 
   for (int i = 1; i <= num_points; ++i) {
     PathPointWithLaneId pt;
@@ -821,6 +859,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     clothoid_paths.push_back(second_clothoid_points);
 
     // 目標速度を取得（centerline_pathからtarget_poseに最も近い点の速度を使用）
+    // TODO(Sugahara): 関数化
     double target_velocity = initial_velocity;  // デフォルト値
     if (!centerline_path.points.empty()) {
       const auto target_idx =
@@ -830,29 +869,14 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       }
     }
 
+    // =====================================================================
+    // クロソイドパスをセンターラインに結合
+    // =====================================================================
     PathWithLaneId path_with_lane_id = createPathWithLaneIdFromClothoidPaths(
       clothoid_paths, target_pose, initial_velocity, target_velocity, road_lanes, route_handler);
 
-    if (path_with_lane_id.points.empty()) {
-      std::cerr << "No clothoid path found for steer angle " << steer_angle * 180.0 / M_PI
-                << " deg." << std::endl;
-      continue;
-    }
-
-    // PullOutPathを作成
-    PullOutPath pull_out_path;
-    pull_out_path.start_pose = start_pose;
-    pull_out_path.end_pose = target_pose;
-
-    // 速度と加速度のペア設定
-    // TODO(Sugahara): set parameter properly
-    pull_out_path.pairs_terminal_velocity_and_accel.push_back(
-      std::make_pair(initial_velocity, 1.0));
-
-    // センターラインパスとの結合（空チェックは関数内で実行）
+    // センターラインパスとの結合
     auto combined_path = combinePathWithCenterline(path_with_lane_id, centerline_path, target_pose);
-
-    // --- yaw不連続デバッグ出力ここまで ---
 
     // autoware::interpolation::lerpによる等間隔リサンプリング
     PathWithLaneId resampled_combined_path = combined_path;
@@ -916,7 +940,16 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
         straight_forward_points.end());
     }
 
+    // 速度と加速度のペア設定
+    PullOutPath pull_out_path;
+    // TODO(Sugahara): set parameter properly
+    pull_out_path.pairs_terminal_velocity_and_accel.push_back(
+      std::make_pair(initial_velocity, 1.0));
     pull_out_path.partial_paths.push_back(resampled_combined_path);
+    // PullOutPathを作成
+
+    pull_out_path.start_pose = start_pose;
+    pull_out_path.end_pose = target_pose;
 
     // TODO(Sugahara): check lane departure
     return pull_out_path;
