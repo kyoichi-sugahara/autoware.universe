@@ -408,9 +408,18 @@ std::vector<geometry_msgs::msg::Point> convertArcToClothoid(
  * @brief 改良版のクロソイド変換関数（終点補正付き）
  */
 std::vector<geometry_msgs::msg::Point> convertArcToClothoidWithCorrection(
-  const ArcSegment & arc_segment, const geometry_msgs::msg::Pose & start_pose, double A_min,
-  double L_min, double point_interval)
+  const ArcSegment & arc_segment, const geometry_msgs::msg::Pose & start_pose,
+  double initial_velocity, double wheel_base, double max_steer_angle_rate, double point_interval)
 {
+  // 最小半径を計算（arc_segmentから）
+  const double minimum_radius = arc_segment.radius;
+
+  // 車両パラメータから最適なクロソイドパラメータを計算
+  const double circular_steer_angle = std::atan(wheel_base / minimum_radius);
+  const double minimum_steer_time = circular_steer_angle / max_steer_angle_rate;
+  const double L_min = initial_velocity * minimum_steer_time;
+  const double A_min = std::sqrt(minimum_radius * L_min);
+
   // 元のクロソイド変換を実行
   auto clothoid_points =
     convertArcToClothoid(arc_segment, start_pose, A_min, L_min, point_interval);
@@ -669,25 +678,6 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
   // 姿勢（yaw）は start_pose と同じ
   straight_end_pose.orientation = start_pose.orientation;
 
-  // 直進区間の PathPoint 群を手動生成（車両の向きに沿って）
-  std::vector<PathPointWithLaneId> straight_forward_points;
-  const double point_interval = parameters_.center_line_path_interval;
-  const int num_points = static_cast<int>(initial_forward_straight_distance / point_interval);
-  const std::vector<lanelet::Id> default_lane_ids = {road_lanes.front().id()};
-
-  for (int i = 1; i <= num_points; ++i) {
-    PathPointWithLaneId pt;
-    const double distance = i * point_interval;
-    pt.point.pose.position.x = start_pose.position.x + distance * std::cos(start_yaw);
-    pt.point.pose.position.y = start_pose.position.y + distance * std::sin(start_yaw);
-    pt.point.pose.position.z = start_pose.position.z;
-    pt.point.pose.orientation = start_pose.orientation;
-    pt.point.longitudinal_velocity_mps = initial_velocity;  // 適切な速度を設定
-    pt.point.is_final = false;
-    pt.lane_ids = default_lane_ids;
-    straight_forward_points.push_back(pt);
-  }
-
   const double lateral_offset = centerline_path.points.empty()
                                   ? 0.0
                                   : autoware::motion_utils::calcLateralOffset(
@@ -708,7 +698,60 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
   // TODO(Sugahara): define as parameter
   const double wheel_base = common_parameters.vehicle_info.wheel_base_m;
 
+  // =====================================================================
+  // 後退パス生成（全ステア角度共通）
+  // =====================================================================
+  const double backward_distance = 6.0;  // 例: 6m後退
+  const double interval = 1.0;           // 1.0m間隔
+  // lane_idの決定
+  std::vector<int64_t> backward_lane_ids;
+  if (!centerline_path.points.empty()) {
+    backward_lane_ids = centerline_path.points.front().lane_ids;
+  } else if (!road_lanes.empty()) {
+    backward_lane_ids.push_back(road_lanes.front().id());
+  }
+
+  std::vector<PathPointWithLaneId> backward_points;
+  for (double d = interval; d <= backward_distance + 1e-3; d += interval) {
+    PathPointWithLaneId pt;
+    double yaw = tf2::getYaw(start_pose.orientation);
+    pt.point.pose.position.x = start_pose.position.x - d * std::cos(yaw);
+    pt.point.pose.position.y = start_pose.position.y - d * std::sin(yaw);
+    pt.point.pose.position.z = start_pose.position.z;
+    pt.point.pose.orientation = start_pose.orientation;  // yawはそのまま
+    pt.point.longitudinal_velocity_mps = 1.0;            // 後退速度
+    pt.point.is_final = false;
+    pt.lane_ids = backward_lane_ids;  // lane_idを設定
+    backward_points.push_back(pt);
+  }
+  // 生成した後退点列を逆順にする
+  std::reverse(backward_points.begin(), backward_points.end());
+
+  // =====================================================================
+  // 直進パス生成（全ステア角度共通）
+  // =====================================================================
+  std::vector<PathPointWithLaneId> straight_forward_points;
+  const double point_interval = parameters_.center_line_path_interval;
+  const int num_points = static_cast<int>(initial_forward_straight_distance / point_interval);
+  const std::vector<lanelet::Id> straight_lane_ids = {road_lanes.front().id()};
+
+  for (int i = 1; i <= num_points; ++i) {
+    PathPointWithLaneId pt;
+    const double distance = i * point_interval;
+    pt.point.pose.position.x = start_pose.position.x + distance * std::cos(start_yaw);
+    pt.point.pose.position.y = start_pose.position.y + distance * std::sin(start_yaw);
+    pt.point.pose.position.z = start_pose.position.z;
+    pt.point.pose.orientation = start_pose.orientation;
+    pt.point.longitudinal_velocity_mps = initial_velocity;  // 適切な速度を設定
+    pt.point.is_final = false;
+    pt.lane_ids = straight_lane_ids;
+    straight_forward_points.push_back(pt);
+  }
+
   for (const auto & steer_angle : max_steer_angle) {
+    // =====================================================================
+    // クロソイドパス生成（ステア角度毎に異なる）
+    // =====================================================================
     // Calculate minimum radius based on the maximum steer angle
     const double minimum_radius = wheel_base / std::tan(steer_angle);
 
@@ -739,16 +782,11 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     geometry_msgs::msg::Pose current_segment_pose = straight_end_pose;
     std::vector<std::vector<geometry_msgs::msg::Point>> clothoid_paths;
 
-    // 車両パラメータから最適なクロソイドパラメータを計算
-    const double circular_steer_angle = std::atan(wheel_base / minimum_radius);
-    const double minimum_steer_time = circular_steer_angle / max_steer_angle_rate;
-    const double L_min = initial_velocity * minimum_steer_time;
-    const double A_min = std::sqrt(minimum_radius * L_min);
-
     // 第1セグメント（開始セグメント）の処理
     const auto & first_segment = circular_path.segments[0];
     auto first_clothoid_points = convertArcToClothoidWithCorrection(
-      first_segment, current_segment_pose, A_min, L_min, parameters_.center_line_path_interval);
+      first_segment, current_segment_pose, initial_velocity, wheel_base, max_steer_angle_rate,
+      parameters_.center_line_path_interval);
 
     clothoid_paths.push_back(first_clothoid_points);
 
@@ -773,7 +811,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     // 第2セグメント（終了セグメント）の処理
     const auto & second_segment = circular_path.segments[1];
     auto second_clothoid_points = convertArcToClothoidWithCorrection(
-      second_segment, second_segment_start_pose, A_min, L_min,
+      second_segment, second_segment_start_pose, initial_velocity, wheel_base, max_steer_angle_rate,
       parameters_.center_line_path_interval);
 
     if (second_clothoid_points.empty()) {
@@ -857,54 +895,27 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
         pt.point.pose.orientation = autoware_utils::create_quaternion_from_yaw(lerp_yaw[i]);
         pt.point.longitudinal_velocity_mps = lerp_vel[i];
         pt.point.is_final = false;
-        pt.lane_ids = default_lane_ids;
+        pt.lane_ids = straight_lane_ids;  // Use straight_lane_ids for the combined path
         resampled_combined_path.points.push_back(pt);
       }
     }
 
-    // 1. 後退パス生成
-    const double backward_distance = 6.0;  // 例: 6m後退
-    const double interval = 1.0;           // 1.0m間隔
-    // lane_idの決定
-    std::vector<int64_t> default_lane_ids;
-    if (!resampled_combined_path.points.empty()) {
-      default_lane_ids = resampled_combined_path.points.front().lane_ids;
-    } else if (!centerline_path.points.empty()) {
-      default_lane_ids = centerline_path.points.front().lane_ids;
-    } else if (!road_lanes.empty()) {
-      default_lane_ids.push_back(road_lanes.front().id());
-    }
-
-    std::vector<PathPointWithLaneId> backward_points;
-    for (double d = interval; d <= backward_distance + 1e-3; d += interval) {
-      PathPointWithLaneId pt;
-      double yaw = tf2::getYaw(start_pose.orientation);
-      pt.point.pose.position.x = start_pose.position.x - d * std::cos(yaw);
-      pt.point.pose.position.y = start_pose.position.y - d * std::sin(yaw);
-      pt.point.pose.position.z = start_pose.position.z;
-      pt.point.pose.orientation = start_pose.orientation;  // yawはそのまま
-      pt.point.longitudinal_velocity_mps = 1.0;            // 後退速度
-      pt.point.is_final = false;
-      pt.lane_ids = default_lane_ids;  // lane_idを設定
-      backward_points.push_back(pt);
-    }
-    // 生成した後退点列を逆順にする
-    std::reverse(backward_points.begin(), backward_points.end());
-    // 2. 既存resampled_combined_pathの先頭に挿入
-    const size_t num_backward = backward_points.size();
+    // -----------------------------------------------------------------
+    // パス結合: 後退パス → 直進パス → クロソイドパス → センターライン拡張パス
+    // の順序で結合する
+    // -----------------------------------------------------------------
+    // 後退パスを先頭に挿入
     resampled_combined_path.points.insert(
       resampled_combined_path.points.begin(), backward_points.begin(), backward_points.end());
 
-    // -----------------------------------------------------------------
-    // 追加: 直進区間の PathPoint 群を後退区間と start_pose の間に挿入
-    //       挿入位置は [後退点列サイズ] + 1 (start_pose の直後)
-    // -----------------------------------------------------------------
+    // 直進パスを後退パスの直後に挿入
     if (!straight_forward_points.empty()) {
-      const size_t insertion_index = num_backward + 1;
+      const size_t insertion_index = backward_points.size();
       resampled_combined_path.points.insert(
         resampled_combined_path.points.begin() + insertion_index, straight_forward_points.begin(),
         straight_forward_points.end());
     }
+
     pull_out_path.partial_paths.push_back(resampled_combined_path);
 
     // TODO(Sugahara): check lane departure
