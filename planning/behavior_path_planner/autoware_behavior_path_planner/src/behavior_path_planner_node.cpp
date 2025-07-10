@@ -717,13 +717,15 @@ PathWithLaneId::SharedPtr BehaviorPathPlannerNode::getPath(
   path->header = planner_data->route_handler->getRouteHeader();
   return path;
 
-  // --- デバッグ出力追加: pathの各点のidx, x, y, yaw[rad] ---
+  // --- デバッグ出力追加: pathの各点のidx, x, y, yaw[rad], quat(x, y, z, w) ---
   // if (path && !path->points.empty()) {
   //   for (size_t i = 0; i < path->points.size(); ++i) {
   //     const auto & p = path->points[i].point.pose.position;
-  //     double yaw = tf2::getYaw(path->points[i].point.pose.orientation);
-  //     std::cerr << "[bpp_path] idx=" << i << " x=" << p.x << " y=" << p.y << " yaw=" << yaw << "
-  //     rad" << std::endl;
+  //     const auto & q = path->points[i].point.pose.orientation;
+  //     double yaw = tf2::getYaw(q);
+  //     std::cerr << "[bpp_path] idx=" << i << " x=" << p.x << " y=" << p.y << " yaw=" << yaw
+  //               << " rad quat=(" << q.x << ", " << q.y << ", " << q.z << ", " << q.w << ")"
+  //               << std::endl;
   //   }
   // }
   // --- デバッグ出力ここまで ---
@@ -734,12 +736,14 @@ PathWithLaneId::SharedPtr BehaviorPathPlannerNode::getPath(
   const auto resampled_path = utils::resamplePathWithSpline(
     *path, planner_data->parameters.output_path_interval, keepInputPoints(module_status_ptr_vec));
 
-  // --- デバッグ出力追加: resampled_pathの各点のidx, x, y, yaw[rad] ---
+  // --- デバッグ出力追加: resampled_pathの各点のidx, x, y, yaw[rad], quat(x, y, z, w) ---
   // for (size_t i = 0; i < resampled_path.points.size(); ++i) {
   //   const auto & p = resampled_path.points[i].point.pose.position;
-  //   double yaw = tf2::getYaw(resampled_path.points[i].point.pose.orientation);
-  //   std::cerr << "[bpp_resampled] idx=" << i << " x=" << p.x << " y=" << p.y << " yaw=" << yaw <<
-  //   " rad" << std::endl;
+  //   const auto & q = resampled_path.points[i].point.pose.orientation;
+  //   double yaw = tf2::getYaw(q);
+  //   std::cerr << "[bpp_resampled] idx=" << i << " x=" << p.x << " y=" << p.y << " yaw=" << yaw
+  //             << " rad quat=(" << q.x << ", " << q.y << ", " << q.z << ", " << q.w << ")"
+  //             << std::endl;
   // }
   // --- デバッグ出力ここまで ---
 
