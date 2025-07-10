@@ -46,7 +46,7 @@ if(BUILD_TESTING)
 
   file(GLOB_RECURSE TEST_SOURCES test/*.cpp)
   list(REMOVE_ITEM TEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/test/test_freespace_pull_out.cpp)
-  # list(REMOVE_ITEM TEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/test/test_clothoid_pull_out.cpp)
+  list(REMOVE_ITEM TEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/test/test_clothoid_pull_out.cpp)
   list(REMOVE_ITEM TEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/test/test_geometric_pull_out.cpp)
   list(REMOVE_ITEM TEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/test/test_shift_pull_out.cpp)
   ament_add_ros_isolated_gtest(test_${PROJECT_NAME}

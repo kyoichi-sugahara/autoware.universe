@@ -281,7 +281,7 @@ std::pair<std::vector<geometry_msgs::msg::Point>, geometry_msgs::msg::Pose> gene
  * @brief クロソイド経路の座標点列を生成
  */
 std::vector<geometry_msgs::msg::Point> generateClothoidPath(
-  const std::vector<ClothoidSegment> & segments, int num_points_per_segment,
+  const std::vector<ClothoidSegment> & segments, double point_interval,
   const geometry_msgs::msg::Pose & start_pose)
 {
   // 各セグメントの理論弧長を計算
@@ -296,17 +296,11 @@ std::vector<geometry_msgs::msg::Point> generateClothoidPath(
     }
   }
 
-  double total_theoretical_length = 0.0;
+  // セグメント毎の点数を弧長と指定間隔から計算
+  std::vector<int> segment_points;
   for (double length : theoretical_lengths) {
-    total_theoretical_length += length;
-  }
-
-  // セグメント毎の点数を弧長に比例して調整
-  int total_points = num_points_per_segment * segments.size();
-  std::vector<int> adjusted_points;
-  for (double length : theoretical_lengths) {
-    int points = std::max(10, static_cast<int>(total_points * length / total_theoretical_length));
-    adjusted_points.push_back(points);
+    int points = std::max(2, static_cast<int>(std::ceil(length / point_interval)) + 1);
+    segment_points.push_back(points);
   }
 
   // 初期状態の設定
@@ -315,29 +309,29 @@ std::vector<geometry_msgs::msg::Point> generateClothoidPath(
   std::vector<geometry_msgs::msg::Point> all_points;
 
   for (size_t i = 0; i < segments.size(); ++i) {
-    std::vector<geometry_msgs::msg::Point> segment_points;
+    std::vector<geometry_msgs::msg::Point> segment_points_vec;
     geometry_msgs::msg::Pose end_pose;
 
-    int num_points = adjusted_points[i];
+    int num_points = segment_points[i];
 
     if (segments[i].type == ClothoidSegment::CLOTHOID_ENTRY) {
       auto result = generateClothoidEntry(segments[i], current_pose, num_points);
-      segment_points = result.first;
+      segment_points_vec = result.first;
       end_pose = result.second;
     } else if (segments[i].type == ClothoidSegment::CIRCULAR_ARC) {
       auto result = generateCircularSegment(segments[i], current_pose, num_points);
-      segment_points = result.first;
+      segment_points_vec = result.first;
       end_pose = result.second;
     } else if (segments[i].type == ClothoidSegment::CLOTHOID_EXIT) {
       auto result = generateClothoidExit(segments[i], current_pose, num_points);
-      segment_points = result.first;
+      segment_points_vec = result.first;
       end_pose = result.second;
     }
 
     // 重複点を避けて結合
     size_t start_idx = (all_points.empty()) ? 0 : 1;
-    for (size_t j = start_idx; j < segment_points.size(); ++j) {
-      all_points.push_back(segment_points[j]);
+    for (size_t j = start_idx; j < segment_points_vec.size(); ++j) {
+      all_points.push_back(segment_points_vec[j]);
     }
 
     current_pose = end_pose;
@@ -351,7 +345,7 @@ std::vector<geometry_msgs::msg::Point> generateClothoidPath(
  */
 std::vector<geometry_msgs::msg::Point> convertArcToClothoid(
   const ArcSegment & arc_segment, const geometry_msgs::msg::Pose & start_pose, double A_min,
-  double L_min, int num_points_per_segment)
+  double L_min, double point_interval)
 {
   // 円弧情報の抽出
   double start_angle = arc_segment.getStartAngle();
@@ -405,7 +399,7 @@ std::vector<geometry_msgs::msg::Point> convertArcToClothoid(
 
   // クロソイド経路生成
   std::vector<geometry_msgs::msg::Point> clothoid_path =
-    generateClothoidPath(segments, num_points_per_segment, start_pose);
+    generateClothoidPath(segments, point_interval, start_pose);
 
   return clothoid_path;
 }
@@ -415,11 +409,11 @@ std::vector<geometry_msgs::msg::Point> convertArcToClothoid(
  */
 std::vector<geometry_msgs::msg::Point> convertArcToClothoidWithCorrection(
   const ArcSegment & arc_segment, const geometry_msgs::msg::Pose & start_pose, double A_min,
-  double L_min, int num_points_per_segment)
+  double L_min, double point_interval)
 {
   // 元のクロソイド変換を実行
   auto clothoid_points =
-    convertArcToClothoid(arc_segment, start_pose, A_min, L_min, num_points_per_segment);
+    convertArcToClothoid(arc_segment, start_pose, A_min, L_min, point_interval);
 
   if (clothoid_points.empty()) {
     std::cerr << "Clothoid conversion failed!" << std::endl;
@@ -753,8 +747,8 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       const double A_min = std::sqrt(minimum_radius * L_min);
 
       // クロソイド変換を実行
-      auto clothoid_points =
-        convertArcToClothoidWithCorrection(segment, current_segment_pose, A_min, L_min, 20);
+      auto clothoid_points = convertArcToClothoidWithCorrection(
+        segment, current_segment_pose, A_min, L_min, parameters_.center_line_path_interval);
 
       if (!clothoid_points.empty()) {
         clothoid_paths.push_back(clothoid_points);
@@ -901,32 +895,6 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       resampled_combined_path.points.insert(
         resampled_combined_path.points.begin() + insertion_index, straight_forward_points.begin(),
         straight_forward_points.end());
-    }
-
-    // 3. そのままpartial_pathsにpush
-    // 追加: 先頭10点のデバッグ出力（既存フォーマットに合わせる）
-    {
-      size_t print_num = std::min(size_t(10), resampled_combined_path.points.size());
-      std::cerr << "[Debug] resampled_combined_path 先頭10点 (idx=0～" << (print_num - 1) << ")"
-                << std::endl;
-      for (size_t i = 0; i < print_num; ++i) {
-        const auto & p = resampled_combined_path.points[i].point.pose.position;
-        double yaw = tf2::getYaw(resampled_combined_path.points[i].point.pose.orientation);
-        double dist = 0.0, dx = 0.0, dy = 0.0, dyaw = 0.0, dyaw_deg = 0.0;
-        if (i > 0) {
-          const auto & p_prev = resampled_combined_path.points[i - 1].point.pose.position;
-          dx = p.x - p_prev.x;
-          dy = p.y - p_prev.y;
-          dist = std::hypot(dx, dy);
-          double prev_yaw =
-            tf2::getYaw(resampled_combined_path.points[i - 1].point.pose.orientation);
-          dyaw = angles::shortest_angular_distance(prev_yaw, yaw);
-          dyaw_deg = dyaw * 180.0 / M_PI;
-        }
-        std::cerr << "  idx=" << i << ": x=" << p.x << ", y=" << p.y << ", yaw=" << yaw << " rad"
-                  << ", dist_from_prev=" << dist << ", dx=" << dx << ", dy=" << dy
-                  << ", dyaw=" << dyaw << " rad (" << dyaw_deg << " deg)" << std::endl;
-      }
     }
     pull_out_path.partial_paths.push_back(resampled_combined_path);
 

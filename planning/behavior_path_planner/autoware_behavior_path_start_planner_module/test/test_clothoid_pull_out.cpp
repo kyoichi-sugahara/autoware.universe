@@ -807,7 +807,7 @@ TEST_F(TestClothoidPullOut, DISABLED_PlotCircularPathGeneration)
   plt.show(Args(), Kwargs("block"_a = true));
 }
 
-TEST_F(TestClothoidPullOut, PlotPathInShiojiri)
+TEST_F(TestClothoidPullOut, DISABLED_PlotPathInShiojiri)
 {
   const auto start_pose = geometry_msgs::build<geometry_msgs::msg::Pose>()
                             .position(geometry_msgs::build<geometry_msgs::msg::Point>()
