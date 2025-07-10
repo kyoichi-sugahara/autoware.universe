@@ -30,6 +30,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -117,6 +118,10 @@ PathWithLaneId createPathWithLaneIdFromClothoidPaths(
 PathWithLaneId combinePathWithCenterline(
   const PathWithLaneId & clothoid_path, const PathWithLaneId & centerline_path,
   const geometry_msgs::msg::Pose & target_pose);
+
+// Utility function to print PathWithLaneId details
+void printPathWithLaneIdDetails(
+  const PathWithLaneId & path, const std::string & path_name = "Path");
 
 class ClothoidPullOut : public PullOutPlannerBase
 {
