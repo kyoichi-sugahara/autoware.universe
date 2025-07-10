@@ -792,25 +792,25 @@ TEST_F(TestClothoidPullOut, PlotPathInShiojiri)
 {
   const auto start_pose = geometry_msgs::build<geometry_msgs::msg::Pose>()
                             .position(geometry_msgs::build<geometry_msgs::msg::Point>()
-                                        .x(65398.4296875)
-                                        .y(684.0303955078125)
-                                        .z(758.709))
+                                        .x(65397.40625)
+                                        .y(684.406005859375)
+                                        .z(758.714))
                             .orientation(geometry_msgs::build<geometry_msgs::msg::Quaternion>()
                                            .x(0.0)
                                            .y(0.0)
-                                           .z(0.020843761943255473)
-                                           .w(0.9997827451942011));
+                                           .z(-0.0018264627034187376)
+                                           .w(0.9999983320156054));
 
   const auto goal_pose = geometry_msgs::build<geometry_msgs::msg::Pose>()
                            .position(geometry_msgs::build<geometry_msgs::msg::Point>()
-                                       .x(65478.03515625)
-                                       .y(681.5191040039062)
-                                       .z(757.9382433042615))
+                                       .x(65486.0078125)
+                                       .y(680.9390258789062)
+                                       .z(757.8801237939126))
                            .orientation(geometry_msgs::build<geometry_msgs::msg::Quaternion>()
                                           .x(0.0)
                                           .y(0.0)
-                                          .z(-0.013419357293476247)
-                                          .w(0.9999099563709873));
+                                          .z(0.04829264604882148)
+                                          .w(0.9988332294920925));
 
   auto planner_data = std::make_shared<PlannerData>();
   planner_data->init_parameters(*node_);
