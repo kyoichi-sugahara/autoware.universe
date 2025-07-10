@@ -24,6 +24,7 @@
 
 #include <chrono>
 #include <cmath>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <string>
@@ -185,16 +186,14 @@ void ElasticBandSmoother::onPath(const Path::ConstSharedPtr path_ptr)
   const auto input_traj_points = trajectory_utils::convertToTrajectoryPoints(path_ptr->points);
 
   // --- デバッグ出力追加: 入力pathの各点のx, y, yaw ---
-  // for (size_t i = 0; i < path_ptr->points.size(); ++i) {
-  //   const auto & pt = path_ptr->points[i];
-  //   const auto & pos = pt.pose.position;
-  //   const auto & orient = pt.pose.orientation;
-  //   double yaw = tf2::getYaw(orient);
-  //   std::cerr << "[input path] idx=" << i
-  //             << " x=" << pos.x
-  //             << " y=" << pos.y
-  //             << " yaw=" << yaw << std::endl;
-  // }
+  for (size_t i = 0; i < path_ptr->points.size(); ++i) {
+    const auto & pt = path_ptr->points[i];
+    const auto & pos = pt.pose.position;
+    const auto & orient = pt.pose.orientation;
+    double yaw = tf2::getYaw(orient);
+    std::cerr << "[input path] idx=" << i << " x=" << pos.x << " y=" << pos.y << " yaw=" << yaw
+              << std::endl;
+  }
   // --- デバッグ出力ここまで ---
 
   // // --- yaw不連続デバッグ出力追加 ---

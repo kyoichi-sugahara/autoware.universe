@@ -35,10 +35,12 @@
 
 #include <angles/angles.h>
 #include <tf2/LinearMath/Quaternion.h>
+#include <tf2/utils.h>
 
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <iomanip>
 #include <iostream>
 #include <limits>
 #include <memory>
@@ -551,35 +553,35 @@ PathWithLaneId createPathWithLaneIdFromClothoidPaths(
     // 座標設定
     path_point.point.pose.position = all_clothoid_points[i];
 
-    // 向きを計算（次の点への方向）
-    // 計算方法怪しい？
-    if (i < all_clothoid_points.size() - 1) {
-      const double dx = all_clothoid_points[i + 1].x - all_clothoid_points[i].x;
-      const double dy = all_clothoid_points[i + 1].y - all_clothoid_points[i].y;
-      const double yaw = std::atan2(dy, dx);
-      // quaternionを直接設定
-      path_point.point.pose.orientation.x = 0.0;
-      path_point.point.pose.orientation.y = 0.0;
-      path_point.point.pose.orientation.z = std::sin(yaw / 2.0);
-      path_point.point.pose.orientation.w = std::cos(yaw / 2.0);
-    } else {
-      // 最後の点も同様に、前の点との方向から計算
-      if (all_clothoid_points.size() >= 2) {
-        const double dx = all_clothoid_points[i].x - all_clothoid_points[i - 1].x;
-        const double dy = all_clothoid_points[i].y - all_clothoid_points[i - 1].y;
-        const double yaw = std::atan2(dy, dx);
-        path_point.point.pose.orientation.x = 0.0;
-        path_point.point.pose.orientation.y = 0.0;
-        path_point.point.pose.orientation.z = std::sin(yaw / 2.0);
-        path_point.point.pose.orientation.w = std::cos(yaw / 2.0);
-      } else {
-        // 1点しかない場合は0
-        path_point.point.pose.orientation.x = 0.0;
-        path_point.point.pose.orientation.y = 0.0;
-        path_point.point.pose.orientation.z = 0.0;
-        path_point.point.pose.orientation.w = 1.0;
-      }
-    }
+    // // 向きを計算（次の点への方向）
+    // // 計算方法怪しい？
+    // if (i < all_clothoid_points.size() - 1) {
+    //   const double dx = all_clothoid_points[i + 1].x - all_clothoid_points[i].x;
+    //   const double dy = all_clothoid_points[i + 1].y - all_clothoid_points[i].y;
+    //   const double yaw = std::atan2(dy, dx);
+    //   // quaternionを直接設定
+    //   path_point.point.pose.orientation.x = 0.0;
+    //   path_point.point.pose.orientation.y = 0.0;
+    //   path_point.point.pose.orientation.z = std::sin(yaw / 2.0);
+    //   path_point.point.pose.orientation.w = std::cos(yaw / 2.0);
+    // } else {
+    //   // 最後の点も同様に、前の点との方向から計算
+    //   if (all_clothoid_points.size() >= 2) {
+    //     const double dx = all_clothoid_points[i].x - all_clothoid_points[i - 1].x;
+    //     const double dy = all_clothoid_points[i].y - all_clothoid_points[i - 1].y;
+    //     const double yaw = std::atan2(dy, dx);
+    //     path_point.point.pose.orientation.x = 0.0;
+    //     path_point.point.pose.orientation.y = 0.0;
+    //     path_point.point.pose.orientation.z = std::sin(yaw / 2.0);
+    //     path_point.point.pose.orientation.w = std::cos(yaw / 2.0);
+    //   } else {
+    //     // 1点しかない場合は0
+    //     path_point.point.pose.orientation.x = 0.0;
+    //     path_point.point.pose.orientation.y = 0.0;
+    //     path_point.point.pose.orientation.z = 0.0;
+    //     path_point.point.pose.orientation.w = 1.0;
+    //   }
+    // }
 
     // 速度プロファイルの計算（一定加速度で加速）
     double current_velocity;
@@ -619,7 +621,8 @@ PathWithLaneId createPathWithLaneIdFromClothoidPaths(
   }
 
   // 点間隔を揃えるためにリサンプリング
-  return autoware::behavior_path_planner::utils::resamplePathWithSpline(path_with_lane_id, 1.0);
+  return path_with_lane_id;
+  // return autoware::behavior_path_planner::utils::resamplePathWithSpline(path_with_lane_id, 1.0);
 }
 
 /**
@@ -637,6 +640,12 @@ PathWithLaneId combinePathWithCenterline(
   // target_poseの位置でcenterline_pathから接続点を見つける
   const auto target_idx =
     autoware::motion_utils::findNearestIndex(centerline_path.points, target_pose.position);
+
+  std::cerr << "target_pose: " << target_pose.position.x << ", " << target_pose.position.y
+            << std::endl;
+  std::cerr << "centerline_path.at(target_idx): "
+            << centerline_path.points.at(target_idx).point.pose.position.x << ", "
+            << centerline_path.points.at(target_idx).point.pose.position.y << std::endl;
 
   // target_poseから先のcenterline pathを取得
   if (target_idx < centerline_path.points.size()) {
@@ -656,7 +665,7 @@ PathWithLaneId combinePathWithCenterline(
       return utils::combinePath(clothoid_path, centerline_extension);
     }
   }
-
+  std::cerr << "/n/n/n combine is failed " << std::endl;
   // 結合できない場合はクロソイドパスをそのまま返す
   return clothoid_path;
 }
@@ -738,8 +747,8 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
   // =====================================================================
   // 後退パス生成（全ステア角度共通）
   // =====================================================================
-  const double backward_distance = 6.0;  // 例: 6m後退
-  const double interval = 1.0;           // 1.0m間隔
+  const double backward_distance = 10.0;  // 例: 6m後退
+  const double interval = 1.0;            // 1.0m間隔
   // lane_idの決定
   std::vector<int64_t> backward_lane_ids;
   if (!centerline_path.points.empty()) {
@@ -951,8 +960,11 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     pull_out_path.partial_paths.push_back(resampled_combined_path);
     // PullOutPathを作成
 
-    pull_out_path.start_pose = start_pose;
+    pull_out_path.start_pose = straight_end_pose;
     pull_out_path.end_pose = target_pose;
+
+    // デバッグ用：生成されたパスの詳細を出力
+    // printPathWithLaneIdDetails(resampled_combined_path, "ClothoidPullOutPath");
 
     // TODO(Sugahara): check lane departure
     return pull_out_path;
@@ -960,6 +972,52 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
 
   // 経路が生成できなかった場合
   return std::nullopt;
+}
+
+// PathWithLaneIdの各点の詳細情報をプリントする関数
+void printPathWithLaneIdDetails(const PathWithLaneId & path, const std::string & path_name)
+{
+  std::cout << "=== " << path_name << " Details ===" << std::endl;
+  std::cout << "Total points: " << path.points.size() << std::endl;
+
+  double cumulative_distance = 0.0;
+
+  for (size_t i = 0; i < path.points.size(); ++i) {
+    const auto & point = path.points[i];
+    const auto & pose = point.point.pose;
+    const auto & position = pose.position;
+    const auto & orientation = pose.orientation;
+
+    // ヨー角を計算
+    const double yaw = tf2::getYaw(orientation);
+
+    // 1つ前の点との距離を計算
+    double distance_from_prev = 0.0;
+    if (i > 0) {
+      const auto & prev_position = path.points[i - 1].point.pose.position;
+      distance_from_prev = std::sqrt(
+        std::pow(position.x - prev_position.x, 2) + std::pow(position.y - prev_position.y, 2) +
+        std::pow(position.z - prev_position.z, 2));
+      cumulative_distance += distance_from_prev;
+    }
+
+    // 情報をプリント
+    std::cout << std::fixed << std::setprecision(6);
+    std::cout << "[" << std::setw(3) << i << "] "
+              << "x=" << std::setw(10) << position.x << " "
+              << "y=" << std::setw(10) << position.y << " "
+              << "z=" << std::setw(10) << position.z << " "
+              << "yaw=" << std::setw(8) << yaw << " rad "
+              << "(" << std::setw(6) << yaw * 180.0 / M_PI << "°) "
+              << "quat[" << std::setw(7) << orientation.x << ", " << std::setw(7) << orientation.y
+              << ", " << std::setw(7) << orientation.z << ", " << std::setw(7) << orientation.w
+              << "] "
+              << "dist_prev=" << std::setw(8) << distance_from_prev << " "
+              << "cumul=" << std::setw(8) << cumulative_distance << std::endl;
+  }
+
+  std::cout << "Total path length: " << cumulative_distance << " m" << std::endl;
+  std::cout << "=================================" << std::endl;
 }
 
 }  // namespace autoware::behavior_path_planner
