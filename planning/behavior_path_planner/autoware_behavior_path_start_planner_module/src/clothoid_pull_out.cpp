@@ -437,13 +437,14 @@ std::vector<geometry_msgs::msg::Point> convertArcToClothoidWithCorrection(
  * @param target_velocity 目標速度
  * @param road_lanes 道路レーン情報
  * @param route_handler ルートハンドラー
+ * @param parameters パラメータ
  * @return PathWithLaneId
  */
 PathWithLaneId createPathWithLaneIdFromClothoidPaths(
   const std::vector<std::vector<geometry_msgs::msg::Point>> & clothoid_paths,
   const geometry_msgs::msg::Pose & target_pose, double velocity, double target_velocity,
   const lanelet::ConstLanelets & road_lanes,
-  const std::shared_ptr<autoware::route_handler::RouteHandler> & route_handler)
+  const std::shared_ptr<autoware::route_handler::RouteHandler> & route_handler, double interval)
 {
   // クロソイドパスが空の場合は空のPathWithLaneIdを返す
   if (clothoid_paths.empty()) {
@@ -558,7 +559,8 @@ PathWithLaneId createPathWithLaneIdFromClothoidPaths(
     path_with_lane_id.points.push_back(path_point);
   }
 
-  return path_with_lane_id;
+  // 点間隔を揃えるためにリサンプリング
+  return utils::resamplePathWithSpline(path_with_lane_id, interval);
 }
 
 /**
@@ -725,7 +727,8 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     }
 
     PathWithLaneId path_with_lane_id = createPathWithLaneIdFromClothoidPaths(
-      clothoid_paths, target_pose, velocity, target_velocity, road_lanes, route_handler);
+      clothoid_paths, target_pose, velocity, target_velocity, road_lanes, route_handler,
+      parameters_.center_line_path_interval);
 
     if (path_with_lane_id.points.empty()) {
       std::cerr << "No clothoid path found for steer angle " << steer_angle * 180.0 / M_PI
