@@ -20,7 +20,10 @@
 #include "autoware/path_smoother/utils/trajectory_utils.hpp"
 #include "rclcpp/time.hpp"
 
+#include <angles/angles.h>
+
 #include <chrono>
+#include <cmath>
 #include <limits>
 #include <memory>
 #include <string>
@@ -180,6 +183,22 @@ void ElasticBandSmoother::onPath(const Path::ConstSharedPtr path_ptr)
   }
 
   const auto input_traj_points = trajectory_utils::convertToTrajectoryPoints(path_ptr->points);
+
+  // // --- yaw不連続デバッグ出力追加 ---
+  // if (path_ptr->points.size() > 1) {
+  //   double prev_yaw = tf2::getYaw(path_ptr->points.front().pose.orientation);
+  //   for (size_t i = 1; i < path_ptr->points.size(); ++i) {
+  //     double curr_yaw = tf2::getYaw(path_ptr->points[i].pose.orientation);
+  //     double diff = std::fabs(angles::shortest_angular_distance(prev_yaw, curr_yaw));
+  //     if (diff > 0.5) { // 閾値は0.5rad（約28度）
+  //       RCLCPP_WARN(get_logger(), "[Yaw Discontinuity] input path idx=%zu, yaw jump=%.3f rad
+  //       (%.1f deg)",
+  //         i, diff, diff * 180.0 / M_PI);
+  //     }
+  //     prev_yaw = curr_yaw;
+  //   }
+  // }
+  // // --- yaw不連続デバッグ出力ここまで ---
 
   // 1. calculate trajectory with Elastic Band
   // 1.a check if replan (= optimization) is required
