@@ -925,6 +925,14 @@ PathWithLaneId StartPlannerModule::getFullPath() const
     pull_out_path.points.insert(
       pull_out_path.points.end(), partial_path.points.begin(), partial_path.points.end());
   }
+  // --- デバッグ出力追加: full_pathの各点のidx, x, y, yaw[rad] ---
+  // for (size_t i = 0; i < pull_out_path.points.size(); ++i) {
+  //   const auto & p = pull_out_path.points[i].point.pose.position;
+  //   double yaw = tf2::getYaw(pull_out_path.points[i].point.pose.orientation);
+  //   std::cerr << "[full_path] idx=" << i << " x=" << p.x << " y=" << p.y << " yaw=" << yaw << "
+  //   rad" << std::endl;
+  // }
+  // --- デバッグ出力ここまで ---
 
   if (status_.driving_forward) {
     // not need backward path or finish it
