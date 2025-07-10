@@ -23,9 +23,11 @@
 #include "autoware/motion_utils/trajectory/path_with_lane_id.hpp"
 #include "autoware_utils/geometry/boost_polygon_utils.hpp"
 
+#include <autoware/interpolation/linear_interpolation.hpp>
 #include <autoware/motion_utils/trajectory/path_shift.hpp>
 #include <autoware_lanelet2_extension/utility/query.hpp>
 #include <autoware_lanelet2_extension/utility/utilities.hpp>
+#include <autoware_utils/geometry/geometry.hpp>
 
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/pose.hpp>
@@ -447,6 +449,7 @@ PathWithLaneId createPathWithLaneIdFromClothoidPaths(
   const lanelet::ConstLanelets & road_lanes,
   const std::shared_ptr<autoware::route_handler::RouteHandler> & route_handler)
 {
+  (void)target_pose;  // unused parameter警告抑制
   // クロソイドパスが空の場合は空のPathWithLaneIdを返す
   if (clothoid_paths.empty()) {
     PathWithLaneId empty_path;
@@ -495,15 +498,28 @@ PathWithLaneId createPathWithLaneIdFromClothoidPaths(
       const double dx = all_clothoid_points[i + 1].x - all_clothoid_points[i].x;
       const double dy = all_clothoid_points[i + 1].y - all_clothoid_points[i].y;
       const double yaw = std::atan2(dy, dx);
-
       // quaternionを直接設定
       path_point.point.pose.orientation.x = 0.0;
       path_point.point.pose.orientation.y = 0.0;
       path_point.point.pose.orientation.z = std::sin(yaw / 2.0);
       path_point.point.pose.orientation.w = std::cos(yaw / 2.0);
     } else {
-      // 最後の点は目標姿勢と同じ向き
-      path_point.point.pose.orientation = target_pose.orientation;
+      // 最後の点も同様に、前の点との方向から計算
+      if (all_clothoid_points.size() >= 2) {
+        const double dx = all_clothoid_points[i].x - all_clothoid_points[i - 1].x;
+        const double dy = all_clothoid_points[i].y - all_clothoid_points[i - 1].y;
+        const double yaw = std::atan2(dy, dx);
+        path_point.point.pose.orientation.x = 0.0;
+        path_point.point.pose.orientation.y = 0.0;
+        path_point.point.pose.orientation.z = std::sin(yaw / 2.0);
+        path_point.point.pose.orientation.w = std::cos(yaw / 2.0);
+      } else {
+        // 1点しかない場合は0
+        path_point.point.pose.orientation.x = 0.0;
+        path_point.point.pose.orientation.y = 0.0;
+        path_point.point.pose.orientation.z = 0.0;
+        path_point.point.pose.orientation.w = 1.0;
+      }
     }
 
     // 速度プロファイルの計算（一定加速度で加速）
@@ -561,7 +577,7 @@ PathWithLaneId createPathWithLaneIdFromClothoidPaths(
   }
 
   // 点間隔を揃えるためにリサンプリング
-  return path_with_lane_id;
+  return autoware::behavior_path_planner::utils::resamplePathWithSpline(path_with_lane_id, 1.0);
 }
 
 /**
@@ -584,9 +600,13 @@ PathWithLaneId combinePathWithCenterline(
   if (target_idx < centerline_path.points.size()) {
     PathWithLaneId centerline_extension;
     centerline_extension.header = centerline_path.header;
-
+    std::cerr << "target_pose: " << target_pose.position.x << ", " << target_pose.position.y
+              << std::endl;
     // target_poseから先の点をcenterline_extensionに追加
     for (size_t i = target_idx; i < centerline_path.points.size(); ++i) {
+      std::cerr << "Adding point to centerline extension: "
+                << centerline_path.points[i].point.pose.position.x << ", "
+                << centerline_path.points[i].point.pose.position.y << std::endl;
       centerline_extension.points.push_back(centerline_path.points[i]);
     }
 
@@ -793,14 +813,88 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       for (size_t i = start_idx; i <= end_idx; ++i) {
         const auto & p = combined_path.points[i].point.pose.position;
         double yaw = tf2::getYaw(combined_path.points[i].point.pose.orientation) * 180.0 / M_PI;
-        std::cerr << "  idx=" << i << ": x=" << p.x << ", y=" << p.y << ", yaw=" << yaw << " deg";
-        if (i == nearest_idx) std::cerr << "  <-- nearest to target_pose";
-        std::cerr << std::endl;
+        double dyaw = 0.0, dyaw_deg = 0.0, dx = 0.0, dy = 0.0, dist = 0.0;
+        if (i > 0) {
+          const auto & p_prev = combined_path.points[i - 1].point.pose.position;
+          dx = p.x - p_prev.x;
+          dy = p.y - p_prev.y;
+          dist = std::hypot(dx, dy);
+          double prev_yaw = tf2::getYaw(combined_path.points[i - 1].point.pose.orientation);
+          dyaw = angles::shortest_angular_distance(
+            prev_yaw, tf2::getYaw(combined_path.points[i].point.pose.orientation));
+          dyaw_deg = dyaw * 180.0 / M_PI;
+        }
+        std::cerr << "  idx=" << i << ": x=" << p.x << ", y=" << p.y << ", yaw=" << yaw
+                  << " deg, dist_from_prev=" << dist << ", dx=" << dx << ", dy=" << dy
+                  << ", dyaw=" << dyaw << " rad (" << dyaw_deg << " deg)" << std::endl;
       }
     }
     // --- target_pose前後10点のデバッグ出力ここまで ---
-    auto resampled_combined_path =
-      utils::resamplePathWithSpline(combined_path, parameters_.center_line_path_interval);
+    // --- 先頭10点のデバッグ出力 ---
+    {
+      size_t end_idx = std::min(size_t(9), combined_path.points.size() - 1);
+      std::cerr << "[Debug] combined_path 先頭10点 (idx=0～" << end_idx << ")" << std::endl;
+      for (size_t i = 0; i <= end_idx; ++i) {
+        const auto & p = combined_path.points[i].point.pose.position;
+        double yaw = tf2::getYaw(combined_path.points[i].point.pose.orientation) * 180.0 / M_PI;
+        double dist = 0.0;
+        if (i > 0) {
+          const auto & p_prev = combined_path.points[i - 1].point.pose.position;
+          dist = std::hypot(p.x - p_prev.x, p.y - p_prev.y);
+        }
+        std::cerr << "  idx=" << i << ": x=" << p.x << ", y=" << p.y << ", yaw=" << yaw
+                  << " deg, dist_from_prev=" << dist << std::endl;
+      }
+    }
+    // --- 先頭10点のデバッグ出力ここまで ---
+    // autoware::interpolation::lerpによる等間隔リサンプリング
+    PathWithLaneId resampled_combined_path = combined_path;
+    if (combined_path.points.size() >= 2) {
+      // 1. arclength配列
+      std::vector<double> arclengths(combined_path.points.size(), 0.0);
+      for (size_t i = 1; i < combined_path.points.size(); ++i) {
+        const auto & p0 = combined_path.points[i - 1].point.pose.position;
+        const auto & p1 = combined_path.points[i].point.pose.position;
+        arclengths[i] = arclengths[i - 1] + std::hypot(p1.x - p0.x, p1.y - p0.y);
+      }
+      // 2. 新しいarclength配列
+      std::vector<double> query_s;
+      for (double s = 0.0; s < arclengths.back(); s += parameters_.center_line_path_interval)
+        query_s.push_back(s);
+      if (query_s.empty() || query_s.back() < arclengths.back())
+        query_s.push_back(arclengths.back());
+      // 3. 各値をlerp補間
+      std::vector<double> xs, ys, zs, yaws, vels;
+      for (const auto & pt : combined_path.points) {
+        xs.push_back(pt.point.pose.position.x);
+        ys.push_back(pt.point.pose.position.y);
+        zs.push_back(pt.point.pose.position.z);
+        vels.push_back(pt.point.longitudinal_velocity_mps);
+        yaws.push_back(tf2::getYaw(pt.point.pose.orientation));
+      }
+      auto lerp_x = autoware::interpolation::lerp(arclengths, xs, query_s);
+      auto lerp_y = autoware::interpolation::lerp(arclengths, ys, query_s);
+      auto lerp_z = autoware::interpolation::lerp(arclengths, zs, query_s);
+      auto lerp_yaw = autoware::interpolation::lerp(arclengths, yaws, query_s);
+      auto lerp_vel = autoware::interpolation::lerp(arclengths, vels, query_s);
+      // 4. PathWithLaneId生成
+      resampled_combined_path = combined_path;
+      resampled_combined_path.points.clear();
+      for (size_t i = 0; i < query_s.size(); ++i) {
+        PathPointWithLaneId pt;
+        pt.point.pose.position.x = lerp_x[i];
+        pt.point.pose.position.y = lerp_y[i];
+        pt.point.pose.position.z = lerp_z[i];
+        pt.point.pose.orientation = autoware_utils::create_quaternion_from_yaw(lerp_yaw[i]);
+        pt.point.longitudinal_velocity_mps = lerp_vel[i];
+        pt.lane_ids = combined_path.points.front().lane_ids;  // lane_idは暫定で先頭をコピー
+        pt.point.is_final = (i == query_s.size() - 1);
+        resampled_combined_path.points.push_back(pt);
+      }
+    }
+    std::cerr << "target_pose: x=" << target_pose.position.x << ", y=" << target_pose.position.y
+              << ", yaw=" << tf2::getYaw(target_pose.orientation) * 180.0 / M_PI << " deg"
+              << std::endl;
 
     // --- yaw不連続デバッグ出力追加 ---
     if (resampled_combined_path.points.size() > 1) {
@@ -824,6 +918,62 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       }
     }
     // --- yaw不連続デバッグ出力ここまで ---
+    // --- target_pose前後10点のデバッグ出力（resample後） ---
+    {
+      // target_poseに最も近い点を探す
+      size_t nearest_idx = 0;
+      double min_dist = std::numeric_limits<double>::max();
+      for (size_t i = 0; i < resampled_combined_path.points.size(); ++i) {
+        const auto & p = resampled_combined_path.points[i].point.pose.position;
+        double dist = std::hypot(p.x - target_pose.position.x, p.y - target_pose.position.y);
+        if (dist < min_dist) {
+          min_dist = dist;
+          nearest_idx = i;
+        }
+      }
+      size_t start_idx = (nearest_idx >= 10) ? nearest_idx - 10 : 0;
+      size_t end_idx = std::min(nearest_idx + 10, resampled_combined_path.points.size() - 1);
+      std::cerr << "[Debug] resampled_combined_path target_pose前後10点 (idx=" << start_idx << "～"
+                << end_idx << ")" << std::endl;
+      for (size_t i = start_idx; i <= end_idx; ++i) {
+        const auto & p = resampled_combined_path.points[i].point.pose.position;
+        double yaw = tf2::getYaw(resampled_combined_path.points[i].point.pose.orientation);
+        double dyaw = 0.0, dyaw_deg = 0.0, dx = 0.0, dy = 0.0, dist = 0.0;
+        if (i > 0) {
+          const auto & p_prev = resampled_combined_path.points[i - 1].point.pose.position;
+          dx = p.x - p_prev.x;
+          dy = p.y - p_prev.y;
+          dist = std::hypot(dx, dy);
+          double prev_yaw =
+            tf2::getYaw(resampled_combined_path.points[i - 1].point.pose.orientation);
+          dyaw = angles::shortest_angular_distance(
+            prev_yaw, tf2::getYaw(resampled_combined_path.points[i].point.pose.orientation));
+          dyaw_deg = dyaw * 180.0 / M_PI;
+        }
+        std::cerr << "  idx=" << i << ": x=" << p.x << ", y=" << p.y << ", yaw=" << yaw
+                  << " rad, dist_from_prev=" << dist << ", dx=" << dx << ", dy=" << dy
+                  << ", dyaw=" << dyaw << " rad (" << dyaw_deg << " deg)" << std::endl;
+      }
+    }
+    // --- target_pose前後10点のデバッグ出力ここまで ---
+    // --- resampled_combined_path 先頭10点のデバッグ出力 ---
+    {
+      size_t end_idx = std::min(size_t(9), resampled_combined_path.points.size() - 1);
+      std::cerr << "[Debug] resampled_combined_path 先頭10点 (idx=0～" << end_idx << ")"
+                << std::endl;
+      for (size_t i = 0; i <= end_idx; ++i) {
+        const auto & p = resampled_combined_path.points[i].point.pose.position;
+        double yaw = tf2::getYaw(resampled_combined_path.points[i].point.pose.orientation);
+        double dist = 0.0;
+        if (i > 0) {
+          const auto & p_prev = resampled_combined_path.points[i - 1].point.pose.position;
+          dist = std::hypot(p.x - p_prev.x, p.y - p_prev.y);
+        }
+        std::cerr << "  idx=" << i << ": x=" << p.x << ", y=" << p.y << ", yaw=" << yaw
+                  << " rad, dist_from_prev=" << dist << std::endl;
+      }
+    }
+    // --- resampled_combined_path 先頭10点のデバッグ出力ここまで ---
     pull_out_path.partial_paths.push_back(resampled_combined_path);
 
     // TODO(Sugahara): check lane departure
