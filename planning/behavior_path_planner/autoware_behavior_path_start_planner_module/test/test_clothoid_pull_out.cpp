@@ -607,7 +607,7 @@ TEST_F(TestClothoidPullOut, DISABLED_PlotCircularPathGeneration)
 
   // createPathWithLaneIdFromClothoidPaths関数を呼び出してPathWithLaneIdを生成
   PathWithLaneId path_with_lane_id = createPathWithLaneIdFromClothoidPaths(
-    clothoid_paths, target_pose, velocity, road_lanes, route_handler);
+    clothoid_paths, target_pose, velocity, velocity, road_lanes, route_handler);
 
   auto combined_path = combinePathWithCenterline(path_with_lane_id, centerline_path, target_pose);
 
@@ -966,12 +966,6 @@ TEST_F(TestClothoidPullOut, PlotPathInShiojiri)
           current_segment_pose.position = last_point;
           current_segment_pose.orientation =
             tf2::toMsg(tf2::Quaternion(tf2::Vector3(0, 0, 1), heading));
-
-          std::cerr << "Updated pose for next segment:" << std::endl;
-          std::cerr << "  Position: (" << current_segment_pose.position.x << ", "
-                    << current_segment_pose.position.y << ")" << std::endl;
-          std::cerr << "  Heading: " << heading << " rad (" << heading * 180.0 / M_PI << " deg)"
-                    << std::endl;
         }
       }
     } else {
@@ -993,9 +987,18 @@ TEST_F(TestClothoidPullOut, PlotPathInShiojiri)
     }
   }
 
+  double target_velocity = velocity;  // デフォルト値
+  if (!centerline_path.points.empty()) {
+    const auto target_idx =
+      autoware::motion_utils::findNearestIndex(centerline_path.points, target_pose.position);
+    if (target_idx < centerline_path.points.size()) {
+      target_velocity = centerline_path.points[target_idx].point.longitudinal_velocity_mps;
+    }
+  }
+
   // createPathWithLaneIdFromClothoidPaths関数を呼び出してPathWithLaneIdを生成
   PathWithLaneId path_with_lane_id = createPathWithLaneIdFromClothoidPaths(
-    clothoid_paths, target_pose, velocity, road_lanes, route_handler);
+    clothoid_paths, target_pose, velocity, target_velocity, road_lanes, route_handler);
 
   auto combined_path = combinePathWithCenterline(path_with_lane_id, centerline_path, target_pose);
 
