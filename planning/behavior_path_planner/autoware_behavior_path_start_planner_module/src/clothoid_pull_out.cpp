@@ -789,10 +789,6 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
   }
 
   std::vector<PathPointWithLaneId> backward_points;
-  // 後退方向の姿勢を計算（start_poseから180度回転）
-  double backward_yaw = tf2::getYaw(start_pose.orientation) + M_PI;
-  tf2::Quaternion backward_quat;
-  backward_quat.setRPY(0, 0, backward_yaw);
 
   // 最も遠い後退点から順番に生成（10m, 9m, 8m, ..., 1m）
   for (int i = static_cast<int>(backward_distance / interval); i >= 1; --i) {
@@ -802,8 +798,8 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     pt.point.pose.position.x = start_pose.position.x - distance * std::cos(yaw);
     pt.point.pose.position.y = start_pose.position.y - distance * std::sin(yaw);
     pt.point.pose.position.z = start_pose.position.z;
-    pt.point.pose.orientation = tf2::toMsg(backward_quat);  // 後退方向を向く
-    pt.point.longitudinal_velocity_mps = 1.0;               // 後退速度（負の値）
+    pt.point.pose.orientation = start_pose.orientation;     // 前方を向く
+    pt.point.longitudinal_velocity_mps = initial_velocity;  // 後退速度
     pt.point.is_final = false;
     setLaneIdsToPathPoint(pt, all_lanes, backward_lane_ids);
     backward_points.push_back(pt);
@@ -812,7 +808,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
   // start_poseの点を追加
   PathPointWithLaneId start_point;
   start_point.point.pose = start_pose;
-  start_point.point.longitudinal_velocity_mps = 0.0;  // 停止点
+  start_point.point.longitudinal_velocity_mps = initial_velocity;  // 停止点
   start_point.point.is_final = false;
   setLaneIdsToPathPoint(start_point, all_lanes, backward_lane_ids);
   backward_points.push_back(start_point);
@@ -936,51 +932,53 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
 
     printPathWithLaneIdDetails(combined_path, "combined_path");
 
+    PathWithLaneId resampled_combined_path =
+      utils::resamplePathWithSpline(combined_path, parameters_.center_line_path_interval);
     // autoware::interpolation::lerpによる等間隔リサンプリング
-    PathWithLaneId resampled_combined_path = combined_path;
-    if (combined_path.points.size() >= 2) {
-      // 1. arclength配列
-      std::vector<double> arclengths(combined_path.points.size(), 0.0);
-      for (size_t i = 1; i < combined_path.points.size(); ++i) {
-        const auto & p0 = combined_path.points[i - 1].point.pose.position;
-        const auto & p1 = combined_path.points[i].point.pose.position;
-        arclengths[i] = arclengths[i - 1] + std::hypot(p1.x - p0.x, p1.y - p0.y);
-      }
-      // 2. 新しいarclength配列
-      std::vector<double> query_s;
-      for (double s = 0.0; s < arclengths.back(); s += parameters_.center_line_path_interval)
-        query_s.push_back(s);
-      if (query_s.empty() || query_s.back() < arclengths.back())
-        query_s.push_back(arclengths.back());
-      // 3. 各値をlerp補間
-      std::vector<double> xs, ys, zs, yaws, vels;
-      for (const auto & pt : combined_path.points) {
-        xs.push_back(pt.point.pose.position.x);
-        ys.push_back(pt.point.pose.position.y);
-        zs.push_back(pt.point.pose.position.z);
-        vels.push_back(pt.point.longitudinal_velocity_mps);
-        yaws.push_back(tf2::getYaw(pt.point.pose.orientation));
-      }
-      auto lerp_x = autoware::interpolation::lerp(arclengths, xs, query_s);
-      auto lerp_y = autoware::interpolation::lerp(arclengths, ys, query_s);
-      auto lerp_z = autoware::interpolation::lerp(arclengths, zs, query_s);
-      auto lerp_yaw = autoware::interpolation::lerp(arclengths, yaws, query_s);
-      auto lerp_vel = autoware::interpolation::lerp(arclengths, vels, query_s);
-      // 4. PathWithLaneId生成
-      resampled_combined_path = combined_path;
-      resampled_combined_path.points.clear();
-      for (size_t i = 0; i < query_s.size(); ++i) {
-        PathPointWithLaneId pt;
-        pt.point.pose.position.x = lerp_x[i];
-        pt.point.pose.position.y = lerp_y[i];
-        pt.point.pose.position.z = lerp_z[i];
-        pt.point.pose.orientation = autoware_utils::create_quaternion_from_yaw(lerp_yaw[i]);
-        pt.point.longitudinal_velocity_mps = lerp_vel[i];
-        pt.point.is_final = false;
-        setLaneIdsToPathPoint(pt, all_lanes);
-        resampled_combined_path.points.push_back(pt);
-      }
-    }
+    // PathWithLaneId resampled_combined_path = combined_path;
+    // if (combined_path.points.size() >= 2) {
+    //   // 1. arclength配列
+    //   std::vector<double> arclengths(combined_path.points.size(), 0.0);
+    //   for (size_t i = 1; i < combined_path.points.size(); ++i) {
+    //     const auto & p0 = combined_path.points[i - 1].point.pose.position;
+    //     const auto & p1 = combined_path.points[i].point.pose.position;
+    //     arclengths[i] = arclengths[i - 1] + std::hypot(p1.x - p0.x, p1.y - p0.y);
+    //   }
+    //   // 2. 新しいarclength配列
+    //   std::vector<double> query_s;
+    //   for (double s = 0.0; s < arclengths.back(); s += parameters_.center_line_path_interval)
+    //     query_s.push_back(s);
+    //   if (query_s.empty() || query_s.back() < arclengths.back())
+    //     query_s.push_back(arclengths.back());
+    //   // 3. 各値をlerp補間
+    //   std::vector<double> xs, ys, zs, yaws, vels;
+    //   for (const auto & pt : combined_path.points) {
+    //     xs.push_back(pt.point.pose.position.x);
+    //     ys.push_back(pt.point.pose.position.y);
+    //     zs.push_back(pt.point.pose.position.z);
+    //     vels.push_back(pt.point.longitudinal_velocity_mps);
+    //     yaws.push_back(tf2::getYaw(pt.point.pose.orientation));
+    //   }
+    //   auto lerp_x = autoware::interpolation::lerp(arclengths, xs, query_s);
+    //   auto lerp_y = autoware::interpolation::lerp(arclengths, ys, query_s);
+    //   auto lerp_z = autoware::interpolation::lerp(arclengths, zs, query_s);
+    //   auto lerp_yaw = autoware::interpolation::lerp(arclengths, yaws, query_s);
+    //   auto lerp_vel = autoware::interpolation::lerp(arclengths, vels, query_s);
+    //   // 4. PathWithLaneId生成
+    //   resampled_combined_path = combined_path;
+    //   resampled_combined_path.points.clear();
+    //   for (size_t i = 0; i < query_s.size(); ++i) {
+    //     PathPointWithLaneId pt;
+    //     pt.point.pose.position.x = lerp_x[i];
+    //     pt.point.pose.position.y = lerp_y[i];
+    //     pt.point.pose.position.z = lerp_z[i];
+    //     pt.point.pose.orientation = autoware_utils::create_quaternion_from_yaw(lerp_yaw[i]);
+    //     pt.point.longitudinal_velocity_mps = lerp_vel[i];
+    //     pt.point.is_final = false;
+    //     setLaneIdsToPathPoint(pt, all_lanes);
+    //     resampled_combined_path.points.push_back(pt);
+    //   }
+    // }
     printPathWithLaneIdDetails(resampled_combined_path, "resampled_combined_path");
 
     // -----------------------------------------------------------------
