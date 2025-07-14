@@ -744,27 +744,24 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     start_pose.position.x + initial_forward_straight_distance * std::cos(start_yaw);
   straight_end_pose.position.y =
     start_pose.position.y + initial_forward_straight_distance * std::sin(start_yaw);
-  // 姿勢（yaw）は start_pose と同じ
   straight_end_pose.orientation = start_pose.orientation;
 
   const double lateral_offset = centerline_path.points.empty()
                                   ? 0.0
                                   : autoware::motion_utils::calcLateralOffset(
                                       centerline_path.points, straight_end_pose.position);
-  std::cerr << "Lateral offset: " << lateral_offset << std::endl;
   // TODO(Sugahara): define as parameter
   const std::vector<double> max_steer_angle = {
     max_steer_angle_degs[0] * M_PI / 180.0, max_steer_angle_degs[1] * M_PI / 180.0};
 
   const double max_steer_angle_rate = max_steer_angle_rate_deg_per_sec * M_PI / 180.0;
-  // TODO(Sugahara): define as parameter
   const double wheel_base = common_parameters.vehicle_info.wheel_base_m;
 
   // =====================================================================
   // 後退パス生成（全ステア角度共通）
   // =====================================================================
-  const double backward_distance = 10.0;  // 例: 10m後退
-  const double interval = 1.0;            // 1.0m間隔
+  const double backward_distance = 10.0;                                        // 例: 10m後退
+  const double backward_path_interval = parameters_.center_line_path_interval;  // 1.0m間隔
   // lane_idの決定
   std::vector<int64_t> backward_lane_ids;
   if (!centerline_path.points.empty()) {
@@ -783,8 +780,8 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     pt.point.pose.position.x = start_pose.position.x - distance * std::cos(yaw);
     pt.point.pose.position.y = start_pose.position.y - distance * std::sin(yaw);
     pt.point.pose.position.z = start_pose.position.z;
-    pt.point.pose.orientation = start_pose.orientation;     // 前方を向く
-    pt.point.longitudinal_velocity_mps = initial_velocity;  // 後退速度
+    pt.point.pose.orientation = start_pose.orientation;
+    pt.point.longitudinal_velocity_mps = initial_velocity;
     pt.point.is_final = false;
     setLaneIdsToPathPoint(pt, all_lanes, backward_lane_ids);
     backward_points.push_back(pt);
@@ -793,7 +790,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
   // start_poseの点を追加
   PathPointWithLaneId start_point;
   start_point.point.pose = start_pose;
-  start_point.point.longitudinal_velocity_mps = initial_velocity;  // 停止点
+  start_point.point.longitudinal_velocity_mps = initial_velocity;
   start_point.point.is_final = false;
   setLaneIdsToPathPoint(start_point, all_lanes, backward_lane_ids);
   backward_points.push_back(start_point);
