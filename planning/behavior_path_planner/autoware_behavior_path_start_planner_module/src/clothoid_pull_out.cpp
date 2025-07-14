@@ -685,6 +685,80 @@ PathWithLaneId combinePathWithCenterline(
   return clothoid_path;
 }
 
+/**
+ * @brief start_poseから前後に直進するposes配列を生成する関数
+ * @param start_pose 開始姿勢
+ * @param forward_distance 前方直進距離[m]
+ * @param backward_distance 後方直進距離[m]
+ * @param point_interval 点間隔[m]
+ * @return poses配列（後方→start_pose→前方の順）
+ */
+std::vector<geometry_msgs::msg::Pose> createStraightPathToEndPose(
+  const geometry_msgs::msg::Pose & start_pose, double forward_distance, double backward_distance,
+  double point_interval)
+{
+  // 直進方向（yaw角）を計算
+  const double start_yaw = tf2::getYaw(start_pose.orientation);
+
+  // poseの配列を格納
+  std::vector<geometry_msgs::msg::Pose> poses;
+
+  // 1. 後方経路を生成（最も遠い後退点から順番に生成）
+  if (backward_distance > 0.0) {
+    const int backward_num_points = static_cast<int>(backward_distance / point_interval);
+
+    for (int i = backward_num_points; i >= 1; --i) {
+      geometry_msgs::msg::Pose pose;
+      double distance = i * point_interval;
+      pose.position.x = start_pose.position.x - distance * std::cos(start_yaw);
+      pose.position.y = start_pose.position.y - distance * std::sin(start_yaw);
+      pose.position.z = start_pose.position.z;
+      pose.orientation = start_pose.orientation;
+      poses.push_back(pose);
+    }
+  }
+
+  // 2. start_poseを追加
+  poses.push_back(start_pose);
+
+  // 3. 前方経路を生成
+  if (forward_distance > 0.0) {
+    // 前方終了姿勢を計算
+    geometry_msgs::msg::Pose forward_end_pose = start_pose;
+    forward_end_pose.position.x = start_pose.position.x + forward_distance * std::cos(start_yaw);
+    forward_end_pose.position.y = start_pose.position.y + forward_distance * std::sin(start_yaw);
+    forward_end_pose.orientation = start_pose.orientation;
+
+    // 前方点数を計算（start_poseは既に追加済みなので除外）
+    const int forward_num_points =
+      std::max(1, static_cast<int>(std::ceil(forward_distance / point_interval)));
+
+    // 実際の間隔を再計算（等間隔にするため）
+    const double actual_interval = forward_distance / forward_num_points;
+
+    // 前方各点を生成（start_pose以降）
+    for (int i = 1; i <= forward_num_points; ++i) {
+      geometry_msgs::msg::Pose pose;
+
+      if (i == forward_num_points) {
+        // 最終点（正確にforward_end_poseにする）
+        pose = forward_end_pose;
+      } else {
+        // 中間点
+        const double distance = i * actual_interval;
+        pose.position.x = start_pose.position.x + distance * std::cos(start_yaw);
+        pose.position.y = start_pose.position.y + distance * std::sin(start_yaw);
+        pose.position.z = start_pose.position.z;
+        pose.orientation = start_pose.orientation;
+      }
+
+      poses.push_back(pose);
+    }
+  }
+
+  return poses;
+}
+
 ClothoidPullOut::ClothoidPullOut(
   rclcpp::Node & node, const StartPlannerParameters & parameters,
   std::shared_ptr<autoware_utils::TimeKeeper> time_keeper)
@@ -705,12 +779,18 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
 {
   const double initial_velocity = 1.0;
   const std::vector<double> max_steer_angle_degs = {5.0, 10.0, 20.0};
+  // TODO(Sugahara): define as parameter
+  const std::vector<double> max_steer_angle = {
+    max_steer_angle_degs[0] * M_PI / 180.0, max_steer_angle_degs[1] * M_PI / 180.0};
+
   const double max_steer_angle_rate_deg_per_sec = 10.0;  // Assume a constant rate for simplicity
+  const double max_steer_angle_rate = max_steer_angle_rate_deg_per_sec * M_PI / 180.0;
   constexpr double initial_forward_straight_distance = 3.0;  // [m] 直進区間長さ（仮）
 
   const auto & route_handler = planner_data->route_handler;
   const auto & common_parameters = planner_data->parameters;
 
+  const double wheel_base = common_parameters.vehicle_info.wheel_base_m;
   const double backward_path_length =
     planner_data->parameters.backward_path_length + parameters_.max_back_distance;
   const auto road_lanes = utils::getExtendedCurrentLanes(
@@ -737,84 +817,42 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
   //       現状はパラメータ化せず固定長さとする（TODO: パラメータ化）。
   // =====================================================================
 
-  // 現在車両の直進方向に直進距離分進んだ位置を計算
-  Pose straight_end_pose = start_pose;
-  const double start_yaw = tf2::getYaw(start_pose.orientation);
-  straight_end_pose.position.x =
-    start_pose.position.x + initial_forward_straight_distance * std::cos(start_yaw);
-  straight_end_pose.position.y =
-    start_pose.position.y + initial_forward_straight_distance * std::sin(start_yaw);
-  straight_end_pose.orientation = start_pose.orientation;
+  // =====================================================================
+  // 前後直進パス生成（全ステア角度共通）
+  // =====================================================================
+  const double backward_distance = 10.0;  // 後退距離[m]
+
+  // createStraightPathToEndPose関数を使用して前後直進経路を生成
+  auto straight_poses = createStraightPathToEndPose(
+    start_pose, initial_forward_straight_distance, backward_distance,
+    parameters_.center_line_path_interval);
+
+  // straight_posesからPathPointWithLaneIdを生成
+  std::vector<PathPointWithLaneId> straight_forward_points;
+  for (size_t i = 0; i < straight_poses.size(); ++i) {
+    PathPointWithLaneId pt;
+    pt.point.pose = straight_poses[i];
+    pt.point.longitudinal_velocity_mps = initial_velocity;
+    pt.point.lateral_velocity_mps = 0.0;
+    pt.point.heading_rate_rps = 0.0;
+    pt.point.is_final = false;
+
+    // レーンIDの設定
+    std::vector<int64_t> previous_lane_ids;
+    if (i > 0) {
+      previous_lane_ids = straight_forward_points[i - 1].lane_ids;
+    }
+    setLaneIdsToPathPoint(pt, all_lanes, previous_lane_ids);
+
+    straight_forward_points.push_back(pt);
+  }
+
+  const Pose straight_end_pose = straight_poses.back();
 
   const double lateral_offset = centerline_path.points.empty()
                                   ? 0.0
                                   : autoware::motion_utils::calcLateralOffset(
                                       centerline_path.points, straight_end_pose.position);
-  // TODO(Sugahara): define as parameter
-  const std::vector<double> max_steer_angle = {
-    max_steer_angle_degs[0] * M_PI / 180.0, max_steer_angle_degs[1] * M_PI / 180.0};
-
-  const double max_steer_angle_rate = max_steer_angle_rate_deg_per_sec * M_PI / 180.0;
-  const double wheel_base = common_parameters.vehicle_info.wheel_base_m;
-
-  // =====================================================================
-  // 後退パス生成（全ステア角度共通）
-  // =====================================================================
-  const double backward_distance = 10.0;                                        // 例: 10m後退
-  const double backward_path_interval = parameters_.center_line_path_interval;  // 1.0m間隔
-  // lane_idの決定
-  std::vector<int64_t> backward_lane_ids;
-  if (!centerline_path.points.empty()) {
-    backward_lane_ids = centerline_path.points.front().lane_ids;
-  } else if (!all_lanes.empty()) {
-    backward_lane_ids.push_back(all_lanes.front().id());
-  }
-
-  std::vector<PathPointWithLaneId> backward_points;
-
-  // 最も遠い後退点から順番に生成（10m, 9m, 8m, ..., 1m）
-  for (int i = static_cast<int>(backward_distance / interval); i >= 1; --i) {
-    PathPointWithLaneId pt;
-    double distance = i * interval;
-    double yaw = tf2::getYaw(start_pose.orientation);
-    pt.point.pose.position.x = start_pose.position.x - distance * std::cos(yaw);
-    pt.point.pose.position.y = start_pose.position.y - distance * std::sin(yaw);
-    pt.point.pose.position.z = start_pose.position.z;
-    pt.point.pose.orientation = start_pose.orientation;
-    pt.point.longitudinal_velocity_mps = initial_velocity;
-    pt.point.is_final = false;
-    setLaneIdsToPathPoint(pt, all_lanes, backward_lane_ids);
-    backward_points.push_back(pt);
-  }
-
-  // start_poseの点を追加
-  PathPointWithLaneId start_point;
-  start_point.point.pose = start_pose;
-  start_point.point.longitudinal_velocity_mps = initial_velocity;
-  start_point.point.is_final = false;
-  setLaneIdsToPathPoint(start_point, all_lanes, backward_lane_ids);
-  backward_points.push_back(start_point);
-
-  // =====================================================================
-  // 直進パス生成（全ステア角度共通）
-  // =====================================================================
-  std::vector<PathPointWithLaneId> straight_forward_points;
-  const double point_interval = parameters_.center_line_path_interval;
-  const int num_points = static_cast<int>(initial_forward_straight_distance / point_interval);
-  const std::vector<int64_t> straight_lane_ids = {road_lanes.front().id()};
-
-  for (int i = 1; i <= num_points; ++i) {
-    PathPointWithLaneId pt;
-    const double distance = i * point_interval;
-    pt.point.pose.position.x = start_pose.position.x + distance * std::cos(start_yaw);
-    pt.point.pose.position.y = start_pose.position.y + distance * std::sin(start_yaw);
-    pt.point.pose.position.z = start_pose.position.z;
-    pt.point.pose.orientation = start_pose.orientation;
-    pt.point.longitudinal_velocity_mps = initial_velocity;  // 徐々に加速
-    pt.point.is_final = false;
-    setLaneIdsToPathPoint(pt, all_lanes);
-    straight_forward_points.push_back(pt);
-  }
 
   for (const auto & steer_angle : max_steer_angle) {
     // =====================================================================
@@ -964,17 +1002,12 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     printPathWithLaneIdDetails(resampled_combined_path, "resampled_combined_path");
 
     // -----------------------------------------------------------------
-    // パス結合: 後退パス → 直進パス → クロソイドパス → センターライン拡張パス
-    // の順序で結合する
+    // パス結合: 前後直進パス → クロソイドパス → センターライン拡張パス
+    // の順序で結合する（前後直進パスは既に統合済み）
     // -----------------------------------------------------------------
-    // 最初に後退パスを設定（最も遠い後退点から開始）
     PathWithLaneId final_path;
     final_path.header = resampled_combined_path.header;
-    final_path.points = backward_points;
-
-    // 直進パスを追加
-    final_path.points.insert(
-      final_path.points.end(), straight_forward_points.begin(), straight_forward_points.end());
+    final_path.points = straight_forward_points;  // 前後直進パス（統合済み）
 
     // クロソイドパス + センターライン拡張パスを追加
     final_path.points.insert(
@@ -989,7 +1022,8 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     pull_out_path.partial_paths.push_back(final_path);
     // PullOutPathを作成
 
-    pull_out_path.start_pose = backward_points.front().point.pose;  // 最も遠い後退点から開始
+    pull_out_path.start_pose =
+      straight_forward_points.front().point.pose;  // 最も遠い後退点から開始
     pull_out_path.end_pose = target_pose;
 
     // デバッグ用：生成されたパスの詳細を出力
