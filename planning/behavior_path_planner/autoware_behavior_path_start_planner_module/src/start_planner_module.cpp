@@ -925,14 +925,6 @@ PathWithLaneId StartPlannerModule::getFullPath() const
     pull_out_path.points.insert(
       pull_out_path.points.end(), partial_path.points.begin(), partial_path.points.end());
   }
-  // --- デバッグ出力追加: full_pathの各点のidx, x, y, yaw[rad] ---
-  // for (size_t i = 0; i < pull_out_path.points.size(); ++i) {
-  //   const auto & p = pull_out_path.points[i].point.pose.position;
-  //   double yaw = tf2::getYaw(pull_out_path.points[i].point.pose.orientation);
-  //   std::cerr << "[full_path] idx=" << i << " x=" << p.x << " y=" << p.y << " yaw=" << yaw
-  //             << " rad" << std::endl;
-  // }
-  // --- デバッグ出力ここまで ---
 
   if (status_.driving_forward) {
     // not need backward path or finish it
@@ -1105,6 +1097,44 @@ void StartPlannerModule::planWithPriority(
           set_planner_evaluation_table(debug_data_vector);
           return;
         }
+      }
+    }
+
+    // If no path found with collision margins and clothoid fallback is enabled, try clothoid
+    // planner
+    if (parameters_->enable_clothoid_fallback) {
+      RCLCPP_INFO(
+        getLogger(), "No path found with collision margins. Trying clothoid fallback search.");
+
+      // Find clothoid planner from available planners
+      std::shared_ptr<PullOutPlannerBase> clothoid_planner = nullptr;
+      for (const auto & planner : start_planners_) {
+        if (planner->getPlannerType() == PlannerType::CLOTHOID) {
+          clothoid_planner = planner;
+          break;
+        }
+      }
+
+      if (clothoid_planner) {
+        // Try clothoid planner with minimum collision margin
+        const double min_margin = *std::min_element(
+          parameters_->collision_check_margins.begin(), parameters_->collision_check_margins.end());
+
+        for (size_t index = 0; index < start_pose_candidates.size(); ++index) {
+          if (findPullOutPath(
+                start_pose_candidates[index], clothoid_planner, refined_start_pose, goal_pose,
+                min_margin, debug_data_vector)) {
+            debug_data_.selected_start_pose_candidate_index = index;
+            debug_data_.margin_for_start_pose_candidate = min_margin;
+            set_planner_evaluation_table(debug_data_vector);
+            RCLCPP_INFO(getLogger(), "Clothoid fallback path found successfully.");
+            return;
+          }
+        }
+
+        RCLCPP_WARN(getLogger(), "Clothoid fallback search also failed to find a valid path.");
+      } else {
+        RCLCPP_WARN(getLogger(), "Clothoid planner not available for fallback search.");
       }
     }
   }

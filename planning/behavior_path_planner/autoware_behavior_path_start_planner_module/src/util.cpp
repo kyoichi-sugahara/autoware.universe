@@ -190,26 +190,6 @@ double calc_necessary_longitudinal_distance(
     const double denominator = 2 * minimum_radius + 2 * distance_to_goal * std::cos(alpha);
     const double radius_goal =
       (distance_to_goal * distance_to_goal - minimum_radius * minimum_radius) / denominator;
-    // const double center_goal_x = x_goal + radius_goal * std::sin(yaw_start);
-    // const double center_goal_y = y_goal - radius_goal * std::cos(yaw_start);
-    // std::cerr << "Radius goal: " << std::fixed << std::setprecision(2) << radius_goal
-    //           << " m, Center goal: (" << std::fixed << std::setprecision(2) << center_goal_x <<
-    //           ", "
-    //           << std::fixed << std::setprecision(2) << center_goal_y << ")" << std::endl;
-    // std::cerr << "alpha: " << std::fixed << std::setprecision(2) << alpha
-    //           << " rad, cos_term: " << std::fixed << std::setprecision(2) << cos_term <<
-    //           std::endl;
-
-    // 目標円弧の半径は、目標位置から開始円弧中心までの距離
-    // double R_goal = distance_to_goal;
-    // std::cerr << "Trial distance: " << std::fixed << std::setprecision(2) << trial_distance
-    //           << "dx_goal: " << std::fixed << std::setprecision(2) << dx_goal
-    //           << " m, dy_goal: " << std::fixed << std::setprecision(2) << dy_goal
-    //           << " m, Distance to goal: " << std::fixed << std::setprecision(2) <<
-    //           distance_to_goal
-    //           << " m, R_goal: " << std::setprecision(2) << R_goal
-    //           << " m, Lateral offset: " << std::setprecision(2) << lateral_offset << " m"
-    //           << std::endl;
 
     // 接続不可能な場合をスキップ
     if (radius_goal < 0) {
@@ -297,13 +277,6 @@ double calc_necessary_longitudinal_distance(
     }
 
     double arc1_length = minimum_radius * std::abs(angle_diff);
-
-    // デバッグ出力
-    // std::cout << "  Trial distance: " << std::fixed << std::setprecision(2) << trial_distance
-    //           << " m, radius_goal: " << std::setprecision(2) << radius_goal
-    //           << " m, Arc1 length: " << std::setprecision(3) << arc1_length
-    //           << " m, Actual offset: " << std::setprecision(3) << actual_lateral_offset
-    //           << " m, Error: " << std::setprecision(3) << error << " m" << std::endl;
 
     valid_results_count++;
 

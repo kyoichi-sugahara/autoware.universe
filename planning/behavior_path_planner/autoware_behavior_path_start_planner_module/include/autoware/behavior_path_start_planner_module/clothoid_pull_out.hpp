@@ -131,7 +131,7 @@ public:
     std::shared_ptr<autoware_utils::TimeKeeper> time_keeper =
       std::make_shared<autoware_utils::TimeKeeper>());
 
-  PlannerType getPlannerType() const override { return PlannerType::SHIFT; };
+  PlannerType getPlannerType() const override { return PlannerType::CLOTHOID; };
   std::optional<PullOutPath> plan(
     const Pose & start_pose, const Pose & goal_pose,
     const std::shared_ptr<const PlannerData> & planner_data,
