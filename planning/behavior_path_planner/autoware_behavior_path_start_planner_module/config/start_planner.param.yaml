@@ -45,6 +45,7 @@
       backward_velocity: -1.0
       geometric_pull_out_max_steer_angle_margin_scale: 0.72
       enable_clothoid_pull_out: true
+      enable_clothoid_fallback: true  # Enable clothoid path search when no path is found with collision margins
       # search start pose backward
       enable_back: true
       search_priority: "efficient_path"  # "efficient_path" or "short_back_distance"

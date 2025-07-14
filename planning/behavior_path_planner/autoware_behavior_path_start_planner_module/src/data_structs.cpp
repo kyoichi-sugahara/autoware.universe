@@ -78,6 +78,8 @@ StartPlannerParameters StartPlannerParameters::init(rclcpp::Node & node)
     p.divide_pull_out_path = get_or_declare_parameter<bool>(node, ns + "divide_pull_out_path");
     p.enable_clothoid_pull_out =
       get_or_declare_parameter<bool>(node, ns + "enable_clothoid_pull_out");
+    p.enable_clothoid_fallback =
+      get_or_declare_parameter<bool>(node, ns + "enable_clothoid_fallback");
     p.parallel_parking_parameters.pull_out_velocity =
       get_or_declare_parameter<double>(node, ns + "geometric_pull_out_velocity");
     p.parallel_parking_parameters.pull_out_arc_path_interval =

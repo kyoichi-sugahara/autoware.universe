@@ -52,8 +52,9 @@ enum class PlannerType {
   NONE = 0,
   SHIFT = 1,
   GEOMETRIC = 2,
-  STOP = 3,
-  FREESPACE = 4,
+  CLOTHOID = 3,
+  STOP = 4,
+  FREESPACE = 5,
 };
 
 struct PlannerDebugData
@@ -81,6 +82,8 @@ public:
         return "SHIFT               ";
       case PlannerType::GEOMETRIC:
         return "GEOMETRIC   ";
+      case PlannerType::CLOTHOID:
+        return "CLOTHOID    ";
       case PlannerType::STOP:
         return "STOP                  ";
       case PlannerType::FREESPACE:
@@ -307,6 +310,8 @@ struct StartPlannerParameters
   double geometric_collision_check_distance_from_end{0.0};
   bool divide_pull_out_path{false};
   bool enable_clothoid_pull_out{false};
+  bool enable_clothoid_fallback{
+    false};  // Enable clothoid path search when no path is found with collision margins
   ParallelParkingParameters parallel_parking_parameters{};
   // search start pose backward
   std::string search_priority;  // "efficient_path" or "short_back_distance"
