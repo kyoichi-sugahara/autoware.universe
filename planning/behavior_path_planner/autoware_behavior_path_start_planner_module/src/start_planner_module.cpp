@@ -1126,7 +1126,6 @@ void StartPlannerModule::planWithPriority(
           debug_data_.selected_start_pose_candidate_index = index;
           debug_data_.margin_for_start_pose_candidate = min_margin;
           set_planner_evaluation_table(debug_data_vector);
-          RCLCPP_INFO(getLogger(), "Clothoid fallback path found successfully.");
           return;
         }
       }
