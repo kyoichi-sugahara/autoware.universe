@@ -555,10 +555,6 @@ CompositeArcPath calc_circular_path(
   composite_path.segments.push_back(arc1);
   composite_path.segments.push_back(arc2);
 
-  std::cout << "\nPath generation completed!" << std::endl;
-  std::cout << "  Segments: " << composite_path.segments.size() << std::endl;
-  std::cout << "  Total length: " << composite_path.calculateTotalLength() << " m" << std::endl;
-
   return composite_path;
 }
 
