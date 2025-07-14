@@ -351,8 +351,8 @@ TEST_F(TestClothoidPullOut, DISABLED_GenerateValidClothoidPullOutPath)
  */
 std::vector<std::vector<geometry_msgs::msg::Point>> convertMultipleArcsToClothoidWithCorrection(
   const std::vector<ArcSegment> & arc_segments, const geometry_msgs::msg::Pose & initial_start_pose,
-  const std::vector<double> & A_values, const std::vector<double> & L_values,
-  int num_points_per_segment = 50)
+  const std::vector<double> & A_values, const std::vector<double> & L_values, double velocity,
+  double wheel_base, double max_steer_angle_rate, double point_interval)
 {
   std::vector<std::vector<geometry_msgs::msg::Point>> corrected_clothoid_paths;
 
@@ -371,7 +371,7 @@ std::vector<std::vector<geometry_msgs::msg::Point>> convertMultipleArcsToClothoi
 
     // 補正付きクロソイド変換を実行
     auto corrected_clothoid_points = convertArcToClothoidWithCorrection(
-      segment, current_segment_pose, A_min, L_min, num_points_per_segment);
+      segment, current_segment_pose, velocity, wheel_base, max_steer_angle_rate, point_interval);
 
     if (!corrected_clothoid_points.empty()) {
       corrected_clothoid_paths.push_back(corrected_clothoid_points);
@@ -559,7 +559,8 @@ TEST_F(TestClothoidPullOut, DISABLED_PlotCircularPathGeneration)
 
     // クロソイド変換を実行
     auto clothoid_points = convertArcToClothoidWithCorrection(
-      segment, current_segment_pose, A_min, L_min, points_per_segment);
+      segment, current_segment_pose, velocity, wheel_base, max_steer_angle_rate,
+      0.5);  // point_interval
 
     if (!clothoid_points.empty()) {
       clothoid_paths.push_back(clothoid_points);
@@ -608,7 +609,7 @@ TEST_F(TestClothoidPullOut, DISABLED_PlotCircularPathGeneration)
   // createPathWithLaneIdFromClothoidPaths関数を呼び出してPathWithLaneIdを生成
   auto parameters = StartPlannerParameters::init(*node_);
   PathWithLaneId path_with_lane_id = createPathWithLaneIdFromClothoidPaths(
-    clothoid_paths, target_pose, velocity, velocity, road_lanes, route_handler);
+    clothoid_paths, target_pose, velocity, velocity, 0.0, road_lanes, route_handler);
 
   auto combined_path = combinePathWithCenterline(path_with_lane_id, centerline_path, target_pose);
 
@@ -807,7 +808,7 @@ TEST_F(TestClothoidPullOut, DISABLED_PlotCircularPathGeneration)
   plt.show(Args(), Kwargs("block"_a = true));
 }
 
-TEST_F(TestClothoidPullOut, DISABLED_PlotPathInShiojiri)
+TEST_F(TestClothoidPullOut, PlotPathInShiojiri)
 {
   const auto start_pose = geometry_msgs::build<geometry_msgs::msg::Pose>()
                             .position(geometry_msgs::build<geometry_msgs::msg::Point>()
@@ -966,7 +967,8 @@ TEST_F(TestClothoidPullOut, DISABLED_PlotPathInShiojiri)
 
     // クロソイド変換を実行
     auto clothoid_points = convertArcToClothoidWithCorrection(
-      segment, current_segment_pose, A_min, L_min, points_per_segment);
+      segment, current_segment_pose, velocity, wheel_base, max_steer_angle_rate,
+      0.5);  // point_interval
 
     if (!clothoid_points.empty()) {
       clothoid_paths.push_back(clothoid_points);
@@ -1018,7 +1020,7 @@ TEST_F(TestClothoidPullOut, DISABLED_PlotPathInShiojiri)
   // createPathWithLaneIdFromClothoidPaths関数を呼び出してPathWithLaneIdを生成
   auto parameters = StartPlannerParameters::init(*node_);
   PathWithLaneId path_with_lane_id = createPathWithLaneIdFromClothoidPaths(
-    clothoid_paths, target_pose, velocity, target_velocity, road_lanes, route_handler);
+    clothoid_paths, target_pose, velocity, target_velocity, 0.0, road_lanes, route_handler);
 
   auto combined_path = combinePathWithCenterline(path_with_lane_id, centerline_path, target_pose);
 
