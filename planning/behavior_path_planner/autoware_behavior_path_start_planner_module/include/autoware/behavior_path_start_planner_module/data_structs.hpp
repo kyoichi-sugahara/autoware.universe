@@ -217,15 +217,6 @@ struct CompositeArcPath
   std::vector<ArcSegment> segments;  // Array of arc segments
 
   CompositeArcPath() = default;
-
-  double calculateTotalLength() const
-  {
-    double length = 0.0;
-    for (const auto & segment : segments) {
-      length += segment.calculateArcLength();
-    }
-    return length;
-  }
 };
 
 /**
@@ -234,8 +225,10 @@ struct CompositeArcPath
 struct RelativePoseInfo
 {
   double longitudinal_distance_vehicle;  // Longitudinal distance in vehicle coordinate [m]
-  double lateral_distance_vehicle;       // Lateral distance in vehicle coordinate [m]
-  double angle_diff;                     // Angle difference [rad]
+  double lateral_distance_vehicle;  // Lateral distance in vehicle coordinate [m] (positive: left,
+                                    // negative: right)
+  double angle_diff;  // Angle difference [rad] (positive: counter-clockwise/left turn, negative:
+                      // clockwise/right turn)
 };
 
 /**
