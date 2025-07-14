@@ -649,6 +649,70 @@ PathWithLaneId createPathWithLaneIdFromClothoidPaths(
 }
 
 /**
+ * @brief 円弧パスのセグメントをクロソイド曲線に変換する関数
+ * @param circular_path 円弧パス（2つのセグメントを含む）
+ * @param start_pose 開始姿勢
+ * @param initial_velocity 初期速度
+ * @param wheel_base ホイールベース
+ * @param max_steer_angle_rate 最大ステア角速度
+ * @param point_interval 点間隔
+ * @return クロソイドパスの配列
+ */
+std::vector<std::vector<geometry_msgs::msg::Point>> convertCircularPathToClothoidPaths(
+  const CompositeArcPath & circular_path, const geometry_msgs::msg::Pose & start_pose,
+  double initial_velocity, double wheel_base, double max_steer_angle_rate, double point_interval)
+{
+  std::vector<std::vector<geometry_msgs::msg::Point>> clothoid_paths;
+
+  if (circular_path.segments.size() < 2) {
+    std::cerr << "Circular path must have at least 2 segments" << std::endl;
+    return clothoid_paths;
+  }
+
+  geometry_msgs::msg::Pose current_segment_pose = start_pose;
+
+  // 第1セグメント（開始セグメント）の処理
+  const auto & first_segment = circular_path.segments[0];
+  auto first_clothoid_points = convertArcToClothoidWithCorrection(
+    first_segment, current_segment_pose, initial_velocity, wheel_base, max_steer_angle_rate,
+    point_interval);
+
+  clothoid_paths.push_back(first_clothoid_points);
+
+  // 第1セグメント終了時の姿勢を計算（第2セグメントの開始姿勢として使用）
+  geometry_msgs::msg::Pose second_segment_start_pose;
+  const auto & last_point_first = first_clothoid_points.back();
+  second_segment_start_pose.position = last_point_first;
+
+  // 終点での進行方向を計算（最後の2点から）
+  if (first_clothoid_points.size() >= 2) {
+    // TODO(Sugahara): ここでyawの計算方法あってる？
+    const auto & second_last_first = first_clothoid_points[first_clothoid_points.size() - 2];
+    double dx = last_point_first.x - second_last_first.x;
+    double dy = last_point_first.y - second_last_first.y;
+    double heading = std::atan2(dy, dx);
+    second_segment_start_pose.orientation =
+      tf2::toMsg(tf2::Quaternion(tf2::Vector3(0, 0, 1), heading));
+  } else {
+    second_segment_start_pose.orientation = current_segment_pose.orientation;
+  }
+
+  // 第2セグメント（終了セグメント）の処理
+  const auto & second_segment = circular_path.segments[1];
+  auto second_clothoid_points = convertArcToClothoidWithCorrection(
+    second_segment, second_segment_start_pose, initial_velocity, wheel_base, max_steer_angle_rate,
+    point_interval);
+
+  if (second_clothoid_points.empty()) {
+    std::cerr << "Failed to convert second segment to clothoid" << std::endl;
+    return clothoid_paths;
+  }
+  clothoid_paths.push_back(second_clothoid_points);
+
+  return clothoid_paths;
+}
+
+/**
  * @brief センターラインパスとクロソイドパスを結合する関数
  */
 PathWithLaneId combinePathWithCenterline(
@@ -849,6 +913,8 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
 
   const Pose straight_end_pose = straight_poses.back();
 
+  // lateral_offset: returns positive value when straight_end_pose.position is on the left side of
+  // the trajectory segment
   const double lateral_offset = centerline_path.points.empty()
                                   ? 0.0
                                   : autoware::motion_utils::calcLateralOffset(
@@ -870,9 +936,9 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     // TODO(Sugahara): ここでlateral_offset がプラスな場合は直進経路でよい。
     const auto relative_pose_info =
       start_planner_utils::calculateRelativePoseInVehicleCoordinate(straight_end_pose, target_pose);
-    std::cerr << "target_pose: x=" << target_pose.position.x << ", y=" << target_pose.position.y
-              << ", yaw=" << tf2::getYaw(target_pose.orientation) * 180.0 / M_PI << " deg"
-              << std::endl;
+    // std::cerr << "target_pose: x=" << target_pose.position.x << ", y=" << target_pose.position.y
+    //           << ", yaw=" << tf2::getYaw(target_pose.orientation) * 180.0 / M_PI << " deg"
+    //           << std::endl;
 
     const auto circular_path = start_planner_utils::calc_circular_path(
       straight_end_pose, relative_pose_info.longitudinal_distance_vehicle,
@@ -888,43 +954,16 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     geometry_msgs::msg::Pose current_segment_pose = straight_end_pose;
     std::vector<std::vector<geometry_msgs::msg::Point>> clothoid_paths;
 
-    // 第1セグメント（開始セグメント）の処理
-    const auto & first_segment = circular_path.segments[0];
-    auto first_clothoid_points = convertArcToClothoidWithCorrection(
-      first_segment, current_segment_pose, initial_velocity, wheel_base, max_steer_angle_rate,
+    // 円弧パスをクロソイド曲線に変換
+    clothoid_paths = convertCircularPathToClothoidPaths(
+      circular_path, current_segment_pose, initial_velocity, wheel_base, max_steer_angle_rate,
       parameters_.center_line_path_interval);
 
-    clothoid_paths.push_back(first_clothoid_points);
-
-    // 第1セグメント終了時の姿勢を計算（第2セグメントの開始姿勢として使用）
-    geometry_msgs::msg::Pose second_segment_start_pose;
-    const auto & last_point_first = first_clothoid_points.back();
-    second_segment_start_pose.position = last_point_first;
-
-    // 終点での進行方向を計算（最後の2点から）
-    if (first_clothoid_points.size() >= 2) {
-      // TODO(Sugahara): ここでyawの計算方法あってる？
-      const auto & second_last_first = first_clothoid_points[first_clothoid_points.size() - 2];
-      double dx = last_point_first.x - second_last_first.x;
-      double dy = last_point_first.y - second_last_first.y;
-      double heading = std::atan2(dy, dx);
-      second_segment_start_pose.orientation =
-        tf2::toMsg(tf2::Quaternion(tf2::Vector3(0, 0, 1), heading));
-    } else {
-      second_segment_start_pose.orientation = current_segment_pose.orientation;
-    }
-
-    // 第2セグメント（終了セグメント）の処理
-    const auto & second_segment = circular_path.segments[1];
-    auto second_clothoid_points = convertArcToClothoidWithCorrection(
-      second_segment, second_segment_start_pose, initial_velocity, wheel_base, max_steer_angle_rate,
-      parameters_.center_line_path_interval);
-
-    if (second_clothoid_points.empty()) {
-      std::cerr << "Failed to convert second segment to clothoid" << std::endl;
+    if (clothoid_paths.empty()) {
+      std::cerr << "Failed to convert circular path to clothoid paths for steer angle "
+                << steer_angle * 180.0 / M_PI << " deg." << std::endl;
       continue;
     }
-    clothoid_paths.push_back(second_clothoid_points);
 
     // 目標速度を取得（centerline_pathからtarget_poseに最も近い点の速度を使用）
     // TODO(Sugahara): 関数化

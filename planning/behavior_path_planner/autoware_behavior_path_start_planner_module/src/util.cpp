@@ -135,107 +135,116 @@ std::optional<PathWithLaneId> extractCollisionCheckSection(
   return collision_check_section;
 }
 
+namespace
+{
+
+struct PathEvaluationResult
+{
+  double distance;
+  double arc1_length;
+  double lateral_error;
+  bool is_valid;
+
+  PathEvaluationResult() : distance(0.0), arc1_length(0.0), lateral_error(0.0), is_valid(false) {}
+  PathEvaluationResult(double d, double arc_len, double error, bool valid)
+  : distance(d), arc1_length(arc_len), lateral_error(error), is_valid(valid)
+  {
+  }
+};
+
+}  // anonymous namespace
+
 double calc_necessary_longitudinal_distance(
   const double lateral_offset, const double minimum_radius)
 {
-  // 試行する縦方向距離の候補
-  std::vector<double> distances_to_try = {
+  // Trial distances based on minimum radius
+  const std::vector<double> trial_distances = {
     0.5 * minimum_radius, 0.75 * minimum_radius, 1.0 * minimum_radius, 1.5 * minimum_radius,
     2.0 * minimum_radius, 3.0 * minimum_radius,  4.0 * minimum_radius, 5.0 * minimum_radius,
     6.0 * minimum_radius, 8.0 * minimum_radius,  10.0 * minimum_radius};
 
-  std::cout << "\n--- Arc-based Analysis ---" << std::endl;
+  // Starting pose parameters (assumed at origin with 0 yaw)
+  constexpr double x_start = 0.0;
+  constexpr double y_start = 0.0;
+  constexpr double yaw_start = 0.0;
+
+  // Evaluation parameters
+  constexpr double error_threshold = 0.5;
+  constexpr double tolerance = 0.1;
+
+  // Results tracking
+  std::vector<PathEvaluationResult> evaluation_results;
+  evaluation_results.reserve(trial_distances.size());
 
   double best_distance = 0.0;
-  double best_score = -1e9;  // Arc1の長さを優先するため最大スコアを探索
+  double best_score = -1e9;  // Prioritize longer Arc1 length
   bool found_valid = false;
   int valid_results_count = 0;
 
-  // 開始姿勢を原点・0度と仮定
-  double x_start = 0.0, y_start = 0.0, yaw_start = 0.0;
+  for (const double trial_distance : trial_distances) {
+    // Calculate goal position considering lateral offset
+    const double x_goal =
+      x_start + trial_distance * std::cos(yaw_start) + lateral_offset * (-std::sin(yaw_start));
+    const double y_goal =
+      y_start + trial_distance * std::sin(yaw_start) + lateral_offset * std::cos(yaw_start);
 
-  for (double trial_distance : distances_to_try) {
-    // 目標位置を計算（開始姿勢に対して縦方向に移動）
-    double x_goal = x_start + trial_distance * std::cos(yaw_start);
-    double y_goal = y_start + trial_distance * std::sin(yaw_start);
+    // Calculate starting arc center (assuming clockwise rotation)
+    const double center_rx = x_start + minimum_radius * std::sin(yaw_start);
+    const double center_ry = y_start - minimum_radius * std::cos(yaw_start);
 
-    // 横方向偏差を追加
-    x_goal += lateral_offset * (-std::sin(yaw_start));
-    y_goal += lateral_offset * std::cos(yaw_start);
+    // Calculate target arc radius using Al-Kashi theorem
+    const double dx_goal = x_goal - center_rx;
+    const double dy_goal = y_goal - center_ry;
+    const double distance_to_goal = std::sqrt(dx_goal * dx_goal + dy_goal * dy_goal);
 
-    // 開始円弧の中心を計算（右回りを想定）
-    double C_rx = x_start + minimum_radius * std::sin(yaw_start);
-    double C_ry = y_start - minimum_radius * std::cos(yaw_start);
+    if (distance_to_goal < 1e-6) {
+      std::cout << "  Trial distance: " << std::fixed << std::setprecision(2) << trial_distance
+                << " m - SKIPPED (goal too close to arc center)" << std::endl;
+      continue;
+    }
 
-    // std::cerr << "Trial distance: " << std::fixed << std::setprecision(2) << trial_distance
-    //           << " m, x_goal: " << std::fixed << std::setprecision(2) << x_goal
-    //           << " m, y_goal: " << std::fixed << std::setprecision(2) << y_goal << " m"
-    //           << std::endl;
-    // std::cerr << "C_rx: " << std::fixed << std::setprecision(2) << C_rx
-    //           << " m, C_ry: " << std::fixed << std::setprecision(2) << C_ry << " m" << std::endl;
-
-    // 目標円弧の半径を計算
-    double dx_goal = x_goal - C_rx;
-    double dy_goal = y_goal - C_ry;
-    double distance_to_goal = std::sqrt(dx_goal * dx_goal + dy_goal * dy_goal);
-
-    double cos_term = (y_goal - C_ry) / distance_to_goal;
-    cos_term = std::clamp(cos_term, -1.0, 1.0);  // For numerical stability
-
-    // # Adjust angle for goal approach (π added for reverse direction)
-    // alpha = (yaw_goal + np.pi) + np.arccos(cos_term)
-    // double alpha = std::acos(cos_term);
-    // double alpha = (yaw_goal + M_PI) + std::acos(cos_term);
-    double alpha = M_PI + std::acos(cos_term);
+    const double cos_term = std::clamp((y_goal - center_ry) / distance_to_goal, -1.0, 1.0);
+    const double alpha = M_PI + std::acos(cos_term);
     const double denominator = 2 * minimum_radius + 2 * distance_to_goal * std::cos(alpha);
+
+    if (std::abs(denominator) < 1e-6) {
+      std::cout << "  Trial distance: " << std::fixed << std::setprecision(2) << trial_distance
+                << " m - SKIPPED (denominator too small)" << std::endl;
+      continue;
+    }
+
     const double radius_goal =
       (distance_to_goal * distance_to_goal - minimum_radius * minimum_radius) / denominator;
 
-    // 接続不可能な場合をスキップ
-    if (radius_goal < 0) {
-      std::cout << "Warning: Calculated radius is negative (distance_to_goal: " << std::fixed
-                << std::setprecision(3) << distance_to_goal << ")" << std::endl;
-      std::cout << "  Trial distance: " << trial_distance << " m - SKIPPED (connection impossible)"
+    // Check physical feasibility
+    if (radius_goal < 0 || radius_goal < minimum_radius) {
+      std::cout << "  Trial distance: " << std::fixed << std::setprecision(2) << trial_distance
+                << " m - SKIPPED (radius infeasible: " << std::setprecision(3) << radius_goal << ")"
                 << std::endl;
       continue;
     }
 
-    if (radius_goal < minimum_radius) {
-      std::cout << "Warning: Calculated radius is smaller than minimum (distance_to_goal: "
-                << std::fixed << std::setprecision(3) << distance_to_goal
-                << " < R_min: " << minimum_radius << ")" << std::endl;
-      std::cout << "  Trial distance: " << trial_distance << " m - SKIPPED (connection impossible)"
-                << std::endl;
-      continue;
-    }
+    // Calculate target arc center (assuming counter-clockwise rotation)
+    const double center_lx = x_goal - radius_goal * std::sin(yaw_start);
+    const double center_ly = y_goal + radius_goal * std::cos(yaw_start);
 
-    // 目標円弧の中心を計算（左回りを想定）
-    double C_lx = x_goal - radius_goal * std::sin(yaw_start);
-    double C_ly = y_goal + radius_goal * std::cos(yaw_start);
-    // std::cerr << "C_lx: " << std::fixed << std::setprecision(2) << C_lx
-    //           << " m, C_ly: " << std::fixed << std::setprecision(2) << C_ly << " m" << std::endl;
+    // Validate arc connection
+    const double dx_centers = center_lx - center_rx;
+    const double dy_centers = center_ly - center_ry;
+    const double distance_between_centers =
+      std::sqrt(dx_centers * dx_centers + dy_centers * dy_centers);
 
-    // 円弧同士の接続状態をチェック
-    double dx_centers = C_lx - C_rx;
-    double dy_centers = C_ly - C_ry;
-    double distance_between_centers = std::sqrt(dx_centers * dx_centers + dy_centers * dy_centers);
+    const double external_tangent_distance = minimum_radius + radius_goal;
+    const double internal_tangent_distance = std::abs(minimum_radius - radius_goal);
 
-    // 接続判定
-    double external_tangent_distance = minimum_radius + radius_goal;
-    double internal_tangent_distance = std::abs(minimum_radius - radius_goal);
-    double tolerance = 0.1;
-
-    bool connection_valid = false;
-    if (
-      std::abs(distance_between_centers - external_tangent_distance) <= tolerance ||
-      std::abs(distance_between_centers - internal_tangent_distance) <= tolerance ||
-      (distance_between_centers > external_tangent_distance + tolerance &&
-       distance_between_centers - external_tangent_distance <= 2.0) ||
-      (distance_between_centers < internal_tangent_distance - tolerance &&
-       internal_tangent_distance - distance_between_centers <=
-         std::min(minimum_radius, radius_goal) * 0.8)) {
-      connection_valid = true;
-    }
+    const bool connection_valid =
+      (std::abs(distance_between_centers - external_tangent_distance) <= tolerance ||
+       std::abs(distance_between_centers - internal_tangent_distance) <= tolerance ||
+       (distance_between_centers > external_tangent_distance + tolerance &&
+        distance_between_centers - external_tangent_distance <= 2.0) ||
+       (distance_between_centers < internal_tangent_distance - tolerance &&
+        internal_tangent_distance - distance_between_centers <=
+          std::min(minimum_radius, radius_goal) * 0.8));
 
     if (!connection_valid) {
       std::cout << "  Trial distance: " << std::fixed << std::setprecision(2) << trial_distance
@@ -243,63 +252,65 @@ double calc_necessary_longitudinal_distance(
       continue;
     }
 
-    // 接線点を計算
+    // Calculate tangent point between circles
     double tangent_x, tangent_y;
-    if (std::abs(distance_between_centers - external_tangent_distance) <= tolerance) {
-      // 外接の場合
-      double ratio = minimum_radius / (minimum_radius + radius_goal);
-      tangent_x = C_rx + ratio * dx_centers;
-      tangent_y = C_ry + ratio * dy_centers;
+    if (distance_between_centers < 1e-6) {
+      tangent_x = (center_rx + center_lx) / 2.0;
+      tangent_y = (center_ry + center_ly) / 2.0;
+    } else if (std::abs(distance_between_centers - external_tangent_distance) <= tolerance) {
+      // External tangent case
+      const double ratio = minimum_radius / (minimum_radius + radius_goal);
+      tangent_x = center_rx + ratio * dx_centers;
+      tangent_y = center_ry + ratio * dy_centers;
     } else {
-      // その他の場合の近似計算
-      double ratio = 0.5;
-      tangent_x = C_rx + ratio * dx_centers;
-      tangent_y = C_ry + ratio * dy_centers;
+      // Other cases - use approximation
+      const double ratio = 0.5;
+      tangent_x = center_rx + ratio * dx_centers;
+      tangent_y = center_ry + ratio * dy_centers;
     }
 
-    // 実際の横方向偏差を計算
-    double dx_actual = x_goal - x_start;
-    double dy_actual = y_goal - y_start;
-    double lateral_x = -std::sin(yaw_start);
-    double lateral_y = std::cos(yaw_start);
-    double actual_lateral_offset = dx_actual * lateral_x + dy_actual * lateral_y;
+    // Calculate actual lateral offset achieved
+    const double dx_actual = x_goal - x_start;
+    const double dy_actual = y_goal - y_start;
+    const double lateral_x = -std::sin(yaw_start);
+    const double lateral_y = std::cos(yaw_start);
+    const double actual_lateral_offset = dx_actual * lateral_x + dy_actual * lateral_y;
+    const double lateral_error = std::abs(actual_lateral_offset - lateral_offset);
 
-    double error = std::abs(actual_lateral_offset - lateral_offset);
-
-    // Arc1の長さを計算
-    double start_angle = std::atan2(y_start - C_ry, x_start - C_rx);
-    double tangent_angle = std::atan2(tangent_y - C_ry, tangent_x - C_rx);
+    // Calculate Arc1 length
+    const double start_angle = std::atan2(y_start - center_ry, x_start - center_rx);
+    const double tangent_angle = std::atan2(tangent_y - center_ry, tangent_x - center_rx);
     double angle_diff = tangent_angle - start_angle;
 
-    // 時計回りの角度調整
+    // Adjust for clockwise direction
     if (angle_diff > 0) {
       angle_diff -= 2 * M_PI;
     }
 
-    double arc1_length = minimum_radius * std::abs(angle_diff);
+    const double arc1_length = minimum_radius * std::abs(angle_diff);
 
+    // Store evaluation result
+    evaluation_results.emplace_back(trial_distance, arc1_length, lateral_error, true);
     valid_results_count++;
 
-    // 誤差が許容範囲内で、Arc1の長さが最大のものを選択
-    double error_threshold = 0.5;
-    if (error <= error_threshold) {
+    // Update best candidate selection
+    if (lateral_error <= error_threshold) {
       if (arc1_length > best_score) {
         best_score = arc1_length;
         best_distance = trial_distance;
         found_valid = true;
       }
     } else if (!found_valid && arc1_length > best_score) {
-      // 許容範囲内の解がない場合、最も良いものを選択
+      // If no acceptable solution found yet, select the best available
       best_score = arc1_length;
       best_distance = trial_distance;
     }
   }
 
-  // 選択結果の出力
+  // Output selection results
   std::cout << "\n--- Selection Results ---" << std::endl;
   std::cout << "Valid results: " << valid_results_count << std::endl;
 
-  double error_threshold = 0.5;
   if (found_valid) {
     std::cout << "Acceptable results (error <= " << std::fixed << std::setprecision(1)
               << error_threshold << "m): found" << std::endl;
@@ -309,7 +320,7 @@ double calc_necessary_longitudinal_distance(
     std::cout << "No acceptable results found" << std::endl;
   }
 
-  // 有効な解が見つからない場合のフォールバック
+  // Fallback if no valid solution found
   if (!found_valid && best_distance == 0.0) {
     best_distance = std::max(4.0 * minimum_radius, std::abs(lateral_offset) * 2.0);
     std::cout << "Using geometric estimation: " << std::setprecision(3) << best_distance << " m"
