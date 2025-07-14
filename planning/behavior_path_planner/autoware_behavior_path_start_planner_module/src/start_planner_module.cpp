@@ -77,7 +77,7 @@ StartPlannerModule::StartPlannerModule(
   if (parameters_->enable_geometric_pull_out) {
     start_planners_.push_back(std::make_shared<GeometricPullOut>(node, *parameters, time_keeper_));
   }
-  if (parameters_->enable_clothoid_pull_out) {
+  if (parameters_->enable_clothoid_fallback) {
     start_planners_.push_back(std::make_shared<ClothoidPullOut>(node, *parameters, time_keeper_));
   }
   if (start_planners_.empty()) {
@@ -1115,26 +1115,20 @@ void StartPlannerModule::planWithPriority(
         }
       }
 
-      if (clothoid_planner) {
-        // Try clothoid planner with minimum collision margin
-        const double min_margin = *std::min_element(
-          parameters_->collision_check_margins.begin(), parameters_->collision_check_margins.end());
+      // Try clothoid planner with minimum collision margin
+      const double min_margin = *std::min_element(
+        parameters_->collision_check_margins.begin(), parameters_->collision_check_margins.end());
 
-        for (size_t index = 0; index < start_pose_candidates.size(); ++index) {
-          if (findPullOutPath(
-                start_pose_candidates[index], clothoid_planner, refined_start_pose, goal_pose,
-                min_margin, debug_data_vector)) {
-            debug_data_.selected_start_pose_candidate_index = index;
-            debug_data_.margin_for_start_pose_candidate = min_margin;
-            set_planner_evaluation_table(debug_data_vector);
-            RCLCPP_INFO(getLogger(), "Clothoid fallback path found successfully.");
-            return;
-          }
+      for (size_t index = 0; index < start_pose_candidates.size(); ++index) {
+        if (findPullOutPath(
+              start_pose_candidates[index], clothoid_planner, refined_start_pose, goal_pose,
+              min_margin, debug_data_vector)) {
+          debug_data_.selected_start_pose_candidate_index = index;
+          debug_data_.margin_for_start_pose_candidate = min_margin;
+          set_planner_evaluation_table(debug_data_vector);
+          RCLCPP_INFO(getLogger(), "Clothoid fallback path found successfully.");
+          return;
         }
-
-        RCLCPP_WARN(getLogger(), "Clothoid fallback search also failed to find a valid path.");
-      } else {
-        RCLCPP_WARN(getLogger(), "Clothoid planner not available for fallback search.");
       }
     }
   }

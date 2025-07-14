@@ -117,7 +117,7 @@ void StartPlannerModuleManager::updateModuleParams(
       parameters, ns + "maximum_longitudinal_deviation", p->maximum_longitudinal_deviation);
     update_param<bool>(parameters, ns + "enable_geometric_pull_out", p->enable_geometric_pull_out);
     update_param<bool>(parameters, ns + "divide_pull_out_path", p->divide_pull_out_path);
-    update_param<bool>(parameters, ns + "enable_clothoid_pull_out", p->enable_clothoid_pull_out);
+    update_param<bool>(parameters, ns + "enable_clothoid_fallback", p->enable_clothoid_fallback);
     update_param<double>(
       parameters, ns + "arc_path_interval",
       p->parallel_parking_parameters.pull_out_arc_path_interval);
