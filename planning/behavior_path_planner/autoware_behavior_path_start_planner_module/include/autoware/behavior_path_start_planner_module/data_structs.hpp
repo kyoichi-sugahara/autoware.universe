@@ -309,7 +309,6 @@ struct StartPlannerParameters
   bool enable_geometric_pull_out{false};
   double geometric_collision_check_distance_from_end{0.0};
   bool divide_pull_out_path{false};
-  bool enable_clothoid_pull_out{false};
   bool enable_clothoid_fallback{
     false};  // Enable clothoid path search when no path is found with collision margins
   ParallelParkingParameters parallel_parking_parameters{};
