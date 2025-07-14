@@ -5,8 +5,6 @@ find_package(autoware_cmake REQUIRED)
 autoware_package()
 pluginlib_export_plugin_description_file(autoware_behavior_path_planner plugins.xml)
 
-find_package(angles REQUIRED)
-
 ament_auto_add_library(${PROJECT_NAME} SHARED
   src/start_planner_module.cpp
   src/manager.cpp
@@ -17,10 +15,6 @@ ament_auto_add_library(${PROJECT_NAME} SHARED
   src/shift_pull_out.cpp
   src/data_structs.cpp
   src/util.cpp
-)
-
-ament_target_dependencies(${PROJECT_NAME}
-  angles
 )
 
 if(BUILD_TESTING)
