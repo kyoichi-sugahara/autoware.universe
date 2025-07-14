@@ -20,11 +20,7 @@
 #include "autoware/path_smoother/utils/trajectory_utils.hpp"
 #include "rclcpp/time.hpp"
 
-#include <angles/angles.h>
-
 #include <chrono>
-#include <cmath>
-#include <iostream>
 #include <limits>
 #include <memory>
 #include <string>
@@ -185,33 +181,6 @@ void ElasticBandSmoother::onPath(const Path::ConstSharedPtr path_ptr)
 
   const auto input_traj_points = trajectory_utils::convertToTrajectoryPoints(path_ptr->points);
 
-  // --- デバッグ出力追加: 入力pathの各点のx, y, yaw ---
-  // for (size_t i = 0; i < path_ptr->points.size(); ++i) {
-  //   const auto & pt = path_ptr->points[i];
-  //   const auto & pos = pt.pose.position;
-  //   const auto & orient = pt.pose.orientation;
-  //   double yaw = tf2::getYaw(orient);
-  //   std::cerr << "[input path] idx=" << i << " x=" << pos.x << " y=" << pos.y << " yaw=" << yaw
-  //             << std::endl;
-  // }
-  // --- デバッグ出力ここまで ---
-
-  // // --- yaw不連続デバッグ出力追加 ---
-  // if (path_ptr->points.size() > 1) {
-  //   double prev_yaw = tf2::getYaw(path_ptr->points.front().pose.orientation);
-  //   for (size_t i = 1; i < path_ptr->points.size(); ++i) {
-  //     double curr_yaw = tf2::getYaw(path_ptr->points[i].pose.orientation);
-  //     double diff = std::fabs(angles::shortest_angular_distance(prev_yaw, curr_yaw));
-  //     if (diff > 0.5) { // 閾値は0.5rad（約28度）
-  //       RCLCPP_WARN(get_logger(), "[Yaw Discontinuity] input path idx=%zu, yaw jump=%.3f rad
-  //       (%.1f deg)",
-  //         i, diff, diff * 180.0 / M_PI);
-  //     }
-  //     prev_yaw = curr_yaw;
-  //   }
-  // }
-  // // --- yaw不連続デバッグ出力ここまで ---
-
   // 1. calculate trajectory with Elastic Band
   // 1.a check if replan (= optimization) is required
   PlannerData planner_data(
@@ -241,19 +210,6 @@ void ElasticBandSmoother::onPath(const Path::ConstSharedPtr path_ptr)
 
   // 3. extend trajectory to connect the optimized trajectory and the following path smoothly
   auto full_traj_points = extendTrajectory(input_traj_points, smoothed_traj_points);
-
-  // --- デバッグ出力追加: 平滑化後の出力経路の各点のx, y, yaw ---
-  // for (size_t i = 0; i < full_traj_points.size(); ++i) {
-  //   const auto & pt = full_traj_points[i];
-  //   const auto & pos = pt.pose.position;
-  //   const auto & orient = pt.pose.orientation;
-  //   double yaw = tf2::getYaw(orient);
-  //   std::cerr << "[smoothed path] idx=" << i
-  //             << " x=" << pos.x
-  //             << " y=" << pos.y
-  //             << " yaw=" << yaw << std::endl;
-  // }
-  // --- デバッグ出力ここまで ---
 
   // 4. set zero velocity after stop point
   setZeroVelocityAfterStopPoint(full_traj_points);
