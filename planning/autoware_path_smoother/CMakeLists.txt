@@ -5,15 +5,9 @@ find_package(autoware_cmake REQUIRED)
 autoware_package()
 
 find_package(Eigen3 REQUIRED)
-find_package(angles REQUIRED)
 
 ament_auto_add_library(autoware_path_smoother SHARED
   DIRECTORY src
-)
-
-ament_target_dependencies(autoware_path_smoother
-  Eigen3
-  angles
 )
 
 target_include_directories(autoware_path_smoother
