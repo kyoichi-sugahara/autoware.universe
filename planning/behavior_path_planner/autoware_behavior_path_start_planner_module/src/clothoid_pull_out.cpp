@@ -645,7 +645,6 @@ PathWithLaneId createPathWithLaneIdFromClothoidPaths(
     path_with_lane_id.points.push_back(path_point);
   }
 
-  // 点間隔を揃えるためにリサンプリング
   return path_with_lane_id;
   // return autoware::behavior_path_planner::utils::resamplePathWithSpline(path_with_lane_id, 1.0);
 }
@@ -666,12 +665,6 @@ PathWithLaneId combinePathWithCenterline(
   const auto target_idx =
     autoware::motion_utils::findNearestIndex(centerline_path.points, target_pose.position);
 
-  std::cerr << "target_pose: " << target_pose.position.x << ", " << target_pose.position.y
-            << std::endl;
-  std::cerr << "centerline_path.at(target_idx): "
-            << centerline_path.points.at(target_idx).point.pose.position.x << ", "
-            << centerline_path.points.at(target_idx).point.pose.position.y << std::endl;
-
   // target_poseから先のcenterline pathを取得
   if (target_idx < centerline_path.points.size()) {
     PathWithLaneId centerline_extension;
@@ -690,8 +683,6 @@ PathWithLaneId combinePathWithCenterline(
       return utils::combinePath(clothoid_path, centerline_extension);
     }
   }
-  std::cerr << "/n/n/n combine is failed " << std::endl;
-  // 結合できない場合はクロソイドパスをそのまま返す
   return clothoid_path;
 }
 
@@ -714,6 +705,10 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
   PlannerDebugData & /*planner_debug_data*/)
 {
   const double initial_velocity = 1.0;
+  const std::vector<double> max_steer_angle_degs = {5.0, 10.0, 20.0};
+  const double max_steer_angle_rate_deg_per_sec = 10.0;  // Assume a constant rate for simplicity
+  constexpr double initial_forward_straight_distance = 3.0;  // [m] 直進区間長さ（仮）
+
   const auto & route_handler = planner_data->route_handler;
   const auto & common_parameters = planner_data->parameters;
 
@@ -743,8 +738,6 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
   //       現状はパラメータ化せず固定長さとする（TODO: パラメータ化）。
   // =====================================================================
 
-  constexpr double initial_forward_straight_distance = 3.0;  // [m] 直進区間長さ（仮）
-
   // 現在車両の直進方向に直進距離分進んだ位置を計算
   Pose straight_end_pose = start_pose;
   const double start_yaw = tf2::getYaw(start_pose.orientation);
@@ -761,16 +754,9 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
                                       centerline_path.points, straight_end_pose.position);
   std::cerr << "Lateral offset: " << lateral_offset << std::endl;
   // TODO(Sugahara): define as parameter
-  const std::vector<double> max_steer_angle_degs = {5.0, 10.0, 20.0};
   const std::vector<double> max_steer_angle = {
     max_steer_angle_degs[0] * M_PI / 180.0, max_steer_angle_degs[1] * M_PI / 180.0};
-  // const std::vector<double> max_steer_angle_degs = {20.0, 30.0, 40.0, 50.0, 60.0};
-  // const std::vector<double> max_steer_angle = {
-  //   max_steer_angle_degs[0] * M_PI / 180.0, max_steer_angle_degs[1] * M_PI / 180.0,
-  //   max_steer_angle_degs[2] * M_PI / 180.0, max_steer_angle_degs[3] * M_PI / 180.0,
-  //   max_steer_angle_degs[4] * M_PI / 180.0};
 
-  const double max_steer_angle_rate_deg_per_sec = 10.0;  // Assume a constant rate for simplicity
   const double max_steer_angle_rate = max_steer_angle_rate_deg_per_sec * M_PI / 180.0;
   // TODO(Sugahara): define as parameter
   const double wheel_base = common_parameters.vehicle_info.wheel_base_m;
