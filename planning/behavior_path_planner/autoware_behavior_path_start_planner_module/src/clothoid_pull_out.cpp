@@ -991,7 +991,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     // センターラインパスとの結合
     auto combined_path = combinePathWithCenterline(path_with_lane_id, centerline_path, target_pose);
 
-    printPathWithLaneIdDetails(combined_path, "combined_path");
+    // printPathWithLaneIdDetails(combined_path, "combined_path");
 
     PathWithLaneId resampled_combined_path =
       utils::resamplePathWithSpline(combined_path, parameters_.center_line_path_interval);
@@ -1040,7 +1040,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     //     resampled_combined_path.points.push_back(pt);
     //   }
     // }
-    printPathWithLaneIdDetails(resampled_combined_path, "resampled_combined_path");
+    // printPathWithLaneIdDetails(resampled_combined_path, "resampled_combined_path");
 
     // -----------------------------------------------------------------
     // パス結合: 前後直進パス → クロソイドパス → センターライン拡張パス
@@ -1182,8 +1182,12 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       clothoid_path.points.empty() ? start_pose : clothoid_path.points.front().point.pose;
     pull_out_path.end_pose = target_pose;
 
-    std::cerr << "Successfully generated clothoid pull-out path with steer angle "
-              << steer_angle * 180.0 / M_PI << " deg." << std::endl;
+    RCLCPP_ERROR(
+      rclcpp::get_logger("clothoid_pull_out"),
+      "\n===========================================\n"
+      "Successfully generated clothoid pull-out path with steer angle %.2f deg.\n"
+      "===========================================",
+      steer_angle * 180.0 / M_PI);
 
     return pull_out_path;
   }
