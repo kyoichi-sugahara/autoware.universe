@@ -101,6 +101,8 @@ StartPlannerParameters StartPlannerParameters::init(rclcpp::Node & node)
       get_or_declare_parameter<std::vector<double>>(node, ns + "clothoid_max_steer_angle_degs");
     p.clothoid_max_steer_angle_rate_deg_per_sec =
       get_or_declare_parameter<double>(node, ns + "clothoid_max_steer_angle_rate_deg_per_sec");
+    p.check_clothoid_path_lane_departure =
+      get_or_declare_parameter<bool>(node, ns + "check_clothoid_path_lane_departure");
 
     // search start pose backward
     p.search_priority = get_or_declare_parameter<std::string>(
