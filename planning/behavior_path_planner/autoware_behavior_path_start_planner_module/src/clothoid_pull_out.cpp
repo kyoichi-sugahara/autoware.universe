@@ -841,15 +841,18 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
   const std::shared_ptr<const PlannerData> & planner_data,
   PlannerDebugData & /*planner_debug_data*/)
 {
-  const double initial_velocity = 1.0;
+  const double initial_velocity = parameters_.clothoid_initial_velocity;
   // 加速度パラメータの設定
-  const double acceleration = 3.0;  // [m/s^2] TODO(Sugahara): パラメータ化を検討
-  const std::vector<double> max_steer_angle_degs = {5.0, 10.0, 20.0};
-  // TODO(Sugahara): define as parameter
-  const std::vector<double> max_steer_angle = {
-    max_steer_angle_degs[0] * M_PI / 180.0, max_steer_angle_degs[1] * M_PI / 180.0};
+  const double acceleration = parameters_.clothoid_acceleration;
+  const std::vector<double> max_steer_angle_degs = parameters_.clothoid_max_steer_angle_degs;
+  // パラメータから度をラジアンに変換
+  std::vector<double> max_steer_angle;
+  for (const auto & deg : max_steer_angle_degs) {
+    max_steer_angle.push_back(deg * M_PI / 180.0);
+  }
 
-  const double max_steer_angle_rate_deg_per_sec = 10.0;  // Assume a constant rate for simplicity
+  const double max_steer_angle_rate_deg_per_sec =
+    parameters_.clothoid_max_steer_angle_rate_deg_per_sec;
   const double max_steer_angle_rate = max_steer_angle_rate_deg_per_sec * M_PI / 180.0;
   constexpr double initial_forward_straight_distance = 3.0;  // [m] 直進区間長さ（仮）
 
