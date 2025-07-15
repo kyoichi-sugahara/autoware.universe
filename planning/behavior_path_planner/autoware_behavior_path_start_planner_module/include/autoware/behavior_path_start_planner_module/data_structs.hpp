@@ -312,6 +312,14 @@ struct StartPlannerParameters
   bool enable_clothoid_fallback{
     false};  // Enable clothoid path search when no path is found with collision margins
   ParallelParkingParameters parallel_parking_parameters{};
+
+  // clothoid pull out
+  // TODO(Sugahara): remove default parameter
+  double clothoid_initial_velocity{1.0};
+  double clothoid_acceleration{3.0};
+  std::vector<double> clothoid_max_steer_angle_degs{5.0, 10.0, 20.0};
+  double clothoid_max_steer_angle_rate_deg_per_sec{10.0};
+
   // search start pose backward
   std::string search_priority;  // "efficient_path" or "short_back_distance"
   bool enable_back{false};

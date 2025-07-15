@@ -91,6 +91,17 @@ StartPlannerParameters StartPlannerParameters::init(rclcpp::Node & node)
         node, ns + "geometric_pull_out_max_steer_angle_margin_scale");
     p.parallel_parking_parameters.center_line_path_interval =
       p.center_line_path_interval;  // for geometric parallel parking
+
+    // clothoid pull out
+    p.clothoid_initial_velocity =
+      get_or_declare_parameter<double>(node, ns + "clothoid_initial_velocity");
+    p.clothoid_acceleration =
+      get_or_declare_parameter<double>(node, ns + "clothoid_acceleration");
+    p.clothoid_max_steer_angle_degs =
+      get_or_declare_parameter<std::vector<double>>(node, ns + "clothoid_max_steer_angle_degs");
+    p.clothoid_max_steer_angle_rate_deg_per_sec =
+      get_or_declare_parameter<double>(node, ns + "clothoid_max_steer_angle_rate_deg_per_sec");
+
     // search start pose backward
     p.search_priority = get_or_declare_parameter<std::string>(
       node,
