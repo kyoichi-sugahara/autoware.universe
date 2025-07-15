@@ -842,6 +842,8 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
   PlannerDebugData & /*planner_debug_data*/)
 {
   const double initial_velocity = 1.0;
+  // 加速度パラメータの設定
+  const double acceleration = 3.0;  // [m/s^2] TODO(Sugahara): パラメータ化を検討
   const std::vector<double> max_steer_angle_degs = {5.0, 10.0, 20.0};
   // TODO(Sugahara): define as parameter
   const std::vector<double> max_steer_angle = {
@@ -975,9 +977,6 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
         target_velocity = centerline_path.points[target_idx].point.longitudinal_velocity_mps;
       }
     }
-
-    // 加速度パラメータの設定
-    const double acceleration = 3.0;  // [m/s^2] TODO(Sugahara): パラメータ化を検討
 
     // =====================================================================
     // クロソイドパスをセンターラインに結合
