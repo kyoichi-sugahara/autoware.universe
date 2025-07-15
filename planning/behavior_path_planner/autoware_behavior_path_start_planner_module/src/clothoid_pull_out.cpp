@@ -1066,7 +1066,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     //   straight_forward_points.front().point.pose;  // 最も遠い後退点から開始
     // pull_out_path.end_pose = target_pose;
     // デバッグ用：生成されたパスの詳細を出力
-    printPathWithLaneIdDetails(final_path, "Final ClothoidPullOutPath");
+    // printPathWithLaneIdDetails(final_path, "Final ClothoidPullOutPath");
 
     // =====================================================================
     // 車線逸脱判定とパス検証（shift_pull_out.cppを参考に実装）
@@ -1100,7 +1100,8 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     // The method for lane departure checking verifies if the footprint of each point on the path
     // is contained within a lanelet using `boost::geometry::within`, which incurs a high
     // computational cost.
-    if (boundary_departure_checker_->checkPathWillLeaveLane(
+    if (parameters_.check_clothoid_path_lane_departure &&
+        boundary_departure_checker_->checkPathWillLeaveLane(
           lanelet_map_ptr, path_clothoid_start_to_end, fused_id_start_to_end,
           fused_polygon_start_to_end)) {
       std::cerr << "Lane departure detected for steer angle " << steer_angle * 180.0 / M_PI
@@ -1117,13 +1118,19 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
         clothoid_path.points, start_pose, common_parameters.ego_nearest_dist_threshold,
         common_parameters.ego_nearest_yaw_threshold);
 
-    const auto cropped_path = boundary_departure_checker_->cropPointsOutsideOfLanes(
-      lanelet_map_ptr, clothoid_path, start_segment_idx, fused_id_crop_points,
-      fused_polygon_crop_points);
-    if (cropped_path.points.empty()) {
-      std::cerr << "Cropped path is empty for steer angle " << steer_angle * 180.0 / M_PI
-                << " deg. Continuing to next candidate." << std::endl;
-      continue;
+    PathWithLaneId cropped_path;
+    if (parameters_.check_clothoid_path_lane_departure) {
+      cropped_path = boundary_departure_checker_->cropPointsOutsideOfLanes(
+        lanelet_map_ptr, clothoid_path, start_segment_idx, fused_id_crop_points,
+        fused_polygon_crop_points);
+      if (cropped_path.points.empty()) {
+        std::cerr << "Cropped path is empty for steer angle " << steer_angle * 180.0 / M_PI
+                  << " deg. Continuing to next candidate." << std::endl;
+        continue;
+      }
+    } else {
+      // If lane departure check is disabled, use the original path without cropping
+      cropped_path = clothoid_path;
     }
 
     // check that the path is not cropped in excess and there is not excessive longitudinal
@@ -1147,7 +1154,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       return std::abs(long_offset_to_closest_point - long_offset_to_next_point) < max_long_offset;
     };
 
-    if (!validate_cropped_path(cropped_path)) {
+    if (parameters_.check_clothoid_path_lane_departure && !validate_cropped_path(cropped_path)) {
       std::cerr << "Cropped path is invalid for steer angle " << steer_angle * 180.0 / M_PI
                 << " deg. Continuing to next candidate." << std::endl;
       continue;
