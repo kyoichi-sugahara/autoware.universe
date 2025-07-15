@@ -1051,23 +1051,137 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     final_path.points.insert(
       final_path.points.end(), resampled_combined_path.points.begin(),
       resampled_combined_path.points.end());
-
     // 速度と加速度のペア設定
+    // PullOutPath pull_out_path;
+    // // TODO(Sugahara): set parameter properly
+    // pull_out_path.pairs_terminal_velocity_and_accel.push_back(
+    //   std::make_pair(initial_velocity, 1.0));
+    // pull_out_path.partial_paths.push_back(final_path);
+    // // PullOutPathを作成
+
+    // pull_out_path.start_pose =
+    //   straight_forward_points.front().point.pose;  // 最も遠い後退点から開始
+    // pull_out_path.end_pose = target_pose;
+    // デバッグ用：生成されたパスの詳細を出力
+    printPathWithLaneIdDetails(final_path, "Final ClothoidPullOutPath");
+
+    // =====================================================================
+    // 車線逸脱判定とパス検証（shift_pull_out.cppを参考に実装）
+    // =====================================================================
+    const auto lanelet_map_ptr = planner_data->route_handler->getLaneletMapPtr();
+
+    std::vector<lanelet::Id> fused_id_start_to_end{};
+    std::optional<autoware_utils::Polygon2d> fused_polygon_start_to_end = std::nullopt;
+
+    std::vector<lanelet::Id> fused_id_crop_points{};
+    std::optional<autoware_utils::Polygon2d> fused_polygon_crop_points = std::nullopt;
+
+    // clothoid path is not separate but only one.
+    auto & clothoid_path = final_path;
+
+    // check lane_departure with path between pull_out_start to pull_out_end
+    PathWithLaneId path_clothoid_start_to_end{};
+    {
+      const size_t pull_out_start_idx =
+        autoware::motion_utils::findNearestIndex(clothoid_path.points, start_pose.position);
+      const size_t pull_out_end_idx =
+        autoware::motion_utils::findNearestIndex(clothoid_path.points, target_pose.position);
+
+      path_clothoid_start_to_end.points.insert(
+        path_clothoid_start_to_end.points.begin(),
+        clothoid_path.points.begin() + pull_out_start_idx,
+        clothoid_path.points.begin() + pull_out_end_idx + 1);
+    }
+
+    // check lane departure
+    // The method for lane departure checking verifies if the footprint of each point on the path
+    // is contained within a lanelet using `boost::geometry::within`, which incurs a high
+    // computational cost.
+    if (boundary_departure_checker_->checkPathWillLeaveLane(
+          lanelet_map_ptr, path_clothoid_start_to_end, fused_id_start_to_end,
+          fused_polygon_start_to_end)) {
+      std::cerr << "Lane departure detected for steer angle " << steer_angle * 180.0 / M_PI
+                << " deg. Continuing to next candidate." << std::endl;
+      continue;
+    }
+
+    // crop backward path
+    // removes points which are out of lanes up to the start pose.
+    // this ensures that the backward_path stays within the drivable area when starting from a
+    // narrow place.
+    const size_t start_segment_idx =
+      autoware::motion_utils::findFirstNearestIndexWithSoftConstraints(
+        clothoid_path.points, start_pose, common_parameters.ego_nearest_dist_threshold,
+        common_parameters.ego_nearest_yaw_threshold);
+
+    const auto cropped_path = boundary_departure_checker_->cropPointsOutsideOfLanes(
+      lanelet_map_ptr, clothoid_path, start_segment_idx, fused_id_crop_points,
+      fused_polygon_crop_points);
+    if (cropped_path.points.empty()) {
+      std::cerr << "Cropped path is empty for steer angle " << steer_angle * 180.0 / M_PI
+                << " deg. Continuing to next candidate." << std::endl;
+      continue;
+    }
+
+    // check that the path is not cropped in excess and there is not excessive longitudinal
+    // deviation between the first 2 points
+    auto validate_cropped_path = [&](const auto & cropped_path) -> bool {
+      if (cropped_path.points.size() < 2) return false;
+      const double max_long_offset = parameters_.maximum_longitudinal_deviation;
+      const size_t start_segment_idx_after_crop =
+        autoware::motion_utils::findFirstNearestIndexWithSoftConstraints(
+          cropped_path.points, start_pose);
+
+      // if the start segment id after crop is not 0, then the cropping is not excessive
+      if (start_segment_idx_after_crop != 0) return true;
+
+      const auto long_offset_to_closest_point =
+        autoware::motion_utils::calcLongitudinalOffsetToSegment(
+          cropped_path.points, start_segment_idx_after_crop, start_pose.position);
+      const auto long_offset_to_next_point =
+        autoware::motion_utils::calcLongitudinalOffsetToSegment(
+          cropped_path.points, start_segment_idx_after_crop + 1, start_pose.position);
+      return std::abs(long_offset_to_closest_point - long_offset_to_next_point) < max_long_offset;
+    };
+
+    if (!validate_cropped_path(cropped_path)) {
+      std::cerr << "Cropped path is invalid for steer angle " << steer_angle * 180.0 / M_PI
+                << " deg. Continuing to next candidate." << std::endl;
+      continue;
+    }
+
+    // Update the final path with cropped path
+    clothoid_path.points = cropped_path.points;
+    clothoid_path.header = planner_data->route_handler->getRouteHeader();
+
+    // Create PullOutPath for collision check
+    PullOutPath temp_pull_out_path;
+    temp_pull_out_path.partial_paths.push_back(clothoid_path);
+    temp_pull_out_path.start_pose =
+      clothoid_path.points.empty() ? start_pose : clothoid_path.points.front().point.pose;
+    temp_pull_out_path.end_pose = target_pose;
+
+    if (isPullOutPathCollided(
+          temp_pull_out_path, planner_data, parameters_.shift_collision_check_distance_from_end)) {
+      std::cerr << "Collision detected for steer angle " << steer_angle * 180.0 / M_PI
+                << " deg. Continuing to next candidate." << std::endl;
+      continue;
+    }
+
+    // 検証に成功したら、最終的なPullOutPathを作成して返す
     PullOutPath pull_out_path;
     // TODO(Sugahara): set parameter properly
     pull_out_path.pairs_terminal_velocity_and_accel.push_back(
       std::make_pair(initial_velocity, 1.0));
-    pull_out_path.partial_paths.push_back(final_path);
-    // PullOutPathを作成
+    pull_out_path.partial_paths.push_back(clothoid_path);  // Use validated and cropped path
 
     pull_out_path.start_pose =
-      straight_forward_points.front().point.pose;  // 最も遠い後退点から開始
+      clothoid_path.points.empty() ? start_pose : clothoid_path.points.front().point.pose;
     pull_out_path.end_pose = target_pose;
 
-    // デバッグ用：生成されたパスの詳細を出力
-    printPathWithLaneIdDetails(final_path, "Final ClothoidPullOutPath");
+    std::cerr << "Successfully generated clothoid pull-out path with steer angle "
+              << steer_angle * 180.0 / M_PI << " deg." << std::endl;
 
-    // TODO(Sugahara): check lane departure
     return pull_out_path;
   }
 
