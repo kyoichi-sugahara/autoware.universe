@@ -319,6 +319,7 @@ struct StartPlannerParameters
   double clothoid_acceleration{3.0};
   std::vector<double> clothoid_max_steer_angle_degs{5.0, 10.0, 20.0};
   double clothoid_max_steer_angle_rate_deg_per_sec{10.0};
+  bool check_clothoid_path_lane_departure{true};  // enable lane departure check for clothoid path
 
   // search start pose backward
   std::string search_priority;  // "efficient_path" or "short_back_distance"

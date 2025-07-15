@@ -143,6 +143,8 @@ void StartPlannerModuleManager::updateModuleParams(
     update_param<double>(
       parameters, ns + "clothoid_max_steer_angle_rate_deg_per_sec",
       p->clothoid_max_steer_angle_rate_deg_per_sec);
+    update_param<bool>(
+      parameters, ns + "check_clothoid_path_lane_departure", p->check_clothoid_path_lane_departure);
 
     // search start pose backward
     update_param<bool>(parameters, ns + "enable_back", p->enable_back);
