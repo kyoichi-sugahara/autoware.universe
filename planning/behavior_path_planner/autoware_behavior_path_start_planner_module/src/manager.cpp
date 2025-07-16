@@ -131,8 +131,8 @@ void StartPlannerModuleManager::updateModuleParams(
       parameters, ns + "lane_departure_check_expansion_margin",
       p->lane_departure_check_expansion_margin);
     update_param<double>(
-      parameters, ns + "geometric_pull_out_max_steer_angle_margin_scale",
-      p->parallel_parking_parameters.geometric_pull_out_max_steer_angle_margin_scale);
+      parameters, ns + "pull_out_max_steer_angle",
+      p->parallel_parking_parameters.pull_out_max_steer_angle);
 
     // clothoid pull out
     update_param<double>(
@@ -147,6 +147,7 @@ void StartPlannerModuleManager::updateModuleParams(
       parameters, ns + "check_clothoid_path_lane_departure", p->check_clothoid_path_lane_departure);
 
     // search start pose backward
+
     update_param<bool>(parameters, ns + "enable_back", p->enable_back);
     update_param<double>(parameters, ns + "backward_velocity", p->backward_velocity);
     update_param<double>(
