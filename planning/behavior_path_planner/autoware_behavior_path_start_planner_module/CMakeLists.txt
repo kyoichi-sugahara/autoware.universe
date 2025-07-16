@@ -54,4 +54,4 @@ if(BUILD_TESTING)
   target_link_libraries(test_${PROJECT_NAME} matplotlibcpp17::matplotlibcpp17)
 endif()
 
-ament_auto_package(INSTALL_TO_SHARE config test_data)
+ament_auto_package(INSTALL_TO_SHARE config)

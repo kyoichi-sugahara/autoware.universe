@@ -703,19 +703,19 @@ bool StartPlannerModule::isExecutionReady() const
     if (!parameters_->enable_back && !is_inside_lanelets) {
       stop_reason = "ego outside lanes";
     } else if (is_inside_lanelets) {
-      stop_reason = "static object risk";
+      stop_reason = "unsafe against static objects";
     } else {
-      stop_reason = "path planning failed";
+      stop_reason = "failed to generate valid path";
     }
 
   } else if (isWaitingApproval()) {
     // Check for moving objects around
     if (!noMovingObjectsAround()) {
       is_safe = false;
-      stop_reason = "nearby moving object risk";
+      stop_reason = "unsafe against moving objects around";
     } else if (requiresDynamicObjectsCollisionDetection() && hasCollisionWithDynamicObjects()) {
       is_safe = false;
-      stop_reason = "dynamic object risk";
+      stop_reason = "unsafe against dynamic objects";
     }
   }
 
@@ -843,62 +843,21 @@ BehaviorModuleOutput StartPlannerModule::plan()
       path.points, planner_data_->self_odometry->pose.pose.position,
       status_.pull_out_path.end_pose.position);
     updateRTCStatus(start_distance, finish_distance);
-
-    const auto start_idx = autoware::motion_utils::findNearestIndex(
-      path.points, status_.pull_out_path.start_pose.position);
-    const auto finish_idx = autoware::motion_utils::findNearestIndex(
-      path.points, status_.pull_out_path.end_pose.position);
-    const double start_velocity = path.points.at(start_idx).point.longitudinal_velocity_mps;
-    const double finish_velocity = path.points.at(finish_idx).point.longitudinal_velocity_mps;
-
-    const auto pull_out_lanes = start_planner_utils::getPullOutLanes(
-      planner_data_,
-      planner_data_->parameters.backward_path_length + parameters_->max_back_distance);
-    const double start_shift_length =
-      lanelet::utils::getArcCoordinates(pull_out_lanes, status_.pull_out_path.start_pose).distance;
-    const double finish_shift_length =
-      lanelet::utils::getArcCoordinates(pull_out_lanes, status_.pull_out_path.end_pose).distance;
-
     planning_factor_interface_->add(
       start_distance, finish_distance, status_.pull_out_path.start_pose,
       status_.pull_out_path.end_pose, planning_factor_direction,
-      utils::path_safety_checker::to_safety_factor_array(debug_data_.collision_check),
-      status_.driving_forward, start_velocity, finish_velocity, start_shift_length,
-      finish_shift_length);
+      utils::path_safety_checker::to_safety_factor_array(debug_data_.collision_check));
     setDebugData();
     return output;
   }
-
-  // When backward maneuvers, control point contains the starting and turning points
-  const auto backward_start_pose = status_.backward_path.points.front().point.pose;
-  const auto backward_end_pose = status_.backward_path.points.back().point.pose;
-
   const double distance = autoware::motion_utils::calcSignedArcLength(
-    status_.backward_path.points, planner_data_->self_odometry->pose.pose.position,
-    backward_end_pose.position);
+    path.points, planner_data_->self_odometry->pose.pose.position,
+    status_.pull_out_path.start_pose.position);
   updateRTCStatus(0.0, distance);
-
-  const auto start_idx = autoware::motion_utils::findNearestIndex(
-    status_.backward_path.points, backward_start_pose.position);
-  const auto finish_idx = autoware::motion_utils::findNearestIndex(
-    status_.backward_path.points, backward_end_pose.position);
-  const double start_velocity =
-    status_.backward_path.points.at(start_idx).point.longitudinal_velocity_mps;
-  const double finish_velocity =
-    status_.backward_path.points.at(finish_idx).point.longitudinal_velocity_mps;
-
-  const auto pull_out_lanes = start_planner_utils::getPullOutLanes(
-    planner_data_, planner_data_->parameters.backward_path_length + parameters_->max_back_distance);
-  const double start_shift_length =
-    lanelet::utils::getArcCoordinates(pull_out_lanes, backward_start_pose).distance;
-  const double finish_shift_length =
-    lanelet::utils::getArcCoordinates(pull_out_lanes, backward_end_pose).distance;
-
   planning_factor_interface_->add(
-    0.0, distance, backward_start_pose, backward_end_pose, planning_factor_direction,
-    utils::path_safety_checker::to_safety_factor_array(debug_data_.collision_check),
-    status_.driving_forward, start_velocity, finish_velocity, start_shift_length,
-    finish_shift_length, "backward");
+    0.0, distance, status_.pull_out_path.start_pose, status_.pull_out_path.end_pose,
+    planning_factor_direction,
+    utils::path_safety_checker::to_safety_factor_array(debug_data_.collision_check));
 
   setDebugData();
 
@@ -991,62 +950,22 @@ BehaviorModuleOutput StartPlannerModule::planWaitingApproval()
       stop_path.points, planner_data_->self_odometry->pose.pose.position,
       status_.pull_out_path.end_pose.position);
     updateRTCStatus(start_distance, finish_distance);
-
-    const auto start_idx = autoware::motion_utils::findNearestIndex(
-      stop_path.points, status_.pull_out_path.start_pose.position);
-    const auto finish_idx = autoware::motion_utils::findNearestIndex(
-      stop_path.points, status_.pull_out_path.end_pose.position);
-    const double start_velocity = stop_path.points.at(start_idx).point.longitudinal_velocity_mps;
-    const double finish_velocity = stop_path.points.at(finish_idx).point.longitudinal_velocity_mps;
-
-    const auto pull_out_lanes = start_planner_utils::getPullOutLanes(
-      planner_data_,
-      planner_data_->parameters.backward_path_length + parameters_->max_back_distance);
-    const double start_shift_length =
-      lanelet::utils::getArcCoordinates(pull_out_lanes, status_.pull_out_path.start_pose).distance;
-    const double finish_shift_length =
-      lanelet::utils::getArcCoordinates(pull_out_lanes, status_.pull_out_path.end_pose).distance;
     planning_factor_interface_->add(
       start_distance, finish_distance, status_.pull_out_path.start_pose,
       status_.pull_out_path.end_pose, planning_factor_direction,
-      utils::path_safety_checker::to_safety_factor_array(debug_data_.collision_check),
-      status_.driving_forward, start_velocity, finish_velocity, start_shift_length,
-      finish_shift_length);
+      utils::path_safety_checker::to_safety_factor_array(debug_data_.collision_check));
     setDebugData();
 
     return output;
   }
-
-  // When backward maneuvers, control point contains the starting and turning points
-  const auto backward_start_pose = status_.backward_path.points.front().point.pose;
-  const auto backward_end_pose = status_.backward_path.points.back().point.pose;
-
   const double distance = autoware::motion_utils::calcSignedArcLength(
-    status_.backward_path.points, planner_data_->self_odometry->pose.pose.position,
-    backward_end_pose.position);
+    stop_path.points, planner_data_->self_odometry->pose.pose.position,
+    status_.pull_out_path.start_pose.position);
   updateRTCStatus(0.0, distance);
-
-  const auto start_idx = autoware::motion_utils::findNearestIndex(
-    status_.backward_path.points, backward_start_pose.position);
-  const auto finish_idx = autoware::motion_utils::findNearestIndex(
-    status_.backward_path.points, backward_end_pose.position);
-  const double start_velocity =
-    status_.backward_path.points.at(start_idx).point.longitudinal_velocity_mps;
-  const double finish_velocity =
-    status_.backward_path.points.at(finish_idx).point.longitudinal_velocity_mps;
-
-  const auto pull_out_lanes = start_planner_utils::getPullOutLanes(
-    planner_data_, planner_data_->parameters.backward_path_length + parameters_->max_back_distance);
-  const double start_shift_length =
-    lanelet::utils::getArcCoordinates(pull_out_lanes, backward_start_pose).distance;
-  const double finish_shift_length =
-    lanelet::utils::getArcCoordinates(pull_out_lanes, backward_end_pose).distance;
-
   planning_factor_interface_->add(
-    0.0, distance, backward_start_pose, backward_end_pose, planning_factor_direction,
-    utils::path_safety_checker::to_safety_factor_array(debug_data_.collision_check),
-    status_.driving_forward, start_velocity, finish_velocity, start_shift_length,
-    finish_shift_length, "backward");
+    0.0, distance, status_.pull_out_path.start_pose, status_.pull_out_path.end_pose,
+    planning_factor_direction,
+    utils::path_safety_checker::to_safety_factor_array(debug_data_.collision_check));
 
   setDebugData();
 
