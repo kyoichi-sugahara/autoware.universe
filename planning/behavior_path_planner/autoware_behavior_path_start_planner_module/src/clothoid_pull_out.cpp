@@ -66,6 +66,7 @@ using start_planner_utils::getPullOutLanes;
  * @param previous_lane_ids 前の点のlane_ids（継承用、オプション）
  * @return 取得されたlane_ids
  */
+// これは util に定義
 std::vector<int64_t> getLaneIdsFromPose(
   const geometry_msgs::msg::Pose & pose, const lanelet::ConstLanelets & road_lanes,
   const std::vector<int64_t> & previous_lane_ids)
@@ -933,6 +934,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     start_pose, initial_forward_straight_distance, backward_distance,
     parameters_.center_line_path_interval);
 
+  // ここで path_with_lane_id にしなくてよい
   // straight_posesからPathPointWithLaneIdを生成
   std::vector<PathPointWithLaneId> straight_forward_points;
   for (size_t i = 0; i < straight_poses.size(); ++i) {
@@ -1124,6 +1126,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
 
     PathWithLaneId cropped_path;
     if (parameters_.check_clothoid_path_lane_departure) {
+      // レーン外の点をcrop する意味がわからない
       cropped_path = boundary_departure_checker_->cropPointsOutsideOfLanes(
         lanelet_map_ptr, clothoid_path, start_segment_idx, fused_id_crop_points,
         fused_polygon_crop_points);
