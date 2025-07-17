@@ -154,6 +154,7 @@ struct PathEvaluationResult
 
 }  // anonymous namespace
 
+// これは clothoid_pull_out.cpp 内でよい
 double calc_necessary_longitudinal_distance(
   const double lateral_offset, const double minimum_radius)
 {
