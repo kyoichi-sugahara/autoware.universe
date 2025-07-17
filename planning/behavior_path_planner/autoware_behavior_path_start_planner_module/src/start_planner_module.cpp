@@ -1102,7 +1102,9 @@ void StartPlannerModule::planWithPriority(
 
     // If no path found with collision margins and clothoid fallback is enabled, try clothoid
     // planner
-    if (parameters_->enable_clothoid_fallback) {
+    // NOTE: Clothoid fallback is only enabled when enable_back is false because safety validation
+    // for backward paths in clothoid planner is not yet implemented
+    if (parameters_->enable_clothoid_fallback && !parameters_->enable_back) {
       RCLCPP_INFO(
         getLogger(), "No path found with collision margins. Trying clothoid fallback search.");
 
