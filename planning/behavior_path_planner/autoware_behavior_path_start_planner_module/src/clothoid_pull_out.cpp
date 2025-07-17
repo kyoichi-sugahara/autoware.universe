@@ -875,8 +875,7 @@ ClothoidPullOut::ClothoidPullOut(
 
 std::optional<PullOutPath> ClothoidPullOut::plan(
   const Pose & start_pose, const Pose & /*goal_pose*/,
-  const std::shared_ptr<const PlannerData> & planner_data,
-  PlannerDebugData & /*planner_debug_data*/)
+  const std::shared_ptr<const PlannerData> & planner_data, PlannerDebugData & planner_debug_data)
 {
   // =====================================================================
   // STEP 1: パラメータ設定・初期化処理
@@ -1113,6 +1112,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
         fused_polygon_start_to_end)) {
       std::cerr << "Lane departure detected for steer angle " << steer_angle * 180.0 / M_PI
                 << " deg. Continuing to next candidate." << std::endl;
+      planner_debug_data.conditions_evaluation.emplace_back("lane departure");
       continue;
     }
 
@@ -1130,6 +1130,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       if (cropped_path.points.empty()) {
         std::cerr << "Cropped path is empty for steer angle " << steer_angle * 180.0 / M_PI
                   << " deg. Continuing to next candidate." << std::endl;
+        planner_debug_data.conditions_evaluation.emplace_back("cropped path is empty");
         continue;
       }
     } else {
@@ -1161,6 +1162,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     if (parameters_.check_clothoid_path_lane_departure && !validate_cropped_path(cropped_path)) {
       std::cerr << "Cropped path is invalid for steer angle " << steer_angle * 180.0 / M_PI
                 << " deg. Continuing to next candidate." << std::endl;
+      planner_debug_data.conditions_evaluation.emplace_back("cropped path is invalid");
       continue;
     }
 
@@ -1182,6 +1184,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
           temp_pull_out_path, planner_data, parameters_.shift_collision_check_distance_from_end)) {
       std::cerr << "Collision detected for steer angle " << steer_angle * 180.0 / M_PI
                 << " deg. Continuing to next candidate." << std::endl;
+      planner_debug_data.conditions_evaluation.emplace_back("collision");
       continue;
     }
 
@@ -1205,12 +1208,14 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       "===========================================",
       steer_angle * 180.0 / M_PI);
 
+    planner_debug_data.conditions_evaluation.emplace_back("success");
     return pull_out_path;
   }
 
   // =====================================================================
   // STEP 6: 経路が生成できなかった場合
   // =====================================================================
+  planner_debug_data.conditions_evaluation.emplace_back("no path found");
   return std::nullopt;
 }
 
