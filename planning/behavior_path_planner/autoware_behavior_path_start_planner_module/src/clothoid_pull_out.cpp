@@ -21,6 +21,7 @@
 #include "autoware/behavior_path_start_planner_module/pull_out_path.hpp"
 #include "autoware/behavior_path_start_planner_module/util.hpp"
 #include "autoware/motion_utils/trajectory/path_with_lane_id.hpp"
+#include "autoware/universe_utils/geometry/geometry.hpp"
 #include "autoware_utils/geometry/boost_polygon_utils.hpp"
 
 #include <autoware/interpolation/linear_interpolation.hpp>
@@ -154,6 +155,11 @@ std::vector<geometry_msgs::msg::Point> correctClothoidByRigidTransform(
   while (rotation_angle > M_PI) rotation_angle -= 2 * M_PI;
   while (rotation_angle < -M_PI) rotation_angle += 2 * M_PI;
 
+  // 180度以上回転する場合は、反対方向の短い回転を選択
+  if (std::abs(rotation_angle) > M_PI) {
+    rotation_angle = (rotation_angle > 0) ? rotation_angle - 2 * M_PI : rotation_angle + 2 * M_PI;
+  }
+
   // 5. 変換行列の要素を計算
   double cos_theta = std::cos(rotation_angle);
   double sin_theta = std::sin(rotation_angle);
@@ -189,9 +195,10 @@ std::vector<geometry_msgs::msg::Point> correctClothoidByRigidTransform(
 }
 
 /**
- * @brief エントリクロソイドセグメントを生成（数値積分版）
+ * @brief エントリクロソイドセグメントを生成（各点にyaw角も含む）
  */
-std::pair<std::vector<geometry_msgs::msg::Point>, geometry_msgs::msg::Pose> generateClothoidEntry(
+std::pair<std::vector<geometry_msgs::msg::Pose>, geometry_msgs::msg::Pose>
+generateClothoidEntryWithYaw(
   const ClothoidSegment & segment, const geometry_msgs::msg::Pose & start_pose, int num_points)
 {
   double A = segment.A;
@@ -199,7 +206,7 @@ std::pair<std::vector<geometry_msgs::msg::Point>, geometry_msgs::msg::Pose> gene
   double direction_factor = segment.is_clockwise ? -1.0 : 1.0;
   double start_yaw = tf2::getYaw(start_pose.orientation);
 
-  std::vector<geometry_msgs::msg::Point> points;
+  std::vector<geometry_msgs::msg::Pose> poses;
 
   // Entry Clothoid: 曲率を0から目標曲率まで線形に増加させる
   double target_curvature = (L / (A * A)) * direction_factor;
@@ -211,18 +218,22 @@ std::pair<std::vector<geometry_msgs::msg::Point>, geometry_msgs::msg::Pose> gene
   double current_psi = start_yaw;
 
   for (int i = 0; i < num_points; ++i) {
-    geometry_msgs::msg::Point point;
-    point.x = current_x;
-    point.y = current_y;
-    point.z = 0.0;
-    points.push_back(point);
+    // 現在の点を作成してposesに追加
+    geometry_msgs::msg::Pose pose;
+    pose.position.x = current_x;
+    pose.position.y = current_y;
+    pose.position.z = 0.0;
+    pose.orientation = autoware::universe_utils::createQuaternionFromYaw(current_psi);
+    poses.push_back(pose);
 
-    double progress = static_cast<double>(i) / (num_points - 1);
-    // Entry Clothoid: 曲率を線形に0から目標曲率まで増加させる
-    double current_curvature = start_curvature + (target_curvature - start_curvature) * progress;
-
+    // 最後の点でない場合、次の点への積分計算を実行
     if (i < num_points - 1) {
-      double ds = L / (num_points - 1);  // 微小区間
+      // 次の点への微小区間長
+      double ds = L / (num_points - 1);
+
+      // 現在の位置における曲率を計算
+      double progress = static_cast<double>(i) / (num_points - 1);
+      double current_curvature = start_curvature + (target_curvature - start_curvature) * progress;
 
       // 数値積分による座標更新
       current_x += std::cos(current_psi) * ds;
@@ -231,20 +242,21 @@ std::pair<std::vector<geometry_msgs::msg::Point>, geometry_msgs::msg::Pose> gene
     }
   }
 
-  // 終端状態
-  double final_psi = current_psi;
-
+  // 終端状態を作成
   geometry_msgs::msg::Pose end_pose;
-  end_pose.position = points.back();
-  end_pose.orientation = tf2::toMsg(tf2::Quaternion(tf2::Vector3(0, 0, 1), final_psi));
+  end_pose.position.x = current_x;
+  end_pose.position.y = current_y;
+  end_pose.position.z = 0.0;
+  end_pose.orientation = autoware::universe_utils::createQuaternionFromYaw(current_psi);
 
-  return {points, end_pose};
+  return {poses, end_pose};
 }
 
 /**
- * @brief 円弧セグメントを生成
+ * @brief 円弧セグメントを生成（各点にyaw角も含む）
  */
-std::pair<std::vector<geometry_msgs::msg::Point>, geometry_msgs::msg::Pose> generateCircularSegment(
+std::pair<std::vector<geometry_msgs::msg::Pose>, geometry_msgs::msg::Pose>
+generateCircularSegmentWithYaw(
   const ClothoidSegment & segment, const geometry_msgs::msg::Pose & start_pose, int num_points)
 {
   double radius = segment.radius;
@@ -252,7 +264,7 @@ std::pair<std::vector<geometry_msgs::msg::Point>, geometry_msgs::msg::Pose> gene
   double direction_factor = segment.is_clockwise ? -1.0 : 1.0;
   double start_yaw = tf2::getYaw(start_pose.orientation);
 
-  std::vector<geometry_msgs::msg::Point> points;
+  std::vector<geometry_msgs::msg::Pose> poses;
 
   // 円弧中心計算
   double center_x = start_pose.position.x - radius * std::sin(start_yaw) * direction_factor;
@@ -262,37 +274,41 @@ std::pair<std::vector<geometry_msgs::msg::Point>, geometry_msgs::msg::Pose> gene
     double progress = static_cast<double>(i) / (num_points - 1);
     double angle_progress = angle * progress * direction_factor;
     double current_psi = start_yaw + angle_progress;
+
+    // 円弧上の位置を計算（中心からの角度）
     double angle_from_center = current_psi - M_PI / 2.0 * direction_factor;
 
-    geometry_msgs::msg::Point point;
-    point.x = center_x + radius * std::cos(angle_from_center);
-    point.y = center_y + radius * std::sin(angle_from_center);
-    point.z = 0.0;
+    geometry_msgs::msg::Pose pose;
+    pose.position.x = center_x + radius * std::cos(angle_from_center);
+    pose.position.y = center_y + radius * std::sin(angle_from_center);
+    pose.position.z = 0.0;
+    pose.orientation = autoware::universe_utils::createQuaternionFromYaw(current_psi);
 
-    points.push_back(point);
+    poses.push_back(pose);
   }
 
-  // 終端状態
+  // 終端状態（最終的なyaw角）
   double final_psi = start_yaw + angle * direction_factor;
 
   geometry_msgs::msg::Pose end_pose;
-  end_pose.position = points.back();
-  end_pose.orientation = tf2::toMsg(tf2::Quaternion(tf2::Vector3(0, 0, 1), final_psi));
+  end_pose.position = poses.back().position;
+  end_pose.orientation = autoware::universe_utils::createQuaternionFromYaw(final_psi);
 
-  return {points, end_pose};
+  return {poses, end_pose};
 }
 
 /**
- * @brief エグジットクロソイドセグメントを生成
+ * @brief エグジットクロソイドセグメントを生成（各点にyaw角も含む）
  */
-std::pair<std::vector<geometry_msgs::msg::Point>, geometry_msgs::msg::Pose> generateClothoidExit(
+std::pair<std::vector<geometry_msgs::msg::Pose>, geometry_msgs::msg::Pose>
+generateClothoidExitWithYaw(
   const ClothoidSegment & segment, const geometry_msgs::msg::Pose & start_pose, int num_points)
 {
   double L = segment.L;
   double start_yaw = tf2::getYaw(start_pose.orientation);
   double direction_factor = segment.is_clockwise ? -1.0 : 1.0;
 
-  std::vector<geometry_msgs::msg::Point> points;
+  std::vector<geometry_msgs::msg::Pose> poses;
 
   // 前のセグメント（円弧）の曲率を計算（回転方向を考慮）
   double start_curvature = (1.0 / segment.radius) * direction_factor;
@@ -303,18 +319,22 @@ std::pair<std::vector<geometry_msgs::msg::Point>, geometry_msgs::msg::Pose> gene
   double current_psi = start_yaw;
 
   for (int i = 0; i < num_points; ++i) {
-    geometry_msgs::msg::Point point;
-    point.x = current_x;
-    point.y = current_y;
-    point.z = 0.0;
-    points.push_back(point);
+    // 現在の点を作成してposesに追加
+    geometry_msgs::msg::Pose pose;
+    pose.position.x = current_x;
+    pose.position.y = current_y;
+    pose.position.z = 0.0;
+    pose.orientation = autoware::universe_utils::createQuaternionFromYaw(current_psi);
+    poses.push_back(pose);
 
-    double progress = static_cast<double>(i) / (num_points - 1);
-    // Exit Clothoid: 曲率を線形に0まで減少させる
-    double current_curvature = start_curvature * (1.0 - progress);
-
+    // 最後の点でない場合、次の点への積分計算を実行
     if (i < num_points - 1) {
-      double ds = L / (num_points - 1);  // 微小区間
+      // 次の点への微小区間長
+      double ds = L / (num_points - 1);
+
+      // 現在の位置における曲率を計算（Exit Clothoid: 開始曲率から0まで線形に減少）
+      double progress = static_cast<double>(i) / (num_points - 1);
+      double current_curvature = start_curvature * (1.0 - progress);
 
       // 数値積分による座標更新
       current_x += std::cos(current_psi) * ds;
@@ -323,14 +343,14 @@ std::pair<std::vector<geometry_msgs::msg::Point>, geometry_msgs::msg::Pose> gene
     }
   }
 
-  // 終端状態
+  // 終端状態を作成
   geometry_msgs::msg::Pose end_pose;
   end_pose.position.x = current_x;
   end_pose.position.y = current_y;
   end_pose.position.z = start_pose.position.z;
-  end_pose.orientation = tf2::toMsg(tf2::Quaternion(tf2::Vector3(0, 0, 1), current_psi));
+  end_pose.orientation = autoware::universe_utils::createQuaternionFromYaw(current_psi);
 
-  return {points, end_pose};
+  return {poses, end_pose};
 }
 
 /**
@@ -365,29 +385,29 @@ std::vector<geometry_msgs::msg::Point> generateClothoidPath(
   std::vector<geometry_msgs::msg::Point> all_points;
 
   for (size_t i = 0; i < segments.size(); ++i) {
-    std::vector<geometry_msgs::msg::Point> segment_points_vec;
+    std::vector<geometry_msgs::msg::Pose> segment_poses_vec;
     geometry_msgs::msg::Pose end_pose;
 
     int num_points = segment_points[i];
 
     if (segments[i].type == ClothoidSegment::CLOTHOID_ENTRY) {
-      auto result = generateClothoidEntry(segments[i], current_pose, num_points);
-      segment_points_vec = result.first;
+      auto result = generateClothoidEntryWithYaw(segments[i], current_pose, num_points);
+      segment_poses_vec = result.first;
       end_pose = result.second;
     } else if (segments[i].type == ClothoidSegment::CIRCULAR_ARC) {
-      auto result = generateCircularSegment(segments[i], current_pose, num_points);
-      segment_points_vec = result.first;
+      auto result = generateCircularSegmentWithYaw(segments[i], current_pose, num_points);
+      segment_poses_vec = result.first;
       end_pose = result.second;
     } else if (segments[i].type == ClothoidSegment::CLOTHOID_EXIT) {
-      auto result = generateClothoidExit(segments[i], current_pose, num_points);
-      segment_points_vec = result.first;
+      auto result = generateClothoidExitWithYaw(segments[i], current_pose, num_points);
+      segment_poses_vec = result.first;
       end_pose = result.second;
     }
 
-    // 重複点を避けて結合
+    // 重複点を避けて結合（Poseから座標のみを抽出）
     size_t start_idx = (all_points.empty()) ? 0 : 1;
-    for (size_t j = start_idx; j < segment_points_vec.size(); ++j) {
-      all_points.push_back(segment_points_vec[j]);
+    for (size_t j = start_idx; j < segment_poses_vec.size(); ++j) {
+      all_points.push_back(segment_poses_vec[j].position);
     }
 
     current_pose = end_pose;
@@ -553,28 +573,22 @@ PathWithLaneId createPathWithLaneIdFromClothoidPaths(
     path_point.point.pose.position = all_clothoid_points[i];
 
     // // 向きを計算（次の点への方向）
-    // // 計算方法怪しい？
     // if (i < all_clothoid_points.size() - 1) {
     //   const double dx = all_clothoid_points[i + 1].x - all_clothoid_points[i].x;
     //   const double dy = all_clothoid_points[i + 1].y - all_clothoid_points[i].y;
     //   const double yaw = std::atan2(dy, dx);
-    //   // quaternionを直接設定
-    //   path_point.point.pose.orientation.x = 0.0;
-    //   path_point.point.pose.orientation.y = 0.0;
-    //   path_point.point.pose.orientation.z = std::sin(yaw / 2.0);
-    //   path_point.point.pose.orientation.w = std::cos(yaw / 2.0);
+    //   path_point.point.pose.orientation =
+    //   autoware::universe_utils::createQuaternionFromYaw(yaw);
     // } else {
-    //   // 最後の点も同様に、前の点との方向から計算
+    //   // 最後の点は前の点との方向から計算
     //   if (all_clothoid_points.size() >= 2) {
     //     const double dx = all_clothoid_points[i].x - all_clothoid_points[i - 1].x;
     //     const double dy = all_clothoid_points[i].y - all_clothoid_points[i - 1].y;
     //     const double yaw = std::atan2(dy, dx);
-    //     path_point.point.pose.orientation.x = 0.0;
-    //     path_point.point.pose.orientation.y = 0.0;
-    //     path_point.point.pose.orientation.z = std::sin(yaw / 2.0);
-    //     path_point.point.pose.orientation.w = std::cos(yaw / 2.0);
+    //     path_point.point.pose.orientation =
+    //     autoware::universe_utils::createQuaternionFromYaw(yaw);
     //   } else {
-    //     // 1点しかない場合は0
+    //     // 1点しかない場合は単位クォータニオン
     //     path_point.point.pose.orientation.x = 0.0;
     //     path_point.point.pose.orientation.y = 0.0;
     //     path_point.point.pose.orientation.z = 0.0;
@@ -645,7 +659,8 @@ PathWithLaneId createPathWithLaneIdFromClothoidPaths(
   }
 
   return path_with_lane_id;
-  // return autoware::behavior_path_planner::utils::resamplePathWithSpline(path_with_lane_id, 1.0);
+  // return
+  // autoware::behavior_path_planner::utils::resamplePathWithSpline(path_with_lane_id, 1.0);
 }
 
 /**
@@ -918,8 +933,8 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
 
   const Pose straight_end_pose = straight_poses.back();
 
-  // lateral_offset: returns positive value when straight_end_pose.position is on the left side of
-  // the trajectory segment
+  // lateral_offset: returns positive value when straight_end_pose.position is on the left side
+  // of the trajectory segment
   const double lateral_offset = centerline_path.points.empty()
                                   ? 0.0
                                   : autoware::motion_utils::calcLateralOffset(
@@ -941,7 +956,8 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     // TODO(Sugahara): ここでlateral_offset がプラスな場合は直進経路でよい。
     const auto relative_pose_info =
       start_planner_utils::calculateRelativePoseInVehicleCoordinate(straight_end_pose, target_pose);
-    // std::cerr << "target_pose: x=" << target_pose.position.x << ", y=" << target_pose.position.y
+    // std::cerr << "target_pose: x=" << target_pose.position.x << ", y=" <<
+    // target_pose.position.y
     //           << ", yaw=" << tf2::getYaw(target_pose.orientation) * 180.0 / M_PI << " deg"
     //           << std::endl;
 
@@ -1069,7 +1085,38 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     //   straight_forward_points.front().point.pose;  // 最も遠い後退点から開始
     // pull_out_path.end_pose = target_pose;
     // デバッグ用：生成されたパスの詳細を出力
-    printPathWithLaneIdDetails(final_path, "Final ClothoidPullOutPath");
+    // final_pathの座標情報を元にyaw角を再計算
+    for (size_t i = 0; i < final_path.points.size(); ++i) {
+      if (i < final_path.points.size() - 1) {
+        // 次の点への方向を計算
+        const double dx = final_path.points[i + 1].point.pose.position.x -
+                          final_path.points[i].point.pose.position.x;
+        const double dy = final_path.points[i + 1].point.pose.position.y -
+                          final_path.points[i].point.pose.position.y;
+        const double yaw = std::atan2(dy, dx);
+        final_path.points[i].point.pose.orientation =
+          autoware::universe_utils::createQuaternionFromYaw(yaw);
+      } else {
+        // 最後の点は前の点との方向から計算
+        if (final_path.points.size() >= 2) {
+          const double dx = final_path.points[i].point.pose.position.x -
+                            final_path.points[i - 1].point.pose.position.x;
+          const double dy = final_path.points[i].point.pose.position.y -
+                            final_path.points[i - 1].point.pose.position.y;
+          const double yaw = std::atan2(dy, dx);
+          final_path.points[i].point.pose.orientation =
+            autoware::universe_utils::createQuaternionFromYaw(yaw);
+        } else {
+          // 1点しかない場合は単位クォータニオン
+          final_path.points[i].point.pose.orientation.x = 0.0;
+          final_path.points[i].point.pose.orientation.y = 0.0;
+          final_path.points[i].point.pose.orientation.z = 0.0;
+          final_path.points[i].point.pose.orientation.w = 1.0;
+        }
+      }
+    }
+
+    // printPathWithLaneIdDetails(final_path, "Final ClothoidPullOutPath");
 
     // =====================================================================
     // 車線逸脱判定とパス検証（shift_pull_out.cppを参考に実装）
@@ -1100,8 +1147,8 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     }
 
     // check lane departure
-    // The method for lane departure checking verifies if the footprint of each point on the path
-    // is contained within a lanelet using `boost::geometry::within`, which incurs a high
+    // The method for lane departure checking verifies if the footprint of each point on the
+    // path is contained within a lanelet using `boost::geometry::within`, which incurs a high
     // computational cost.
     if (
       parameters_.check_clothoid_path_lane_departure &&
