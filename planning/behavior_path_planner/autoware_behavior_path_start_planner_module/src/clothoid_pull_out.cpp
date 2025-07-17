@@ -1050,10 +1050,13 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     final_path.header = resampled_combined_path.header;
     final_path.points = straight_forward_points;  // 前後直進パス（統合済み）
 
-    // クロソイドパス + センターライン拡張パスを追加
-    final_path.points.insert(
-      final_path.points.end(), resampled_combined_path.points.begin(),
-      resampled_combined_path.points.end());
+    // クロソイドパス + センターライン拡張パスを追加（重複点を除去）
+    if (!resampled_combined_path.points.empty()) {
+      // 重複を避けるため、最初の点をスキップして追加
+      for (size_t i = 1; i < resampled_combined_path.points.size(); ++i) {
+        final_path.points.push_back(resampled_combined_path.points[i]);
+      }
+    }
     // 速度と加速度のペア設定
     // PullOutPath pull_out_path;
     // // TODO(Sugahara): set parameter properly
@@ -1066,7 +1069,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     //   straight_forward_points.front().point.pose;  // 最も遠い後退点から開始
     // pull_out_path.end_pose = target_pose;
     // デバッグ用：生成されたパスの詳細を出力
-    // printPathWithLaneIdDetails(final_path, "Final ClothoidPullOutPath");
+    printPathWithLaneIdDetails(final_path, "Final ClothoidPullOutPath");
 
     // =====================================================================
     // 車線逸脱判定とパス検証（shift_pull_out.cppを参考に実装）
@@ -1100,10 +1103,11 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     // The method for lane departure checking verifies if the footprint of each point on the path
     // is contained within a lanelet using `boost::geometry::within`, which incurs a high
     // computational cost.
-    if (parameters_.check_clothoid_path_lane_departure &&
-        boundary_departure_checker_->checkPathWillLeaveLane(
-          lanelet_map_ptr, path_clothoid_start_to_end, fused_id_start_to_end,
-          fused_polygon_start_to_end)) {
+    if (
+      parameters_.check_clothoid_path_lane_departure &&
+      boundary_departure_checker_->checkPathWillLeaveLane(
+        lanelet_map_ptr, path_clothoid_start_to_end, fused_id_start_to_end,
+        fused_polygon_start_to_end)) {
       std::cerr << "Lane departure detected for steer angle " << steer_angle * 180.0 / M_PI
                 << " deg. Continuing to next candidate." << std::endl;
       continue;
