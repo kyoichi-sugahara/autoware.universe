@@ -904,7 +904,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
   // =====================================================================
   // 前後直進パス生成（全ステア角度共通）
   // =====================================================================
-  const double backward_distance = 10.0;  // 後退距離[m]
+  const double backward_distance = 3.0;  // 後退距離[m]
 
   // createStraightPathToEndPose関数を使用して前後直進経路を生成
   auto straight_poses = createStraightPathToEndPose(
@@ -1233,7 +1233,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     PullOutPath pull_out_path;
     // TODO(Sugahara): set parameter properly
     pull_out_path.pairs_terminal_velocity_and_accel.push_back(
-      std::make_pair(initial_velocity, 1.0));
+      std::make_pair(initial_velocity, acceleration));
     pull_out_path.partial_paths.push_back(clothoid_path);  // Use validated and cropped path
 
     pull_out_path.start_pose =
