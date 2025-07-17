@@ -878,10 +878,13 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
   const std::shared_ptr<const PlannerData> & planner_data,
   PlannerDebugData & /*planner_debug_data*/)
 {
+  // =====================================================================
+  // STEP 1: パラメータ設定・初期化処理
+  // =====================================================================
   const double initial_velocity = parameters_.clothoid_initial_velocity;
-  // 加速度パラメータの設定
   const double acceleration = parameters_.clothoid_acceleration;
   const std::vector<double> max_steer_angle_degs = parameters_.clothoid_max_steer_angle_degs;
+
   // パラメータから度をラジアンに変換
   std::vector<double> max_steer_angle;
   for (const auto & deg : max_steer_angle_degs) {
@@ -892,13 +895,17 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     parameters_.clothoid_max_steer_angle_rate_deg_per_sec;
   const double max_steer_angle_rate = max_steer_angle_rate_deg_per_sec * M_PI / 180.0;
   constexpr double initial_forward_straight_distance = 3.0;  // [m] 直進区間長さ（仮）
+  const double backward_distance = 3.0;                      // 後退距離[m]
 
   const auto & route_handler = planner_data->route_handler;
   const auto & common_parameters = planner_data->parameters;
-
   const double wheel_base = common_parameters.vehicle_info.wheel_base_m;
   const double backward_path_length =
     planner_data->parameters.backward_path_length + parameters_.max_back_distance;
+
+  // =====================================================================
+  // STEP 2: レーン情報の取得
+  // =====================================================================
   const auto road_lanes = utils::getExtendedCurrentLanes(
     planner_data, backward_path_length, std::numeric_limits<double>::max(),
     /*forward_only_in_route*/ true);
@@ -909,7 +916,9 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
   // road_lanes と pull_out_lanes を結合して全てのレーンを含める
   const auto all_lanes = utils::combineLanelets(road_lanes, pull_out_lanes);
 
-  // Generate centerline path from road_lanes
+  // =====================================================================
+  // STEP 3: センターラインパスの生成
+  // =====================================================================
   const auto row_centerline_path = utils::getCenterLinePath(
     *route_handler, road_lanes, start_pose, backward_path_length,
     std::numeric_limits<double>::max(), common_parameters);
@@ -918,16 +927,8 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     utils::resamplePathWithSpline(row_centerline_path, parameters_.center_line_path_interval);
 
   // =====================================================================
-  // 追加: 初期直進距離を設定し，その区間の終端点を start_pose として使用できるよう
-  //       直進区間の PathPoint 群を生成しておく．
-  //       現状はパラメータ化せず固定長さとする（TODO: パラメータ化）。
+  // STEP 4: 前後直進パスの生成
   // =====================================================================
-
-  // =====================================================================
-  // 前後直進パス生成（全ステア角度共通）
-  // =====================================================================
-  const double backward_distance = 3.0;  // 後退距離[m]
-
   // createStraightPathToEndPose関数を使用して前後直進経路を生成
   auto straight_poses = createStraightPathToEndPose(
     start_pose, initial_forward_straight_distance, backward_distance,
@@ -962,10 +963,13 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
                                   : autoware::motion_utils::calcLateralOffset(
                                       centerline_path.points, straight_end_pose.position);
 
+  // =====================================================================
+  // STEP 5: 各ステア角度での処理ループ
+  // =====================================================================
   for (const auto & steer_angle : max_steer_angle) {
-    // =====================================================================
-    // クロソイドパス生成（ステア角度毎に異なる）
-    // =====================================================================
+    // ===================================================================
+    // STEP 5-1: クロソイドパス生成
+    // ===================================================================
     // Calculate minimum radius based on the maximum steer angle
     const double minimum_radius = wheel_base / std::tan(steer_angle);
 
@@ -978,17 +982,12 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     // TODO(Sugahara): ここでlateral_offset がプラスな場合は直進経路でよい。
     const auto relative_pose_info =
       start_planner_utils::calculateRelativePoseInVehicleCoordinate(straight_end_pose, target_pose);
-    // std::cerr << "target_pose: x=" << target_pose.position.x << ", y=" <<
-    // target_pose.position.y
-    //           << ", yaw=" << tf2::getYaw(target_pose.orientation) * 180.0 / M_PI << " deg"
-    //           << std::endl;
 
     const auto circular_path = start_planner_utils::calc_circular_path(
       straight_end_pose, relative_pose_info.longitudinal_distance_vehicle,
       relative_pose_info.lateral_distance_vehicle, relative_pose_info.angle_diff, minimum_radius);
 
     if (circular_path.segments.empty()) {
-      // TODO(Sugahara): steer_angle, 縦距離、横距離、角度差、最小半径をデバッグ出力
       std::cerr << "No circular path segments found for steer angle " << steer_angle * 180.0 / M_PI
                 << " deg." << std::endl;
       continue;
@@ -1008,8 +1007,10 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       continue;
     }
 
+    // ===================================================================
+    // STEP 5-2: 目標速度の取得とパス結合・リサンプリング
+    // ===================================================================
     // 目標速度を取得（centerline_pathからtarget_poseに最も近い点の速度を使用）
-    // TODO(Sugahara): 関数化
     double target_velocity = initial_velocity;  // デフォルト値
     if (!centerline_path.points.empty()) {
       const auto target_idx =
@@ -1019,9 +1020,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       }
     }
 
-    // =====================================================================
     // クロソイドパスをセンターラインに結合
-    // =====================================================================
     PathWithLaneId path_with_lane_id = createPathWithLaneIdFromClothoidPaths(
       clothoid_paths, target_pose, initial_velocity, target_velocity, acceleration, all_lanes,
       route_handler);
@@ -1029,61 +1028,12 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     // センターラインパスとの結合
     auto combined_path = combinePathWithCenterline(path_with_lane_id, centerline_path, target_pose);
 
-    // printPathWithLaneIdDetails(combined_path, "combined_path");
-
     PathWithLaneId resampled_combined_path =
       utils::resamplePathWithSpline(combined_path, parameters_.center_line_path_interval);
-    // autoware::interpolation::lerpによる等間隔リサンプリング
-    // PathWithLaneId resampled_combined_path = combined_path;
-    // if (combined_path.points.size() >= 2) {
-    //   // 1. arclength配列
-    //   std::vector<double> arclengths(combined_path.points.size(), 0.0);
-    //   for (size_t i = 1; i < combined_path.points.size(); ++i) {
-    //     const auto & p0 = combined_path.points[i - 1].point.pose.position;
-    //     const auto & p1 = combined_path.points[i].point.pose.position;
-    //     arclengths[i] = arclengths[i - 1] + std::hypot(p1.x - p0.x, p1.y - p0.y);
-    //   }
-    //   // 2. 新しいarclength配列
-    //   std::vector<double> query_s;
-    //   for (double s = 0.0; s < arclengths.back(); s += parameters_.center_line_path_interval)
-    //     query_s.push_back(s);
-    //   if (query_s.empty() || query_s.back() < arclengths.back())
-    //     query_s.push_back(arclengths.back());
-    //   // 3. 各値をlerp補間
-    //   std::vector<double> xs, ys, zs, yaws, vels;
-    //   for (const auto & pt : combined_path.points) {
-    //     xs.push_back(pt.point.pose.position.x);
-    //     ys.push_back(pt.point.pose.position.y);
-    //     zs.push_back(pt.point.pose.position.z);
-    //     vels.push_back(pt.point.longitudinal_velocity_mps);
-    //     yaws.push_back(tf2::getYaw(pt.point.pose.orientation));
-    //   }
-    //   auto lerp_x = autoware::interpolation::lerp(arclengths, xs, query_s);
-    //   auto lerp_y = autoware::interpolation::lerp(arclengths, ys, query_s);
-    //   auto lerp_z = autoware::interpolation::lerp(arclengths, zs, query_s);
-    //   auto lerp_yaw = autoware::interpolation::lerp(arclengths, yaws, query_s);
-    //   auto lerp_vel = autoware::interpolation::lerp(arclengths, vels, query_s);
-    //   // 4. PathWithLaneId生成
-    //   resampled_combined_path = combined_path;
-    //   resampled_combined_path.points.clear();
-    //   for (size_t i = 0; i < query_s.size(); ++i) {
-    //     PathPointWithLaneId pt;
-    //     pt.point.pose.position.x = lerp_x[i];
-    //     pt.point.pose.position.y = lerp_y[i];
-    //     pt.point.pose.position.z = lerp_z[i];
-    //     pt.point.pose.orientation = autoware_utils::create_quaternion_from_yaw(lerp_yaw[i]);
-    //     pt.point.longitudinal_velocity_mps = lerp_vel[i];
-    //     pt.point.is_final = false;
-    //     setLaneIdsToPathPoint(pt, all_lanes);
-    //     resampled_combined_path.points.push_back(pt);
-    //   }
-    // }
-    // printPathWithLaneIdDetails(resampled_combined_path, "resampled_combined_path");
 
-    // -----------------------------------------------------------------
-    // パス結合: 前後直進パス → クロソイドパス → センターライン拡張パス
-    // の順序で結合する（前後直進パスは既に統合済み）
-    // -----------------------------------------------------------------
+    // ===================================================================
+    // STEP 5-3: 最終パスの作成（前後直進パスとの結合、yaw角の再計算）
+    // ===================================================================
     PathWithLaneId final_path;
     final_path.header = resampled_combined_path.header;
     final_path.points = straight_forward_points;  // 前後直進パス（統合済み）
@@ -1095,18 +1045,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
         final_path.points.push_back(resampled_combined_path.points[i]);
       }
     }
-    // 速度と加速度のペア設定
-    // PullOutPath pull_out_path;
-    // // TODO(Sugahara): set parameter properly
-    // pull_out_path.pairs_terminal_velocity_and_accel.push_back(
-    //   std::make_pair(initial_velocity, 1.0));
-    // pull_out_path.partial_paths.push_back(final_path);
-    // // PullOutPathを作成
 
-    // pull_out_path.start_pose =
-    //   straight_forward_points.front().point.pose;  // 最も遠い後退点から開始
-    // pull_out_path.end_pose = target_pose;
-    // デバッグ用：生成されたパスの詳細を出力
     // final_pathの座標情報を元にyaw角を再計算
     for (size_t i = 0; i < final_path.points.size(); ++i) {
       if (i < final_path.points.size() - 1) {
@@ -1138,11 +1077,9 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       }
     }
 
-    // printPathWithLaneIdDetails(final_path, "Final ClothoidPullOutPath");
-
-    // =====================================================================
-    // 車線逸脱判定とパス検証（shift_pull_out.cppを参考に実装）
-    // =====================================================================
+    // ===================================================================
+    // STEP 5-4: 車線逸脱判定とパス検証
+    // ===================================================================
     const auto lanelet_map_ptr = planner_data->route_handler->getLaneletMapPtr();
 
     std::vector<lanelet::Id> fused_id_start_to_end{};
@@ -1169,9 +1106,6 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     }
 
     // check lane departure
-    // The method for lane departure checking verifies if the footprint of each point on the
-    // path is contained within a lanelet using `boost::geometry::within`, which incurs a high
-    // computational cost.
     if (
       parameters_.check_clothoid_path_lane_departure &&
       boundary_departure_checker_->checkPathWillLeaveLane(
@@ -1183,9 +1117,6 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     }
 
     // crop backward path
-    // removes points which are out of lanes up to the start pose.
-    // this ensures that the backward_path stays within the drivable area when starting from a
-    // narrow place.
     const size_t start_segment_idx =
       autoware::motion_utils::findFirstNearestIndexWithSoftConstraints(
         clothoid_path.points, start_pose, common_parameters.ego_nearest_dist_threshold,
@@ -1237,6 +1168,9 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     clothoid_path.points = cropped_path.points;
     clothoid_path.header = planner_data->route_handler->getRouteHeader();
 
+    // ===================================================================
+    // STEP 5-5: 衝突判定
+    // ===================================================================
     // Create PullOutPath for collision check
     PullOutPath temp_pull_out_path;
     temp_pull_out_path.partial_paths.push_back(clothoid_path);
@@ -1251,9 +1185,11 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       continue;
     }
 
+    // ===================================================================
+    // STEP 5-6: 成功時の結果返却
+    // ===================================================================
     // 検証に成功したら、最終的なPullOutPathを作成して返す
     PullOutPath pull_out_path;
-    // TODO(Sugahara): set parameter properly
     pull_out_path.pairs_terminal_velocity_and_accel.push_back(
       std::make_pair(initial_velocity, acceleration));
     pull_out_path.partial_paths.push_back(clothoid_path);  // Use validated and cropped path
@@ -1272,7 +1208,9 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     return pull_out_path;
   }
 
-  // 経路が生成できなかった場合
+  // =====================================================================
+  // STEP 6: 経路が生成できなかった場合
+  // =====================================================================
   return std::nullopt;
 }
 
