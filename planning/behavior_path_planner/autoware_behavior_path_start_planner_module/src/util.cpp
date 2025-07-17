@@ -433,12 +433,6 @@ CompositeArcPath calc_circular_path(
     tangent_y_rel = C_ry_rel + ratio * dy_centers;
   }
 
-  std::cout << "Relative arc centers: C_r=(" << C_rx_rel << ", " << C_ry_rel << "), C_l=("
-            << C_lx_rel << ", " << C_ly_rel << ")" << std::endl;
-  std::cout << "Radii: R_start=" << minimum_radius << " m, R_goal=" << R_goal << " m" << std::endl;
-  std::cout << "Relative tangent point: (" << tangent_x_rel << ", " << tangent_y_rel << ")"
-            << std::endl;
-
   // 第1円弧（開始点から接線点まで、時計回り）
   double start_angle1 = std::atan2(y_start_rel - C_ry_rel, x_start_rel - C_rx_rel);
   double end_angle1 = std::atan2(tangent_y_rel - C_ry_rel, tangent_x_rel - C_rx_rel);
@@ -449,12 +443,6 @@ CompositeArcPath calc_circular_path(
     angle_diff1 -= 2 * PI;
   }
 
-  double arc1_length = minimum_radius * std::abs(angle_diff1);
-
-  std::cout << "\n=== Arc Length Analysis ===" << std::endl;
-  std::cout << std::setprecision(3);
-  std::cout << "Arc 1 length: " << arc1_length << " m" << std::endl;
-
   // 第2円弧（接線点から目標点まで、反時計回り）
   double start_angle2 = std::atan2(tangent_y_rel - C_ly_rel, tangent_x_rel - C_lx_rel);
   double end_angle2 = std::atan2(y_goal_rel - C_ly_rel, x_goal_rel - C_lx_rel);
@@ -464,10 +452,6 @@ CompositeArcPath calc_circular_path(
   if (angle_diff2 < 0) {
     angle_diff2 += 2 * PI;
   }
-
-  double arc2_length = R_goal * std::abs(angle_diff2);
-  std::cout << "Arc 2 length: " << arc2_length << " m" << std::endl;
-  std::cout << "Total path length: " << arc1_length + arc2_length << " m" << std::endl;
 
   // グローバル座標系への変換のための準備
   const double start_yaw = tf2::getYaw(start_pose.orientation);
