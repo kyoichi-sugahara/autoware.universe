@@ -360,6 +360,12 @@ std::vector<geometry_msgs::msg::Point> generateClothoidPath(
   const std::vector<ClothoidSegment> & segments, double point_interval,
   const geometry_msgs::msg::Pose & start_pose)
 {
+  // セグメントが空の場合の早期リターン
+  if (segments.empty()) {
+    std::cerr << "No clothoid segments provided to generateClothoidPath" << std::endl;
+    return {};
+  }
+
   // 各セグメントの理論弧長を計算
   std::vector<double> theoretical_lengths;
   for (const auto & segment : segments) {
@@ -470,7 +476,10 @@ std::vector<geometry_msgs::msg::Point> convertArcToClothoid(
     segments.push_back(exit);
   } else {
     std::cerr << "Case B is not implemented. Please use Case A conditions." << std::endl;
-    return {};
+    std::cerr << "Current parameters: total_angle=" << total_angle * 180.0 / M_PI
+              << "°, alpha_clothoid=" << alpha_clothoid * 180.0 / M_PI
+              << "°, required: total_angle >= " << 2.0 * alpha_clothoid * 180.0 / M_PI << "°"
+              << std::endl;
   }
 
   // クロソイド経路生成
@@ -496,12 +505,19 @@ std::vector<geometry_msgs::msg::Point> convertArcToClothoidWithCorrection(
   const double L_min = initial_velocity * minimum_steer_time;
   const double A_min = std::sqrt(minimum_radius * L_min);
 
+  std::cerr << "Clothoid parameters: radius=" << minimum_radius << ", A_min=" << A_min
+            << ", L_min=" << L_min << ", velocity=" << initial_velocity << std::endl;
+
   // 元のクロソイド変換を実行
   auto clothoid_points =
     convertArcToClothoid(arc_segment, start_pose, A_min, L_min, point_interval);
 
   if (clothoid_points.empty()) {
-    std::cerr << "Clothoid conversion failed!" << std::endl;
+    std::cerr << "Clothoid conversion failed! Check parameters and arc segment validity."
+              << std::endl;
+    std::cerr << "Arc segment: radius=" << arc_segment.radius << ", center=("
+              << arc_segment.center.x << ", " << arc_segment.center.y << ")"
+              << ", is_clockwise=" << arc_segment.is_clockwise << std::endl;
     return clothoid_points;
   }
 
@@ -691,6 +707,12 @@ std::vector<std::vector<geometry_msgs::msg::Point>> convertCircularPathToClothoi
   auto first_clothoid_points = convertArcToClothoidWithCorrection(
     first_segment, current_segment_pose, initial_velocity, wheel_base, max_steer_angle_rate,
     point_interval);
+
+  // 第1セグメントの変換が失敗した場合の早期リターン
+  if (first_clothoid_points.empty()) {
+    std::cerr << "Failed to convert first segment to clothoid" << std::endl;
+    return clothoid_paths;
+  }
 
   clothoid_paths.push_back(first_clothoid_points);
 
