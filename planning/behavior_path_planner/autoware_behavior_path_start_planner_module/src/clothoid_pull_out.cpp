@@ -810,53 +810,24 @@ std::vector<geometry_msgs::msg::Pose> createStraightPathToEndPose(
 }
 
 /**
- * @brief Find target pose along path at specified longitudinal distance
- * @param centerline_path Centerline path to search
- * @param start_pose Starting pose
- * @param longitudinal_distance Longitudinal distance to search
- * @return Target pose
- */
-geometry_msgs::msg::Pose findTargetPoseAlongPath(
-  const PathWithLaneId & centerline_path, const geometry_msgs::msg::Pose & start_pose,
-  const double longitudinal_distance)
-{
-  geometry_msgs::msg::Pose target_pose = start_pose;
-  if (!centerline_path.points.empty()) {
-    // Find the point on centerline path that is longitudinal_distance ahead
-    const auto start_idx =
-      autoware::motion_utils::findNearestIndex(centerline_path.points, start_pose.position);
-    double accumulated_distance = 0.0;
-    size_t target_idx = start_idx;
-
-    for (size_t i = start_idx; i < centerline_path.points.size() - 1; ++i) {
-      const double segment_distance = autoware_utils::calc_distance2d(
-        centerline_path.points[i].point.pose.position,
-        centerline_path.points[i + 1].point.pose.position);
-      accumulated_distance += segment_distance;
-
-      if (accumulated_distance >= longitudinal_distance) {
-        target_idx = i + 1;
-        break;
-      }
-    }
-
-    if (target_idx < centerline_path.points.size()) {
-      target_pose = centerline_path.points[target_idx].point.pose;
-    }
-  }
-
-  return target_pose;
-}
-
-/**
- * @brief Calculate necessary longitudinal distance for circular path planning
+ * @brief Calculate necessary longitudinal distance for circular path planning with clothoid
+ * consideration
  * @param lateral_offset Lateral offset from the path
  * @param minimum_radius Minimum turning radius
+ * @param initial_velocity Initial velocity for clothoid calculation
+ * @param wheel_base Vehicle wheel base
+ * @param max_steer_angle_rate Maximum steering angle rate
  * @return Calculated longitudinal distance
  */
 double calc_necessary_longitudinal_distance(
-  const double lateral_offset, const double minimum_radius)
+  const double lateral_offset, const double minimum_radius, const double initial_velocity,
+  const double wheel_base, const double max_steer_angle_rate)
 {
+  // Calculate clothoid parameters for Arc1 (used throughout the function)
+  const double circular_steer_angle1 = std::atan(wheel_base / minimum_radius);
+  const double minimum_steer_time1 = circular_steer_angle1 / max_steer_angle_rate;
+  const double L_min1 = initial_velocity * minimum_steer_time1;
+
   // Trial distances based on minimum radius
   const std::vector<double> trial_distances = {
     0.5 * minimum_radius, 0.75 * minimum_radius, 1.0 * minimum_radius, 1.5 * minimum_radius,
@@ -989,20 +960,94 @@ double calc_necessary_longitudinal_distance(
 
     const double arc1_length = minimum_radius * std::abs(angle_diff);
 
-    // Store evaluation result
+    // Calculate Arc2 length
+    const double arc2_start_angle = std::atan2(tangent_y - center_ly, tangent_x - center_lx);
+    const double arc2_end_angle = std::atan2(y_goal - center_ly, x_goal - center_lx);
+    double arc2_angle_diff = arc2_end_angle - arc2_start_angle;
+
+    // Adjust for counter-clockwise direction
+    if (arc2_angle_diff < 0) {
+      arc2_angle_diff += 2 * M_PI;
+    }
+
+    const double arc2_length = radius_goal * std::abs(arc2_angle_diff);
+
+    // Calculate clothoid parameters for each arc based on their respective radii
+    // Arc1 clothoid parameters (based on minimum_radius)
+    const double A_min1 = std::sqrt(minimum_radius * L_min1);
+    const double alpha_clothoid1 = (L_min1 * L_min1) / (2.0 * A_min1 * A_min1);
+
+    // Arc2 clothoid parameters (based on radius_goal)
+    const double circular_steer_angle2 = std::atan(wheel_base / radius_goal);
+    const double minimum_steer_time2 = circular_steer_angle2 / max_steer_angle_rate;
+    const double L_min2 = initial_velocity * minimum_steer_time2;
+    const double A_min2 = std::sqrt(radius_goal * L_min2);
+    const double alpha_clothoid2 = (L_min2 * L_min2) / (2.0 * A_min2 * A_min2);
+
+    // Check if arc lengths are sufficient for clothoid conversion
+    const double total_angle1 = std::abs(angle_diff);
+    const double total_angle2 = std::abs(arc2_angle_diff);
+    const bool sufficient_for_clothoid1 = (total_angle1 >= 2.0 * alpha_clothoid1);
+    const bool sufficient_for_clothoid2 = (total_angle2 >= 2.0 * alpha_clothoid2);
+
+    // Calculate clothoid feasibility score for both arcs
+    double clothoid_score1 = 0.0;
+    double clothoid_score2 = 0.0;
+
+    if (sufficient_for_clothoid1) {
+      // CAC(A, L, θ) case: sufficient for entry + circular + exit clothoids
+      const double circular_angle1 = total_angle1 - 2.0 * alpha_clothoid1;
+      clothoid_score1 = circular_angle1;  // Prefer longer circular segments
+    } else if (total_angle1 >= alpha_clothoid1) {
+      // CA(A, L) or AC(A, L) case: only one clothoid segment
+      clothoid_score1 = total_angle1 - alpha_clothoid1;
+    } else {
+      // Insufficient for any clothoid
+      clothoid_score1 = -1.0;
+    }
+
+    if (sufficient_for_clothoid2) {
+      // CAC(A, L, θ) case: sufficient for entry + circular + exit clothoids
+      const double circular_angle2 = total_angle2 - 2.0 * alpha_clothoid2;
+      clothoid_score2 = circular_angle2;  // Prefer longer circular segments
+    } else if (total_angle2 >= alpha_clothoid2) {
+      // CA(A, L) or AC(A, L) case: only one clothoid segment
+      clothoid_score2 = total_angle2 - alpha_clothoid2;
+    } else {
+      // Insufficient for any clothoid
+      clothoid_score2 = -1.0;
+    }
+
+    // Combined clothoid score (prioritize the worse case)
+    const double combined_clothoid_score = std::min(clothoid_score1, clothoid_score2);
+
+    // Store evaluation result with arc2_length for debugging
     evaluation_results.emplace_back(trial_distance, arc1_length);
     valid_results_count++;
 
-    // Update best candidate selection
+    std::cout << "  Trial distance: " << std::fixed << std::setprecision(2) << trial_distance
+              << " m - Arc1 radius: " << std::setprecision(3) << minimum_radius
+              << " m, Arc2 radius: " << std::setprecision(3) << radius_goal
+              << " m, Arc1 length: " << std::setprecision(3) << arc1_length
+              << " m, Arc2 length: " << std::setprecision(3) << arc2_length
+              << " m, Angle1: " << std::setprecision(3) << total_angle1 * 180.0 / M_PI
+              << "°, Angle2: " << std::setprecision(3) << total_angle2 * 180.0 / M_PI
+              << "°, Alpha1: " << std::setprecision(3) << alpha_clothoid1 * 180.0 / M_PI
+              << "°, Alpha2: " << std::setprecision(3) << alpha_clothoid2 * 180.0 / M_PI
+              << "°, Clothoid feasible: "
+              << (sufficient_for_clothoid1 && sufficient_for_clothoid2 ? "YES" : "NO")
+              << ", Score: " << std::setprecision(3) << combined_clothoid_score << std::endl;
+
+    // Update best candidate selection (prioritize clothoid feasibility)
     if (lateral_error <= error_threshold) {
-      if (arc1_length > best_score) {
-        best_score = arc1_length;
+      if (combined_clothoid_score > best_score) {
+        best_score = combined_clothoid_score;
         best_distance = trial_distance;
         found_valid = true;
       }
-    } else if (!found_valid && arc1_length > best_score) {
+    } else if (!found_valid && combined_clothoid_score > best_score) {
       // If no acceptable solution found yet, select the best available
-      best_score = arc1_length;
+      best_score = combined_clothoid_score;
       best_distance = trial_distance;
     }
   }
@@ -1014,17 +1059,20 @@ double calc_necessary_longitudinal_distance(
   if (found_valid) {
     std::cout << "Acceptable results (error <= " << std::fixed << std::setprecision(1)
               << error_threshold << "m): found" << std::endl;
-    std::cout << "Selected result: Arc1 length = " << std::setprecision(3) << best_score
-              << " m, Distance = " << std::setprecision(3) << best_distance << " m" << std::endl;
+    std::cout << "Selected result: Clothoid score = " << std::setprecision(3) << best_score
+              << ", Distance = " << std::setprecision(3) << best_distance << " m" << std::endl;
   } else {
     std::cout << "No acceptable results found" << std::endl;
   }
 
   // Fallback if no valid solution found
   if (!found_valid && best_distance == 0.0) {
-    best_distance = std::max(4.0 * minimum_radius, std::abs(lateral_offset) * 2.0);
-    std::cout << "Using geometric estimation: " << std::setprecision(3) << best_distance << " m"
-              << std::endl;
+    // Use clothoid-based estimation
+    const double clothoid_based_distance =
+      std::max(4.0 * minimum_radius, std::max(std::abs(lateral_offset) * 2.0, L_min1 * 2.0));
+    best_distance = clothoid_based_distance;
+    std::cout << "Using clothoid-based estimation: " << std::setprecision(3) << best_distance
+              << " m" << std::endl;
   }
 
   return best_distance;
@@ -1480,8 +1528,8 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     // Calculate minimum radius based on the maximum steer angle
     const double minimum_radius = wheel_base / std::tan(steer_angle);
 
-    const double longitudinal_distance =
-      calc_necessary_longitudinal_distance(-lateral_offset, minimum_radius);
+    const double longitudinal_distance = calc_necessary_longitudinal_distance(
+      -lateral_offset, minimum_radius, initial_velocity, wheel_base, max_steer_angle_rate);
 
     const Pose target_pose = start_planner_utils::findTargetPoseAlongPath(
       centerline_path, straight_end_pose, longitudinal_distance);
