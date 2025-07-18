@@ -44,32 +44,147 @@ using autoware_internal_planning_msgs::msg::PathWithLaneId;
 // Forward declarations for clothoid-related structures
 struct ArcSegment;
 struct ClothoidSegment;
+struct CompositeArcPath;
 
-// Function declarations for clothoid processing functions
+/**
+ * @brief Correct clothoid by rigid transformation (rotation, translation, scaling)
+ * @param clothoid_points Clothoid points after transformation
+ * @param original_segment Original arc segment
+ * @param start_pose Starting pose of the segment
+ * @return Corrected point sequence
+ */
 std::vector<geometry_msgs::msg::Point> correctClothoidByRigidTransform(
   const std::vector<geometry_msgs::msg::Point> & clothoid_points,
   const ArcSegment & original_segment, const geometry_msgs::msg::Pose & start_pose);
 
-std::pair<std::vector<geometry_msgs::msg::Point>, geometry_msgs::msg::Pose> generateClothoidEntry(
+/**
+ * @brief Generate entry clothoid segment with yaw angles
+ * @param segment Clothoid segment
+ * @param start_pose Starting pose
+ * @param num_points Number of points to generate
+ * @return Pair of pose sequence and end pose
+ */
+std::pair<std::vector<geometry_msgs::msg::Pose>, geometry_msgs::msg::Pose>
+generateClothoidEntryWithYaw(
   const ClothoidSegment & segment, const geometry_msgs::msg::Pose & start_pose, int num_points);
 
-std::pair<std::vector<geometry_msgs::msg::Point>, geometry_msgs::msg::Pose> generateCircularSegment(
+/**
+ * @brief Generate circular segment with yaw angles
+ * @param segment Circular segment
+ * @param start_pose Starting pose
+ * @param num_points Number of points to generate
+ * @return Pair of pose sequence and end pose
+ */
+std::pair<std::vector<geometry_msgs::msg::Pose>, geometry_msgs::msg::Pose>
+generateCircularSegmentWithYaw(
   const ClothoidSegment & segment, const geometry_msgs::msg::Pose & start_pose, int num_points);
 
-std::pair<std::vector<geometry_msgs::msg::Point>, geometry_msgs::msg::Pose> generateClothoidExit(
+/**
+ * @brief Generate exit clothoid segment with yaw angles
+ * @param segment Clothoid segment
+ * @param start_pose Starting pose
+ * @param num_points Number of points to generate
+ * @return Pair of pose sequence and end pose
+ */
+std::pair<std::vector<geometry_msgs::msg::Pose>, geometry_msgs::msg::Pose>
+generateClothoidExitWithYaw(
   const ClothoidSegment & segment, const geometry_msgs::msg::Pose & start_pose, int num_points);
 
+/**
+ * @brief Generate clothoid path from segments
+ * @param segments Vector of clothoid segments
+ * @param point_interval Interval between points
+ * @param start_pose Starting pose
+ * @return Generated clothoid path points
+ */
 std::vector<geometry_msgs::msg::Point> generateClothoidPath(
-  const std::vector<ClothoidSegment> & segments, int num_points_per_segment,
+  const std::vector<ClothoidSegment> & segments, double point_interval,
   const geometry_msgs::msg::Pose & start_pose);
 
+/**
+ * @brief Convert arc to clothoid
+ * @param arc_segment Arc segment to convert
+ * @param start_pose Starting pose
+ * @param A_min Minimum clothoid parameter A
+ * @param L_min Minimum clothoid parameter L
+ * @param point_interval Interval between points
+ * @return Converted clothoid points
+ */
 std::vector<geometry_msgs::msg::Point> convertArcToClothoid(
   const ArcSegment & arc_segment, const geometry_msgs::msg::Pose & start_pose, double A_min,
-  double L_min, int num_points_per_segment = 50);
+  double L_min, double point_interval);
 
+/**
+ * @brief Convert arc to clothoid with correction
+ * @param arc_segment Arc segment to convert
+ * @param start_pose Starting pose
+ * @param initial_velocity Initial velocity
+ * @param wheel_base Vehicle wheel base
+ * @param max_steer_angle_rate Maximum steering angle rate
+ * @param point_interval Interval between points
+ * @return Converted clothoid points with correction
+ */
 std::vector<geometry_msgs::msg::Point> convertArcToClothoidWithCorrection(
-  const ArcSegment & arc_segment, const geometry_msgs::msg::Pose & start_pose, double A_min,
-  double L_min, int num_points_per_segment = 50);
+  const ArcSegment & arc_segment, const geometry_msgs::msg::Pose & start_pose,
+  double initial_velocity, double wheel_base, double max_steer_angle_rate, double point_interval);
+
+/**
+ * @brief Convert circular path to clothoid paths
+ * @param circular_path Circular path to convert
+ * @param start_pose Starting pose
+ * @param initial_velocity Initial velocity
+ * @param wheel_base Vehicle wheel base
+ * @param max_steer_angle_rate Maximum steering angle rate
+ * @param point_interval Interval between points
+ * @return Vector of clothoid path points
+ */
+std::vector<std::vector<geometry_msgs::msg::Point>> convertCircularPathToClothoidPaths(
+  const CompositeArcPath & circular_path, const geometry_msgs::msg::Pose & start_pose,
+  double initial_velocity, double wheel_base, double max_steer_angle_rate, double point_interval);
+
+/**
+ * @brief Create straight path to end pose
+ * @param start_pose Starting pose
+ * @param forward_distance Forward distance
+ * @param backward_distance Backward distance
+ * @param point_interval Interval between points
+ * @return Straight path poses
+ */
+std::vector<geometry_msgs::msg::Pose> createStraightPathToEndPose(
+  const geometry_msgs::msg::Pose & start_pose, double forward_distance, double backward_distance,
+  double point_interval);
+
+/**
+ * @brief Calculate necessary longitudinal distance for circular path planning
+ * @param lateral_offset Lateral offset from the path
+ * @param minimum_radius Minimum turning radius
+ * @return Calculated longitudinal distance
+ */
+double calc_necessary_longitudinal_distance(
+  const double lateral_offset, const double minimum_radius);
+
+/**
+ * @brief Calculate circular path
+ * @param start_pose Starting pose
+ * @param longitudinal_distance Longitudinal distance
+ * @param lateral_distance Lateral distance
+ * @param angle_diff Angle difference
+ * @param minimum_radius Minimum turning radius
+ * @return Composite arc path
+ */
+CompositeArcPath calc_circular_path(
+  const geometry_msgs::msg::Pose & start_pose, const double longitudinal_distance,
+  const double lateral_distance, const double angle_diff, const double minimum_radius);
+
+/**
+ * @brief Convert circular path to trajectory
+ * @param composite_arc_path Composite arc path
+ * @param velocity Velocity for trajectory
+ * @param z Z coordinate for trajectory points
+ * @return Trajectory message
+ */
+autoware_planning_msgs::msg::Trajectory convertCircularPathToTrajectory(
+  const CompositeArcPath & composite_arc_path, const double velocity, const double z);
 
 /**
  * @brief クロソイドパスからPathWithLaneIdを生成する関数

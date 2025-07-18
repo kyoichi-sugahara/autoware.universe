@@ -55,17 +55,6 @@ lanelet::ConstLanelets getPullOutLanes(
 std::optional<PathWithLaneId> extractCollisionCheckSection(
   const PullOutPath & path, const double collision_check_distance_from_end);
 
-double calc_necessary_longitudinal_distance(
-  const double lateral_offset, const double minimum_radius);
-
-CompositeArcPath calc_circular_path(
-  const Pose & start_pose, const double longitudinal_distance, const double lateral_distance,
-  const double angle_diff, const double minimum_radius);
-
-// Convert circular_path to Trajectory and calculate curvature at each point
-autoware_planning_msgs::msg::Trajectory convertCircularPathToTrajectory(
-  const CompositeArcPath & composite_arc_path, const double velocity = 5.0, const double z = 0.0);
-
 std::vector<double> calcCurvatureFromTrajectory(
   const autoware_planning_msgs::msg::Trajectory & trajectory);
 
@@ -100,9 +89,9 @@ void setLaneIdsToPathPoint(
   const std::vector<int64_t> & previous_lane_ids);
 
 /**
- * @brief Print detailed information of each point in PathWithLaneId
- * @param path Target PathWithLaneId
- * @param path_name Path name (for debugging)
+ * @brief Print detailed information of PathWithLaneId
+ * @param path PathWithLaneId to print
+ * @param path_name Name of the path for identification
  */
 void printPathWithLaneIdDetails(const PathWithLaneId & path, const std::string & path_name);
 
