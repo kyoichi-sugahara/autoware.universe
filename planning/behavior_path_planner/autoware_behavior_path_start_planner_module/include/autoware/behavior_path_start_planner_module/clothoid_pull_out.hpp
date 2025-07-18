@@ -17,6 +17,7 @@
 
 #include "autoware/behavior_path_start_planner_module/pull_out_path.hpp"
 #include "autoware/behavior_path_start_planner_module/pull_out_planner_base.hpp"
+#include "autoware/behavior_path_start_planner_module/util.hpp"
 #include "autoware_utils/system/time_keeper.hpp"
 
 #include <autoware/boundary_departure_checker/boundary_departure_checker.hpp>
@@ -43,27 +44,6 @@ using autoware_internal_planning_msgs::msg::PathWithLaneId;
 // Forward declarations for clothoid-related structures
 struct ArcSegment;
 struct ClothoidSegment;
-
-/**
- * @brief 指定されたポーズに対してlane_idsを取得する汎用関数
- * @param pose 対象のポーズ
- * @param road_lanes 検索対象のレーン群
- * @param previous_lane_ids 前の点のlane_ids（継承用、オプション）
- * @return 取得されたlane_ids
- */
-std::vector<int64_t> getLaneIdsFromPose(
-  const geometry_msgs::msg::Pose & pose, const lanelet::ConstLanelets & road_lanes,
-  const std::vector<int64_t> & previous_lane_ids = {});
-
-/**
- * @brief PathPointWithLaneIdにlane_idsを設定する関数
- * @param point 設定対象のPathPointWithLaneId
- * @param road_lanes 検索対象のレーン群
- * @param previous_lane_ids 前の点のlane_ids（継承用、オプション）
- */
-void setLaneIdsToPathPoint(
-  PathPointWithLaneId & point, const lanelet::ConstLanelets & road_lanes,
-  const std::vector<int64_t> & previous_lane_ids = {});
 
 // Function declarations for clothoid processing functions
 std::vector<geometry_msgs::msg::Point> correctClothoidByRigidTransform(
@@ -118,10 +98,6 @@ PathWithLaneId createPathWithLaneIdFromClothoidPaths(
 PathWithLaneId combinePathWithCenterline(
   const PathWithLaneId & clothoid_path, const PathWithLaneId & centerline_path,
   const geometry_msgs::msg::Pose & target_pose);
-
-// Utility function to print PathWithLaneId details
-void printPathWithLaneIdDetails(
-  const PathWithLaneId & path, const std::string & path_name = "Path");
 
 class ClothoidPullOut : public PullOutPlannerBase
 {

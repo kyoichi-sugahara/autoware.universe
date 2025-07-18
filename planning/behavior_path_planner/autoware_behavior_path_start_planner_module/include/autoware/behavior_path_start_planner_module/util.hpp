@@ -33,6 +33,7 @@
 #include <lanelet2_core/Forward.h>
 
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -76,6 +77,34 @@ Pose findTargetPoseAlongPath(
 
 RelativePoseInfo calculateRelativePoseInVehicleCoordinate(
   const Pose & start_pose, const Pose & target_pose);
+
+/**
+ * @brief Get lane_ids for a given pose
+ * @param pose Target pose
+ * @param road_lanes Target lane group for search
+ * @param previous_lane_ids Previous point's lane_ids (for inheritance, optional)
+ * @return Retrieved lane_ids
+ */
+std::vector<int64_t> getLaneIdsFromPose(
+  const geometry_msgs::msg::Pose & pose, const lanelet::ConstLanelets & road_lanes,
+  const std::vector<int64_t> & previous_lane_ids);
+
+/**
+ * @brief Set lane_ids to PathPointWithLaneId
+ * @param point Target PathPointWithLaneId to set
+ * @param road_lanes Target lane group for search
+ * @param previous_lane_ids Previous point's lane_ids (for inheritance, optional)
+ */
+void setLaneIdsToPathPoint(
+  PathPointWithLaneId & point, const lanelet::ConstLanelets & road_lanes,
+  const std::vector<int64_t> & previous_lane_ids);
+
+/**
+ * @brief Print detailed information of each point in PathWithLaneId
+ * @param path Target PathWithLaneId
+ * @param path_name Path name (for debugging)
+ */
+void printPathWithLaneIdDetails(const PathWithLaneId & path, const std::string & path_name);
 
 }  // namespace autoware::behavior_path_planner::start_planner_utils
 
