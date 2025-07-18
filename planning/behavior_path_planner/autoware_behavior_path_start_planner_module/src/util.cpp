@@ -19,6 +19,7 @@
 #include "autoware/behavior_path_planner_common/utils/utils.hpp"
 
 #include <autoware/motion_utils/trajectory/path_with_lane_id.hpp>
+#include <autoware_lanelet2_extension/utility/query.hpp>
 #include <autoware_lanelet2_extension/utility/utilities.hpp>
 #include <autoware_utils/geometry/boost_geometry.hpp>
 #include <rclcpp/rclcpp.hpp>
@@ -331,6 +332,7 @@ double calc_necessary_longitudinal_distance(
   return best_distance;
 }
 
+// これは clothoid_pull_out.cpp 内でよい
 CompositeArcPath calc_circular_path(
   const Pose & start_pose, const double longitudinal_distance, const double lateral_distance,
   const double angle_diff, const double minimum_radius)
@@ -787,6 +789,119 @@ RelativePoseInfo calculateRelativePoseInVehicleCoordinate(
   while (angle_diff < -M_PI) angle_diff += 2.0 * M_PI;
 
   return {longitudinal_distance_vehicle, lateral_distance_vehicle, angle_diff};
+}
+
+/**
+ * @brief Get lane_ids for a given pose
+ * Generic function to get lane_ids for a pose, based on implementations from other
+ * behavior_path_planner modules
+ * @param pose Target pose
+ * @param road_lanes Target lane group for search
+ * @param previous_lane_ids Previous point's lane_ids (for inheritance, optional)
+ * @return Retrieved lane_ids
+ */
+std::vector<int64_t> getLaneIdsFromPose(
+  const geometry_msgs::msg::Pose & pose, const lanelet::ConstLanelets & road_lanes,
+  const std::vector<int64_t> & previous_lane_ids)
+{
+  std::vector<int64_t> lane_ids;
+
+  // 1. First, find all lanes containing the pose
+  bool found_containing_lane = false;
+  for (const auto & lane : road_lanes) {
+    if (lanelet::utils::isInLanelet(pose, lane)) {
+      lane_ids.push_back(lane.id());
+      found_containing_lane = true;
+    }
+  }
+
+  // 2. Fallback processing when no containing lane is found
+  if (!found_containing_lane) {
+    // 2.1 Find the closest lane
+    lanelet::Lanelet closest_lanelet{};
+    if (lanelet::utils::query::getClosestLanelet(road_lanes, pose, &closest_lanelet)) {
+      lane_ids = {closest_lanelet.id()};
+    } else if (!previous_lane_ids.empty()) {
+      // 2.2 If closest lane is not found, inherit lane_ids from previous point
+      lane_ids = previous_lane_ids;
+    } else if (!road_lanes.empty()) {
+      // 2.3 Final fallback: use the first lane
+      lane_ids.push_back(road_lanes.front().id());
+    }
+  }
+
+  return lane_ids;
+}
+
+/**
+ * @brief Set lane_ids to PathPointWithLaneId
+ * @param point Target PathPointWithLaneId to set
+ * @param road_lanes Target lane group for search
+ * @param previous_lane_ids Previous point's lane_ids (for inheritance, optional)
+ */
+void setLaneIdsToPathPoint(
+  PathPointWithLaneId & point, const lanelet::ConstLanelets & road_lanes,
+  const std::vector<int64_t> & previous_lane_ids)
+{
+  point.lane_ids = getLaneIdsFromPose(point.point.pose, road_lanes, previous_lane_ids);
+}
+
+/**
+ * @brief Print detailed information of each point in PathWithLaneId
+ * @param path Target PathWithLaneId
+ * @param path_name Path name (for debugging)
+ */
+void printPathWithLaneIdDetails(const PathWithLaneId & path, const std::string & path_name)
+{
+  std::cout << "=== " << path_name << " Details ===" << std::endl;
+  std::cout << "Total points: " << path.points.size() << std::endl;
+
+  double cumulative_distance = 0.0;
+
+  for (size_t i = 0; i < path.points.size(); ++i) {
+    const auto & point = path.points[i];
+    const auto & pose = point.point.pose;
+    const auto & position = pose.position;
+    const auto & orientation = pose.orientation;
+
+    // Calculate yaw angle
+    const double yaw = tf2::getYaw(orientation);
+
+    // Calculate distance from previous point
+    double distance_from_prev = 0.0;
+    if (i > 0) {
+      const auto & prev_position = path.points[i - 1].point.pose.position;
+      distance_from_prev = std::sqrt(
+        std::pow(position.x - prev_position.x, 2) + std::pow(position.y - prev_position.y, 2));
+      cumulative_distance += distance_from_prev;
+    }
+
+    // Convert lane_ids to string
+    std::string lane_ids_str = "[";
+    for (size_t j = 0; j < point.lane_ids.size(); ++j) {
+      if (j > 0) lane_ids_str += ", ";
+      lane_ids_str += std::to_string(point.lane_ids[j]);
+    }
+    lane_ids_str += "]";
+
+    // Print information
+    std::cout << std::fixed << std::setprecision(6);
+    std::cout << "[" << std::setw(3) << i << "] "
+              << "x=" << std::setw(10) << position.x << " "
+              << "y=" << std::setw(10) << position.y << " "
+              << "z=" << std::setw(10) << position.z << " "
+              << "yaw=" << std::setw(8) << yaw << " rad "
+              << "(" << std::setw(6) << yaw * 180.0 / M_PI << "°) "
+              << "quat[" << std::setw(7) << orientation.x << ", " << std::setw(7) << orientation.y
+              << ", " << std::setw(7) << orientation.z << ", " << std::setw(7) << orientation.w
+              << "] "
+              << "dist_prev=" << std::setw(8) << distance_from_prev << " "
+              << "cumul=" << std::setw(8) << cumulative_distance << " "
+              << "lane_ids=" << lane_ids_str << std::endl;
+  }
+
+  std::cout << "Total path length: " << cumulative_distance << " m" << std::endl;
+  std::cout << "=================================" << std::endl;
 }
 
 }  // namespace autoware::behavior_path_planner::start_planner_utils

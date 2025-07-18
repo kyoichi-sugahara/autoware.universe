@@ -56,62 +56,10 @@ using autoware_utils::calc_offset_pose;
 using lanelet::utils::getArcCoordinates;
 namespace autoware::behavior_path_planner
 {
+using start_planner_utils::getLaneIdsFromPose;
 using start_planner_utils::getPullOutLanes;
-
-/**
- * @brief 指定されたポーズに対してlane_idsを取得する汎用関数
- * 他のbehavior_path_plannerモジュールの実装を参考にした汎用的なlane_ids取得関数
- * @param pose 対象のポーズ
- * @param road_lanes 検索対象のレーン群
- * @param previous_lane_ids 前の点のlane_ids（継承用、オプション）
- * @return 取得されたlane_ids
- */
-// これは util に定義
-std::vector<int64_t> getLaneIdsFromPose(
-  const geometry_msgs::msg::Pose & pose, const lanelet::ConstLanelets & road_lanes,
-  const std::vector<int64_t> & previous_lane_ids)
-{
-  std::vector<int64_t> lane_ids;
-
-  // 1. まず、ポーズが含まれるレーンを全て探す
-  bool found_containing_lane = false;
-  for (const auto & lane : road_lanes) {
-    if (lanelet::utils::isInLanelet(pose, lane)) {
-      lane_ids.push_back(lane.id());
-      found_containing_lane = true;
-    }
-  }
-
-  // 2. 含まれるレーンが見つからない場合のフォールバック処理
-  if (!found_containing_lane) {
-    // 2.1 最近接レーンを探す
-    lanelet::Lanelet closest_lanelet{};
-    if (lanelet::utils::query::getClosestLanelet(road_lanes, pose, &closest_lanelet)) {
-      lane_ids = {closest_lanelet.id()};
-    } else if (!previous_lane_ids.empty()) {
-      // 2.2 最近接レーンも見つからない場合、前の点のlane_idsを継承
-      lane_ids = previous_lane_ids;
-    } else if (!road_lanes.empty()) {
-      // 2.3 最後のフォールバック：最初のレーンを使用
-      lane_ids.push_back(road_lanes.front().id());
-    }
-  }
-
-  return lane_ids;
-}
-
-/**
- * @brief PathPointWithLaneIdにlane_idsを設定する関数
- * @param point 設定対象のPathPointWithLaneId
- * @param road_lanes 検索対象のレーン群
- * @param previous_lane_ids 前の点のlane_ids（継承用、オプション）
- */
-void setLaneIdsToPathPoint(
-  PathPointWithLaneId & point, const lanelet::ConstLanelets & road_lanes,
-  const std::vector<int64_t> & previous_lane_ids)
-{
-  point.lane_ids = getLaneIdsFromPose(point.point.pose, road_lanes, previous_lane_ids);
-}
+using start_planner_utils::printPathWithLaneIdDetails;
+using start_planner_utils::setLaneIdsToPathPoint;
 
 /**
  * @brief 剛体変換（回転・平行移動・スケーリング）のみでクロソイドを補正
@@ -1220,60 +1168,6 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
   // =====================================================================
   planner_debug_data.conditions_evaluation.emplace_back("no path found");
   return std::nullopt;
-}
-
-// PathWithLaneIdの各点の詳細情報をプリントする関数
-void printPathWithLaneIdDetails(const PathWithLaneId & path, const std::string & path_name)
-{
-  std::cout << "=== " << path_name << " Details ===" << std::endl;
-  std::cout << "Total points: " << path.points.size() << std::endl;
-
-  double cumulative_distance = 0.0;
-
-  for (size_t i = 0; i < path.points.size(); ++i) {
-    const auto & point = path.points[i];
-    const auto & pose = point.point.pose;
-    const auto & position = pose.position;
-    const auto & orientation = pose.orientation;
-
-    // ヨー角を計算
-    const double yaw = tf2::getYaw(orientation);
-
-    // 1つ前の点との距離を計算
-    double distance_from_prev = 0.0;
-    if (i > 0) {
-      const auto & prev_position = path.points[i - 1].point.pose.position;
-      distance_from_prev = std::sqrt(
-        std::pow(position.x - prev_position.x, 2) + std::pow(position.y - prev_position.y, 2));
-      cumulative_distance += distance_from_prev;
-    }
-
-    // lane_idsを文字列に変換
-    std::string lane_ids_str = "[";
-    for (size_t j = 0; j < point.lane_ids.size(); ++j) {
-      if (j > 0) lane_ids_str += ", ";
-      lane_ids_str += std::to_string(point.lane_ids[j]);
-    }
-    lane_ids_str += "]";
-
-    // 情報をプリント
-    std::cout << std::fixed << std::setprecision(6);
-    std::cout << "[" << std::setw(3) << i << "] "
-              << "x=" << std::setw(10) << position.x << " "
-              << "y=" << std::setw(10) << position.y << " "
-              << "z=" << std::setw(10) << position.z << " "
-              << "yaw=" << std::setw(8) << yaw << " rad "
-              << "(" << std::setw(6) << yaw * 180.0 / M_PI << "°) "
-              << "quat[" << std::setw(7) << orientation.x << ", " << std::setw(7) << orientation.y
-              << ", " << std::setw(7) << orientation.z << ", " << std::setw(7) << orientation.w
-              << "] "
-              << "dist_prev=" << std::setw(8) << distance_from_prev << " "
-              << "cumul=" << std::setw(8) << cumulative_distance << " "
-              << "lane_ids=" << lane_ids_str << std::endl;
-  }
-
-  std::cout << "Total path length: " << cumulative_distance << " m" << std::endl;
-  std::cout << "=================================" << std::endl;
 }
 
 }  // namespace autoware::behavior_path_planner
