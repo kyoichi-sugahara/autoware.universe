@@ -155,13 +155,18 @@ std::vector<geometry_msgs::msg::Pose> createStraightPathToEndPose(
   double point_interval);
 
 /**
- * @brief Calculate necessary longitudinal distance for circular path planning
+ * @brief Calculate necessary longitudinal distance for circular path planning with clothoid
+ * consideration
  * @param lateral_offset Lateral offset from the path
  * @param minimum_radius Minimum turning radius
+ * @param initial_velocity Initial velocity for clothoid calculation
+ * @param wheel_base Vehicle wheel base
+ * @param max_steer_angle_rate Maximum steering angle rate
  * @return Calculated longitudinal distance
  */
 double calc_necessary_longitudinal_distance(
-  const double lateral_offset, const double minimum_radius);
+  const double lateral_offset, const double minimum_radius, const double initial_velocity,
+  const double wheel_base, const double max_steer_angle_rate);
 
 /**
  * @brief Calculate circular path
