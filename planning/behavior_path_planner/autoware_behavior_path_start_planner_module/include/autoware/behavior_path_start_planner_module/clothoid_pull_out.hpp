@@ -162,11 +162,14 @@ std::vector<geometry_msgs::msg::Pose> createStraightPathToEndPose(
  * @param initial_velocity Initial velocity for clothoid calculation
  * @param wheel_base Vehicle wheel base
  * @param max_steer_angle_rate Maximum steering angle rate
+ * @param centerline_path Centerline path for target pose calculation
+ * @param start_pose Starting pose
  * @return Calculated longitudinal distance
  */
 double calc_necessary_longitudinal_distance(
   const double lateral_offset, const double minimum_radius, const double initial_velocity,
-  const double wheel_base, const double max_steer_angle_rate);
+  const double wheel_base, const double max_steer_angle_rate,
+  const PathWithLaneId & centerline_path, const geometry_msgs::msg::Pose & start_pose);
 
 /**
  * @brief Calculate circular path
