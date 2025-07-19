@@ -817,11 +817,14 @@ std::vector<geometry_msgs::msg::Pose> createStraightPathToEndPose(
  * @param initial_velocity Initial velocity for clothoid calculation
  * @param wheel_base Vehicle wheel base
  * @param max_steer_angle_rate Maximum steering angle rate
+ * @param centerline_path Centerline path for target pose calculation
+ * @param start_pose Starting pose
  * @return Calculated longitudinal distance
  */
 double calc_necessary_longitudinal_distance(
   const double lateral_offset, const double minimum_radius, const double initial_velocity,
-  const double wheel_base, const double max_steer_angle_rate)
+  const double wheel_base, const double max_steer_angle_rate,
+  const PathWithLaneId & centerline_path, const geometry_msgs::msg::Pose & start_pose)
 {
   // Calculate clothoid parameters for Arc1 (used throughout the function)
   const double circular_steer_angle1 = std::atan(wheel_base / minimum_radius);
@@ -834,14 +837,8 @@ double calc_necessary_longitudinal_distance(
     2.0 * minimum_radius, 3.0 * minimum_radius,  4.0 * minimum_radius, 5.0 * minimum_radius,
     6.0 * minimum_radius, 8.0 * minimum_radius,  10.0 * minimum_radius};
 
-  // Starting pose parameters (assumed at origin with 0 yaw)
-  constexpr double x_start = 0.0;
-  constexpr double y_start = 0.0;
-  constexpr double yaw_start = 0.0;
-
   // Evaluation parameters
   constexpr double error_threshold = 0.5;
-  constexpr double tolerance = 0.1;
 
   // Results tracking
   std::vector<std::pair<double, double>> evaluation_results;
@@ -853,140 +850,80 @@ double calc_necessary_longitudinal_distance(
   int valid_results_count = 0;
 
   for (const double trial_distance : trial_distances) {
-    // Calculate goal position considering lateral offset
-    const double x_goal =
-      x_start + trial_distance * std::cos(yaw_start) + lateral_offset * (-std::sin(yaw_start));
-    const double y_goal =
-      y_start + trial_distance * std::sin(yaw_start) + lateral_offset * std::cos(yaw_start);
+    // Get target pose using findTargetPoseAlongPath
+    const geometry_msgs::msg::Pose target_pose =
+      start_planner_utils::findTargetPoseAlongPath(centerline_path, start_pose, trial_distance);
 
-    // Calculate starting arc center (assuming clockwise rotation)
-    const double center_rx = x_start + minimum_radius * std::sin(yaw_start);
-    const double center_ry = y_start - minimum_radius * std::cos(yaw_start);
+    // Calculate relative pose information
+    const auto relative_pose_info =
+      start_planner_utils::calculateRelativePoseInVehicleCoordinate(start_pose, target_pose);
 
-    // Calculate target arc radius using Al-Kashi theorem
-    const double dx_goal = x_goal - center_rx;
-    const double dy_goal = y_goal - center_ry;
-    const double distance_to_goal = std::sqrt(dx_goal * dx_goal + dy_goal * dy_goal);
+    // Generate circular path using calc_circular_path
+    const auto circular_path = calc_circular_path(
+      start_pose, relative_pose_info.longitudinal_distance_vehicle,
+      relative_pose_info.lateral_distance_vehicle, relative_pose_info.angle_diff, minimum_radius);
 
-    if (distance_to_goal < 1e-6) {
+    // Check if circular path generation was successful
+    if (circular_path.segments.empty()) {
       std::cout << "  Trial distance: " << std::fixed << std::setprecision(2) << trial_distance
-                << " m - SKIPPED (goal too close to arc center)" << std::endl;
+                << " m - SKIPPED (circular path generation failed)" << std::endl;
       continue;
     }
 
-    const double cos_term = std::clamp((y_goal - center_ry) / distance_to_goal, -1.0, 1.0);
-    const double alpha = M_PI + std::acos(cos_term);
-    const double denominator = 2 * minimum_radius + 2 * distance_to_goal * std::cos(alpha);
-
-    if (std::abs(denominator) < 1e-6) {
+    // Extract arc information from the generated circular path
+    if (circular_path.segments.size() < 2) {
       std::cout << "  Trial distance: " << std::fixed << std::setprecision(2) << trial_distance
-                << " m - SKIPPED (denominator too small)" << std::endl;
+                << " m - SKIPPED (insufficient arc segments)" << std::endl;
       continue;
     }
 
-    const double radius_goal =
-      (distance_to_goal * distance_to_goal - minimum_radius * minimum_radius) / denominator;
+    const auto & arc1 = circular_path.segments[0];
+    const auto & arc2 = circular_path.segments[1];
 
-    // Check physical feasibility
-    if (radius_goal < 0 || radius_goal < minimum_radius) {
-      std::cout << "  Trial distance: " << std::fixed << std::setprecision(2) << trial_distance
-                << " m - SKIPPED (radius infeasible: " << std::setprecision(3) << radius_goal << ")"
-                << std::endl;
-      continue;
+    // Calculate arc lengths using the calculateArcLength method
+    const double arc1_length = arc1.calculateArcLength();
+    const double arc2_length = arc2.calculateArcLength();
+
+    // Calculate angle differences using getStartAngle and getEndAngle
+    const double start_angle1 = arc1.getStartAngle();
+    const double end_angle1 = arc1.getEndAngle();
+    const double start_angle2 = arc2.getStartAngle();
+    const double end_angle2 = arc2.getEndAngle();
+
+    // Calculate angle differences with proper direction adjustment
+    double angle_diff1 = end_angle1 - start_angle1;
+    if (arc1.is_clockwise && angle_diff1 > 0) {
+      angle_diff1 -= 2 * M_PI;
+    } else if (!arc1.is_clockwise && angle_diff1 < 0) {
+      angle_diff1 += 2 * M_PI;
     }
 
-    // Calculate target arc center (assuming counter-clockwise rotation)
-    const double center_lx = x_goal - radius_goal * std::sin(yaw_start);
-    const double center_ly = y_goal + radius_goal * std::cos(yaw_start);
-
-    // Validate arc connection
-    const double dx_centers = center_lx - center_rx;
-    const double dy_centers = center_ly - center_ry;
-    const double distance_between_centers =
-      std::sqrt(dx_centers * dx_centers + dy_centers * dy_centers);
-
-    const double external_tangent_distance = minimum_radius + radius_goal;
-    const double internal_tangent_distance = std::abs(minimum_radius - radius_goal);
-
-    const bool connection_valid =
-      (std::abs(distance_between_centers - external_tangent_distance) <= tolerance ||
-       std::abs(distance_between_centers - internal_tangent_distance) <= tolerance ||
-       (distance_between_centers > external_tangent_distance + tolerance &&
-        distance_between_centers - external_tangent_distance <= 2.0) ||
-       (distance_between_centers < internal_tangent_distance - tolerance &&
-        internal_tangent_distance - distance_between_centers <=
-          std::min(minimum_radius, radius_goal) * 0.8));
-
-    if (!connection_valid) {
-      std::cout << "  Trial distance: " << std::fixed << std::setprecision(2) << trial_distance
-                << " m - SKIPPED (arc connection invalid)" << std::endl;
-      continue;
+    double angle_diff2 = end_angle2 - start_angle2;
+    if (arc2.is_clockwise && angle_diff2 > 0) {
+      angle_diff2 -= 2 * M_PI;
+    } else if (!arc2.is_clockwise && angle_diff2 < 0) {
+      angle_diff2 += 2 * M_PI;
     }
-
-    // Calculate tangent point between circles
-    double tangent_x, tangent_y;
-    if (distance_between_centers < 1e-6) {
-      tangent_x = (center_rx + center_lx) / 2.0;
-      tangent_y = (center_ry + center_ly) / 2.0;
-    } else if (std::abs(distance_between_centers - external_tangent_distance) <= tolerance) {
-      // External tangent case
-      const double ratio = minimum_radius / (minimum_radius + radius_goal);
-      tangent_x = center_rx + ratio * dx_centers;
-      tangent_y = center_ry + ratio * dy_centers;
-    } else {
-      // Other cases - use approximation
-      const double ratio = 0.5;
-      tangent_x = center_rx + ratio * dx_centers;
-      tangent_y = center_ry + ratio * dy_centers;
-    }
-
-    // Calculate actual lateral offset achieved
-    const double dx_actual = x_goal - x_start;
-    const double dy_actual = y_goal - y_start;
-    const double lateral_x = -std::sin(yaw_start);
-    const double lateral_y = std::cos(yaw_start);
-    const double actual_lateral_offset = dx_actual * lateral_x + dy_actual * lateral_y;
-    const double lateral_error = std::abs(actual_lateral_offset - lateral_offset);
-
-    // Calculate Arc1 length
-    const double start_angle = std::atan2(y_start - center_ry, x_start - center_rx);
-    const double tangent_angle = std::atan2(tangent_y - center_ry, tangent_x - center_rx);
-    double angle_diff = tangent_angle - start_angle;
-
-    // Adjust for clockwise direction
-    if (angle_diff > 0) {
-      angle_diff -= 2 * M_PI;
-    }
-
-    const double arc1_length = minimum_radius * std::abs(angle_diff);
-
-    // Calculate Arc2 length
-    const double arc2_start_angle = std::atan2(tangent_y - center_ly, tangent_x - center_lx);
-    const double arc2_end_angle = std::atan2(y_goal - center_ly, x_goal - center_lx);
-    double arc2_angle_diff = arc2_end_angle - arc2_start_angle;
-
-    // Adjust for counter-clockwise direction
-    if (arc2_angle_diff < 0) {
-      arc2_angle_diff += 2 * M_PI;
-    }
-
-    const double arc2_length = radius_goal * std::abs(arc2_angle_diff);
 
     // Calculate clothoid parameters for each arc based on their respective radii
-    // Arc1 clothoid parameters (based on minimum_radius)
-    const double A_min1 = std::sqrt(minimum_radius * L_min1);
-    const double alpha_clothoid1 = (L_min1 * L_min1) / (2.0 * A_min1 * A_min1);
+    // Arc1 clothoid parameters (based on arc1.radius)
+    const double circular_steer_angle1_actual = std::atan(wheel_base / arc1.radius);
+    const double minimum_steer_time1_actual = circular_steer_angle1_actual / max_steer_angle_rate;
+    const double L_min1_actual = initial_velocity * minimum_steer_time1_actual;
+    const double A_min1_actual = std::sqrt(arc1.radius * L_min1_actual);
+    const double alpha_clothoid1 =
+      (L_min1_actual * L_min1_actual) / (2.0 * A_min1_actual * A_min1_actual);
 
-    // Arc2 clothoid parameters (based on radius_goal)
-    const double circular_steer_angle2 = std::atan(wheel_base / radius_goal);
+    // Arc2 clothoid parameters (based on arc2.radius)
+    const double circular_steer_angle2 = std::atan(wheel_base / arc2.radius);
     const double minimum_steer_time2 = circular_steer_angle2 / max_steer_angle_rate;
     const double L_min2 = initial_velocity * minimum_steer_time2;
-    const double A_min2 = std::sqrt(radius_goal * L_min2);
+    const double A_min2 = std::sqrt(arc2.radius * L_min2);
     const double alpha_clothoid2 = (L_min2 * L_min2) / (2.0 * A_min2 * A_min2);
 
     // Check if arc lengths are sufficient for clothoid conversion
-    const double total_angle1 = std::abs(angle_diff);
-    const double total_angle2 = std::abs(arc2_angle_diff);
+    const double total_angle1 = std::abs(angle_diff1);
+    const double total_angle2 = std::abs(angle_diff2);
     const bool sufficient_for_clothoid1 = (total_angle1 >= 2.0 * alpha_clothoid1);
     const bool sufficient_for_clothoid2 = (total_angle2 >= 2.0 * alpha_clothoid2);
 
@@ -1021,13 +958,17 @@ double calc_necessary_longitudinal_distance(
     // Combined clothoid score (prioritize the worse case)
     const double combined_clothoid_score = std::min(clothoid_score1, clothoid_score2);
 
+    // Calculate lateral error from the actual target pose
+    const double actual_lateral_offset = relative_pose_info.lateral_distance_vehicle;
+    const double lateral_error = std::abs(actual_lateral_offset - lateral_offset);
+
     // Store evaluation result with arc2_length for debugging
     evaluation_results.emplace_back(trial_distance, arc1_length);
     valid_results_count++;
 
     std::cout << "  Trial distance: " << std::fixed << std::setprecision(2) << trial_distance
-              << " m - Arc1 radius: " << std::setprecision(3) << minimum_radius
-              << " m, Arc2 radius: " << std::setprecision(3) << radius_goal
+              << " m - Arc1 radius: " << std::setprecision(3) << arc1.radius
+              << " m, Arc2 radius: " << std::setprecision(3) << arc2.radius
               << " m, Arc1 length: " << std::setprecision(3) << arc1_length
               << " m, Arc2 length: " << std::setprecision(3) << arc2_length
               << " m, Angle1: " << std::setprecision(3) << total_angle1 * 180.0 / M_PI
@@ -1529,7 +1470,8 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     const double minimum_radius = wheel_base / std::tan(steer_angle);
 
     const double longitudinal_distance = calc_necessary_longitudinal_distance(
-      -lateral_offset, minimum_radius, initial_velocity, wheel_base, max_steer_angle_rate);
+      -lateral_offset, minimum_radius, initial_velocity, wheel_base, max_steer_angle_rate,
+      centerline_path, start_pose);
 
     const Pose target_pose = start_planner_utils::findTargetPoseAlongPath(
       centerline_path, straight_end_pose, longitudinal_distance);
