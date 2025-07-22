@@ -31,6 +31,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -102,29 +103,29 @@ std::vector<geometry_msgs::msg::Point> generateClothoidPath(
   const geometry_msgs::msg::Pose & start_pose);
 
 /**
- * @brief Convert arc to clothoid
+ * @brief Convert ArcSegment to clothoid curve
  * @param arc_segment Arc segment to convert
  * @param start_pose Starting pose
  * @param A_min Minimum clothoid parameter A
  * @param L_min Minimum clothoid parameter L
  * @param point_interval Interval between points
- * @return Converted clothoid points
+ * @return Optional clothoid path points (nullopt if conversion fails)
  */
-std::vector<geometry_msgs::msg::Point> convertArcToClothoid(
+std::optional<std::vector<geometry_msgs::msg::Point>> convertArcToClothoid(
   const ArcSegment & arc_segment, const geometry_msgs::msg::Pose & start_pose, double A_min,
   double L_min, double point_interval);
 
 /**
- * @brief Convert arc to clothoid with correction
+ * @brief Improved clothoid conversion function with endpoint correction
  * @param arc_segment Arc segment to convert
  * @param start_pose Starting pose
  * @param initial_velocity Initial velocity
  * @param wheel_base Vehicle wheel base
  * @param max_steer_angle_rate Maximum steering angle rate
  * @param point_interval Interval between points
- * @return Converted clothoid points with correction
+ * @return Optional clothoid path points with correction (nullopt if conversion fails)
  */
-std::vector<geometry_msgs::msg::Point> convertArcToClothoidWithCorrection(
+std::optional<std::vector<geometry_msgs::msg::Point>> convertArcToClothoidWithCorrection(
   const ArcSegment & arc_segment, const geometry_msgs::msg::Pose & start_pose,
   double initial_velocity, double wheel_base, double max_steer_angle_rate, double point_interval);
 
@@ -165,7 +166,7 @@ double calc_necessary_longitudinal_distance(
  * @param minimum_radius Minimum turning radius
  * @return Composite arc path
  */
-CompositeArcPath calc_circular_path(
+std::optional<CompositeArcPath> calc_circular_path(
   const geometry_msgs::msg::Pose & start_pose, const double longitudinal_distance,
   const double lateral_distance, const double angle_diff, const double minimum_radius);
 

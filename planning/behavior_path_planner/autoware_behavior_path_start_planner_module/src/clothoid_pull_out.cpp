@@ -311,7 +311,9 @@ std::vector<geometry_msgs::msg::Point> generateClothoidPath(
 {
   // セグメントが空の場合の早期リターン
   if (segments.empty()) {
-    std::cerr << "No clothoid segments provided to generateClothoidPath" << std::endl;
+    RCLCPP_WARN(
+      rclcpp::get_logger("ClothoidPullOut"),
+      "No clothoid segments provided to generateClothoidPath");
     return {};
   }
 
@@ -374,7 +376,7 @@ std::vector<geometry_msgs::msg::Point> generateClothoidPath(
 /**
  * @brief ArcSegmentをクロソイド曲線に変換する
  */
-std::vector<geometry_msgs::msg::Point> convertArcToClothoid(
+std::optional<std::vector<geometry_msgs::msg::Point>> convertArcToClothoid(
   const ArcSegment & arc_segment, const geometry_msgs::msg::Pose & start_pose, double A_min,
   double L_min, double point_interval)
 {
@@ -395,6 +397,12 @@ std::vector<geometry_msgs::msg::Point> convertArcToClothoid(
   double A = A_min;
   double L = L_min;
   double alpha_clothoid = (L * L) / (2.0 * A * A);  // 単一クロソイドの角度変化
+
+  RCLCPP_DEBUG(
+    rclcpp::get_logger("ClothoidPullOut"),
+    "Clothoid parameters: radius=%.3f, A_min=%.3f, L_min=%.3f, total_angle=%.3f°, "
+    "alpha_clothoid=%.3f°",
+    radius, A_min, L_min, total_angle * 180.0 / M_PI, alpha_clothoid * 180.0 / M_PI);
 
   std::vector<ClothoidSegment> segments;
 
@@ -424,16 +432,40 @@ std::vector<geometry_msgs::msg::Point> convertArcToClothoid(
     exit.description = "Exit clothoid (κ: 1/R → 0)";
     segments.push_back(exit);
   } else {
-    std::cerr << "Case B is not implemented. Please use Case A conditions." << std::endl;
-    std::cerr << "Current parameters: total_angle=" << total_angle * 180.0 / M_PI
-              << "°, alpha_clothoid=" << alpha_clothoid * 180.0 / M_PI
-              << "°, required: total_angle >= " << 2.0 * alpha_clothoid * 180.0 / M_PI << "°"
-              << std::endl;
+    RCLCPP_DEBUG(
+      rclcpp::get_logger("ClothoidPullOut"),
+      "Case B is not implemented. Please use Case A conditions.");
+    RCLCPP_DEBUG(
+      rclcpp::get_logger("ClothoidPullOut"),
+      "Current parameters: total_angle=%.3f°, alpha_clothoid=%.3f°, required: total_angle >= %.3f°",
+      total_angle * 180.0 / M_PI, alpha_clothoid * 180.0 / M_PI,
+      2.0 * alpha_clothoid * 180.0 / M_PI);
+
+    // Case Bが実装されていない場合は失敗として返す
+    RCLCPP_DEBUG(
+      rclcpp::get_logger("ClothoidPullOut"), "Clothoid conversion failed! Case B not implemented.");
+    RCLCPP_DEBUG(
+      rclcpp::get_logger("ClothoidPullOut"),
+      "Arc segment: radius=%.3f, center=(%.3f, %.3f), is_clockwise=%s", arc_segment.radius,
+      arc_segment.center.x, arc_segment.center.y, arc_segment.is_clockwise ? "true" : "false");
+    return std::nullopt;
   }
 
   // クロソイド経路生成
   std::vector<geometry_msgs::msg::Point> clothoid_path =
     generateClothoidPath(segments, point_interval, start_pose);
+
+  // 生成されたパスが空の場合は失敗として返す
+  if (clothoid_path.empty()) {
+    RCLCPP_DEBUG(
+      rclcpp::get_logger("ClothoidPullOut"),
+      "Clothoid conversion failed! Generated path is empty.");
+    RCLCPP_DEBUG(
+      rclcpp::get_logger("ClothoidPullOut"),
+      "Arc segment: radius=%.3f, center=(%.3f, %.3f), is_clockwise=%s", arc_segment.radius,
+      arc_segment.center.x, arc_segment.center.y, arc_segment.is_clockwise ? "true" : "false");
+    return std::nullopt;
+  }
 
   return clothoid_path;
 }
@@ -441,7 +473,7 @@ std::vector<geometry_msgs::msg::Point> convertArcToClothoid(
 /**
  * @brief 改良版のクロソイド変換関数（終点補正付き）
  */
-std::vector<geometry_msgs::msg::Point> convertArcToClothoidWithCorrection(
+std::optional<std::vector<geometry_msgs::msg::Point>> convertArcToClothoidWithCorrection(
   const ArcSegment & arc_segment, const geometry_msgs::msg::Pose & start_pose,
   double initial_velocity, double wheel_base, double max_steer_angle_rate, double point_interval)
 {
@@ -454,24 +486,29 @@ std::vector<geometry_msgs::msg::Point> convertArcToClothoidWithCorrection(
   const double L_min = initial_velocity * minimum_steer_time;
   const double A_min = std::sqrt(minimum_radius * L_min);
 
-  std::cerr << "Clothoid parameters: radius=" << minimum_radius << ", A_min=" << A_min
-            << ", L_min=" << L_min << ", velocity=" << initial_velocity << std::endl;
+  RCLCPP_DEBUG(
+    rclcpp::get_logger("ClothoidPullOut"),
+    "Clothoid parameters: radius=%.3f, A_min=%.3f, L_min=%.3f, velocity=%.3f", minimum_radius,
+    A_min, L_min, initial_velocity);
 
   // 元のクロソイド変換を実行
-  auto clothoid_points =
+  auto clothoid_points_opt =
     convertArcToClothoid(arc_segment, start_pose, A_min, L_min, point_interval);
 
-  if (clothoid_points.empty()) {
-    std::cerr << "Clothoid conversion failed! Check parameters and arc segment validity."
-              << std::endl;
-    std::cerr << "Arc segment: radius=" << arc_segment.radius << ", center=("
-              << arc_segment.center.x << ", " << arc_segment.center.y << ")"
-              << ", is_clockwise=" << arc_segment.is_clockwise << std::endl;
-    return clothoid_points;
+  if (!clothoid_points_opt) {
+    RCLCPP_DEBUG(
+      rclcpp::get_logger("ClothoidPullOut"),
+      "Clothoid conversion failed! Check parameters and arc segment validity.");
+    RCLCPP_DEBUG(
+      rclcpp::get_logger("ClothoidPullOut"),
+      "Arc segment: radius=%.3f, center=(%.3f, %.3f), is_clockwise=%s", arc_segment.radius,
+      arc_segment.center.x, arc_segment.center.y, arc_segment.is_clockwise ? "true" : "false");
+    return std::nullopt;
   }
 
   // 終点補正を適用
-  auto corrected_points = correctClothoidByRigidTransform(clothoid_points, arc_segment, start_pose);
+  auto corrected_points =
+    correctClothoidByRigidTransform(*clothoid_points_opt, arc_segment, start_pose);
 
   return corrected_points;
 }
@@ -648,8 +685,9 @@ PathWithLaneId combinePathWithCenterline(
   if (target_idx < centerline_path.points.size()) {
     PathWithLaneId centerline_extension;
     centerline_extension.header = centerline_path.header;
-    std::cerr << "target_pose: " << target_pose.position.x << ", " << target_pose.position.y
-              << std::endl;
+    RCLCPP_DEBUG(
+      rclcpp::get_logger("ClothoidPullOut"), "target_pose: %.3f, %.3f", target_pose.position.x,
+      target_pose.position.y);
     // target_poseから先の点をcenterline_extensionに追加
     // どこまで追加する？？？？
     for (size_t i = target_idx; i < centerline_path.points.size(); ++i) {
@@ -784,17 +822,19 @@ double calc_necessary_longitudinal_distance(
       start_planner_utils::calculateRelativePoseInVehicleCoordinate(start_pose, target_pose);
 
     // Generate circular path using calc_circular_path
-    const auto circular_path = calc_circular_path(
+    const auto circular_path_opt = calc_circular_path(
       start_pose, relative_pose_info.longitudinal_distance_vehicle,
       relative_pose_info.lateral_distance_vehicle, relative_pose_info.angle_diff, minimum_radius);
 
     // Check if circular path generation failed
-    if (circular_path.segments.size() < 2) {
-      std::cout << "  Trial distance: " << std::fixed << std::setprecision(2) << trial_distance
-                << " m - Circular path generation failed (segments: "
-                << circular_path.segments.size() << ")" << std::endl;
+    if (!circular_path_opt) {
+      RCLCPP_DEBUG(
+        rclcpp::get_logger("ClothoidPullOut"),
+        "Trial distance: %.2f m - Circular path generation failed", trial_distance);
       continue;
     }
+
+    const auto & circular_path = *circular_path_opt;
 
     const auto & arc1 = circular_path.segments[0];
     const auto & arc2 = circular_path.segments[1];
@@ -886,18 +926,16 @@ double calc_necessary_longitudinal_distance(
     evaluation_results.emplace_back(trial_distance, arc1_length);
     valid_results_count++;
 
-    std::cout << "  Trial distance: " << std::fixed << std::setprecision(2) << trial_distance
-              << " m - Arc1 radius: " << std::setprecision(3) << arc1.radius
-              << " m, Arc2 radius: " << std::setprecision(3) << arc2.radius
-              << " m, Arc1 length: " << std::setprecision(3) << arc1_length
-              << " m, Arc2 length: " << std::setprecision(3) << arc2_length
-              << " m, Angle1: " << std::setprecision(3) << total_angle1 * 180.0 / M_PI
-              << "°, Angle2: " << std::setprecision(3) << total_angle2 * 180.0 / M_PI
-              << "°, Alpha1: " << std::setprecision(3) << alpha_clothoid1 * 180.0 / M_PI
-              << "°, Alpha2: " << std::setprecision(3) << alpha_clothoid2 * 180.0 / M_PI
-              << "°, Clothoid feasible: "
-              << (sufficient_for_clothoid1 && sufficient_for_clothoid2 ? "YES" : "NO")
-              << " m, Score: " << std::setprecision(3) << combined_clothoid_score << std::endl;
+    RCLCPP_DEBUG(
+      rclcpp::get_logger("ClothoidPullOut"),
+      "  Trial distance: %.2f m - Arc1 radius: %.3f m, Arc2 radius: %.3f m, Arc1 length: %.3f m, "
+      "Arc2 length: %.3f m, Angle1: %.3f°, Angle2: %.3f°, Alpha1: %.3f°, Alpha2: %.3f°, "
+      "Clothoid feasible: %s, Score: %.3f",
+      trial_distance, arc1.radius, arc2.radius, arc1_length, arc2_length,
+      total_angle1 * 180.0 / M_PI, total_angle2 * 180.0 / M_PI, alpha_clothoid1 * 180.0 / M_PI,
+      alpha_clothoid2 * 180.0 / M_PI,
+      (sufficient_for_clothoid1 && sufficient_for_clothoid2 ? "YES" : "NO"),
+      combined_clothoid_score);
 
     if (lateral_acceptable) {
       if (combined_clothoid_score > best_score) {
@@ -913,19 +951,25 @@ double calc_necessary_longitudinal_distance(
   }
 
   // Output selection results
-  std::cout << "\n--- Selection Results ---" << std::endl;
-  std::cout << "Valid results: " << valid_results_count << std::endl;
-  std::cout << "Target lateral offset: " << std::fixed << std::setprecision(3) << std::endl;
+  RCLCPP_DEBUG(rclcpp::get_logger("ClothoidPullOut"), "\n--- Selection Results ---");
+  RCLCPP_DEBUG(rclcpp::get_logger("ClothoidPullOut"), "Valid results: %d", valid_results_count);
+  RCLCPP_DEBUG(
+    rclcpp::get_logger("ClothoidPullOut"), "Target lateral offset: %.3f", lateral_error_threshold);
 
   if (found_valid) {
-    std::cout << "Acceptable results (lateral error <= " << std::fixed << std::setprecision(1)
-              << lateral_error_threshold << " m): found" << std::endl;
-    std::cout << "Selected result: Clothoid score = " << std::setprecision(3) << best_score
-              << ", Distance = " << std::setprecision(3) << best_distance << " m" << std::endl;
+    RCLCPP_DEBUG(
+      rclcpp::get_logger("ClothoidPullOut"), "Acceptable results (lateral error <= %.1f m): found",
+      lateral_error_threshold);
+    RCLCPP_DEBUG(
+      rclcpp::get_logger("ClothoidPullOut"),
+      "Selected result: Clothoid score = %.3f, Distance = %.3f m", best_score, best_distance);
   } else {
-    std::cout << "No acceptable results found, using best available solution" << std::endl;
-    std::cout << "Selected result: Clothoid score = " << std::setprecision(3) << best_score
-              << ", Distance = " << std::setprecision(3) << best_distance << " m" << std::endl;
+    RCLCPP_DEBUG(
+      rclcpp::get_logger("ClothoidPullOut"),
+      "No acceptable results found, using best available solution");
+    RCLCPP_DEBUG(
+      rclcpp::get_logger("ClothoidPullOut"),
+      "Selected result: Clothoid score = %.3f, Distance = %.3f m", best_score, best_distance);
   }
 
   // Fallback if no valid solution found
@@ -959,7 +1003,7 @@ double calc_necessary_longitudinal_distance(
  * @param minimum_radius Minimum turning radius
  * @return Composite arc path
  */
-CompositeArcPath calc_circular_path(
+std::optional<CompositeArcPath> calc_circular_path(
   const geometry_msgs::msg::Pose & start_pose, const double longitudinal_distance,
   const double lateral_distance, const double angle_diff, const double minimum_radius)
 {
@@ -977,8 +1021,10 @@ CompositeArcPath calc_circular_path(
   const double y_goal_rel = lateral_distance;
   const double yaw_goal_rel = angle_diff;
 
-  std::cout << "Relative coordinates - Start: (" << x_start_rel << ", " << y_start_rel
-            << "), Goal: (" << x_goal_rel << ", " << y_goal_rel << ")" << std::endl;
+  RCLCPP_DEBUG(
+    rclcpp::get_logger("ClothoidPullOut"),
+    "Relative coordinates - Start: (%.3f, %.3f), Goal: (%.3f, %.3f)", x_start_rel, y_start_rel,
+    x_goal_rel, y_goal_rel);
 
   // Calculate starting arc center (assuming clockwise rotation)
   double C_rx_rel = x_start_rel + minimum_radius * std::sin(yaw_start_rel);
@@ -990,9 +1036,10 @@ CompositeArcPath calc_circular_path(
   double d_goal_Cr_rel = std::sqrt(dx_goal_rel * dx_goal_rel + dy_goal_rel * dy_goal_rel);
 
   if (d_goal_Cr_rel < 1e-6) {
-    std::cout << "Warning: Goal is too close to start arc center (distance: "
-              << std::setprecision(6) << d_goal_Cr_rel << ")" << std::endl;
-    return CompositeArcPath();
+    RCLCPP_WARN(
+      rclcpp::get_logger("ClothoidPullOut"),
+      "Goal is too close to start arc center (distance: %.6f)", d_goal_Cr_rel);
+    return std::nullopt;
   }
 
   // Calculate radius using Al-Kashi theorem
@@ -1005,25 +1052,28 @@ CompositeArcPath calc_circular_path(
   double denominator = 2 * minimum_radius + 2 * d_goal_Cr_rel * std::cos(alpha);
 
   if (std::abs(denominator) < 1e-6) {
-    std::cout << "Warning: Denominator too small (denominator: " << std::setprecision(6)
-              << denominator << ")" << std::endl;
-    return CompositeArcPath();
+    RCLCPP_WARN(
+      rclcpp::get_logger("ClothoidPullOut"), "Denominator too small (denominator: %.6f)",
+      denominator);
+    return std::nullopt;
   }
 
   double R_goal = (d_goal_Cr_rel * d_goal_Cr_rel - minimum_radius * minimum_radius) / denominator;
 
   // Check physical feasibility
   if (R_goal < 0) {
-    std::cout << "Warning: Calculated radius is negative (R_goal: " << std::setprecision(3)
-              << R_goal << ")" << std::endl;
-    return CompositeArcPath();
+    RCLCPP_WARN(
+      rclcpp::get_logger("ClothoidPullOut"), "Calculated radius is negative (R_goal: %.3f)",
+      R_goal);
+    return std::nullopt;
   }
 
   if (R_goal < minimum_radius) {
-    std::cout << "Warning: Calculated radius is smaller than minimum (R_goal: "
-              << std::setprecision(3) << R_goal << " < R_min: " << minimum_radius << ")"
-              << std::endl;
-    return CompositeArcPath();
+    RCLCPP_WARN(
+      rclcpp::get_logger("ClothoidPullOut"),
+      "Calculated radius is smaller than minimum (R_goal: %.3f < R_min: %.3f)", R_goal,
+      minimum_radius);
+    return std::nullopt;
   }
 
   // Calculate goal arc center (assuming counter-clockwise rotation)
@@ -1143,6 +1193,14 @@ CompositeArcPath calc_circular_path(
   // Add segments
   composite_path.segments.push_back(arc1);
   composite_path.segments.push_back(arc2);
+
+  // Check if circular path generation failed
+  if (composite_path.segments.size() < 2) {
+    RCLCPP_WARN(
+      rclcpp::get_logger("ClothoidPullOut"), "Circular path generation failed (segments: %zu)",
+      composite_path.segments.size());
+    return std::nullopt;
+  }
 
   return composite_path;
 }
@@ -1396,12 +1454,13 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     const auto relative_pose_info =
       start_planner_utils::calculateRelativePoseInVehicleCoordinate(straight_end_pose, target_pose);
 
-    const auto circular_path = calc_circular_path(
+    // Generate circular path using calc_circular_path
+    const auto circular_path_opt = calc_circular_path(
       straight_end_pose, relative_pose_info.longitudinal_distance_vehicle,
       relative_pose_info.lateral_distance_vehicle, relative_pose_info.angle_diff, minimum_radius);
 
     // Check if circular path generation failed
-    if (circular_path.segments.size() < 2) {
+    if (!circular_path_opt) {
       RCLCPP_INFO(
         rclcpp::get_logger("ClothoidPullOut"),
         "Circular path generation failed for steer angle %f deg. Relative pose info: %f, %f, %f. "
@@ -1411,6 +1470,8 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       planner_debug_data.conditions_evaluation.emplace_back("circular path generation failed");
       continue;
     }
+
+    const auto & circular_path = *circular_path_opt;
 
     // ===================================================================
     // STEP 5-2: クロソイドパスの生成
@@ -1428,29 +1489,24 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     const double first_L_min = initial_velocity * first_minimum_steer_time;
     const double first_A_min = std::sqrt(first_minimum_radius * first_L_min);
 
-    std::cerr << "First segment clothoid parameters: radius=" << first_minimum_radius
-              << ", A_min=" << first_A_min << ", L_min=" << first_L_min
-              << ", velocity=" << initial_velocity << std::endl;
+    RCLCPP_DEBUG(
+      rclcpp::get_logger("ClothoidPullOut"),
+      "First segment clothoid parameters: radius=%.3f, A_min=%.3f, L_min=%.3f, velocity=%.3f",
+      first_minimum_radius, first_A_min, first_L_min, initial_velocity);
 
-    auto first_clothoid_points = convertArcToClothoid(
+    auto first_clothoid_points_opt = convertArcToClothoid(
       first_segment, current_segment_pose, first_A_min, first_L_min,
       parameters_.center_line_path_interval);
 
-    if (first_clothoid_points.empty()) {
-      std::cerr
-        << "First segment clothoid conversion failed! Check parameters and arc segment validity."
-        << std::endl;
-      std::cerr << "First arc segment: radius=" << first_segment.radius << ", center=("
-                << first_segment.center.x << ", " << first_segment.center.y << ")"
-                << ", is_clockwise=" << first_segment.is_clockwise << std::endl;
+    if (!first_clothoid_points_opt) {
       planner_debug_data.conditions_evaluation.emplace_back(
         "first segment clothoid conversion failed");
       continue;
     }
 
     // 第1セグメントの終点補正を適用
-    auto first_corrected_points =
-      correctClothoidByRigidTransform(first_clothoid_points, first_segment, current_segment_pose);
+    auto first_corrected_points = correctClothoidByRigidTransform(
+      *first_clothoid_points_opt, first_segment, current_segment_pose);
 
     clothoid_paths.push_back(first_corrected_points);
 
@@ -1482,21 +1538,11 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     const double second_L_min = initial_velocity * second_minimum_steer_time;
     const double second_A_min = std::sqrt(second_minimum_radius * second_L_min);
 
-    std::cerr << "Second segment clothoid parameters: radius=" << second_minimum_radius
-              << ", A_min=" << second_A_min << ", L_min=" << second_L_min
-              << ", velocity=" << initial_velocity << std::endl;
-
-    auto second_clothoid_points = convertArcToClothoid(
+    auto second_clothoid_points_opt = convertArcToClothoid(
       second_segment, second_segment_start_pose, second_A_min, second_L_min,
       parameters_.center_line_path_interval);
 
-    if (second_clothoid_points.empty()) {
-      std::cerr
-        << "Second segment clothoid conversion failed! Check parameters and arc segment validity."
-        << std::endl;
-      std::cerr << "Second arc segment: radius=" << second_segment.radius << ", center=("
-                << second_segment.center.x << ", " << second_segment.center.y << ")"
-                << ", is_clockwise=" << second_segment.is_clockwise << std::endl;
+    if (!second_clothoid_points_opt) {
       planner_debug_data.conditions_evaluation.emplace_back(
         "second segment clothoid conversion failed");
       continue;
@@ -1504,7 +1550,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
 
     // 第2セグメントの終点補正を適用
     auto second_corrected_points = correctClothoidByRigidTransform(
-      second_clothoid_points, second_segment, second_segment_start_pose);
+      *second_clothoid_points_opt, second_segment, second_segment_start_pose);
 
     clothoid_paths.push_back(second_corrected_points);
 
@@ -1612,8 +1658,10 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       boundary_departure_checker_->checkPathWillLeaveLane(
         lanelet_map_ptr, path_clothoid_start_to_end, fused_id_start_to_end,
         fused_polygon_start_to_end)) {
-      std::cerr << "Lane departure detected for steer angle " << steer_angle * 180.0 / M_PI
-                << " deg. Continuing to next candidate." << std::endl;
+      RCLCPP_WARN(
+        rclcpp::get_logger("ClothoidPullOut"),
+        "Lane departure detected for steer angle %.2f deg. Continuing to next candidate.",
+        steer_angle * 180.0 / M_PI);
       planner_debug_data.conditions_evaluation.emplace_back("lane departure");
       continue;
     }
@@ -1631,8 +1679,10 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
         lanelet_map_ptr, clothoid_path, start_segment_idx, fused_id_crop_points,
         fused_polygon_crop_points);
       if (cropped_path.points.empty()) {
-        std::cerr << "Cropped path is empty for steer angle " << steer_angle * 180.0 / M_PI
-                  << " deg. Continuing to next candidate." << std::endl;
+        RCLCPP_WARN(
+          rclcpp::get_logger("ClothoidPullOut"),
+          "Cropped path is empty for steer angle %.2f deg. Continuing to next candidate.",
+          steer_angle * 180.0 / M_PI);
         planner_debug_data.conditions_evaluation.emplace_back("cropped path is empty");
         continue;
       }
@@ -1663,8 +1713,10 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     };
 
     if (parameters_.check_clothoid_path_lane_departure && !validate_cropped_path(cropped_path)) {
-      std::cerr << "Cropped path is invalid for steer angle " << steer_angle * 180.0 / M_PI
-                << " deg. Continuing to next candidate." << std::endl;
+      RCLCPP_WARN(
+        rclcpp::get_logger("ClothoidPullOut"),
+        "Cropped path is invalid for steer angle %.2f deg. Continuing to next candidate.",
+        steer_angle * 180.0 / M_PI);
       planner_debug_data.conditions_evaluation.emplace_back("cropped path is invalid");
       continue;
     }
@@ -1685,8 +1737,11 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
 
     if (isPullOutPathCollided(
           temp_pull_out_path, planner_data, parameters_.shift_collision_check_distance_from_end)) {
-      std::cerr << "Collision detected for steer angle " << steer_angle * 180.0 / M_PI
-                << " deg. Continuing to next candidate." << std::endl;
+      RCLCPP_WARN(
+        rclcpp::get_logger("ClothoidPullOut"),
+        "Collision detected for steer angle %.2f deg with margin %.2f m. Continuing to next "
+        "candidate.",
+        steer_angle * 180.0 / M_PI, parameters_.shift_collision_check_distance_from_end);
       planner_debug_data.conditions_evaluation.emplace_back("collision");
       continue;
     }
