@@ -129,20 +129,6 @@ std::vector<geometry_msgs::msg::Point> convertArcToClothoidWithCorrection(
   double initial_velocity, double wheel_base, double max_steer_angle_rate, double point_interval);
 
 /**
- * @brief Convert circular path to clothoid paths
- * @param circular_path Circular path to convert
- * @param start_pose Starting pose
- * @param initial_velocity Initial velocity
- * @param wheel_base Vehicle wheel base
- * @param max_steer_angle_rate Maximum steering angle rate
- * @param point_interval Interval between points
- * @return Vector of clothoid path points
- */
-std::vector<std::vector<geometry_msgs::msg::Point>> convertCircularPathToClothoidPaths(
-  const CompositeArcPath & circular_path, const geometry_msgs::msg::Pose & start_pose,
-  double initial_velocity, double wheel_base, double max_steer_angle_rate, double point_interval);
-
-/**
  * @brief Create straight path to end pose
  * @param start_pose Starting pose
  * @param forward_distance Forward distance
@@ -157,7 +143,6 @@ std::vector<geometry_msgs::msg::Pose> createStraightPathToEndPose(
 /**
  * @brief Calculate necessary longitudinal distance for circular path planning with clothoid
  * consideration
- * @param lateral_offset Lateral offset from the path
  * @param minimum_radius Minimum turning radius
  * @param initial_velocity Initial velocity for clothoid calculation
  * @param wheel_base Vehicle wheel base
@@ -167,9 +152,9 @@ std::vector<geometry_msgs::msg::Pose> createStraightPathToEndPose(
  * @return Calculated longitudinal distance
  */
 double calc_necessary_longitudinal_distance(
-  const double lateral_offset, const double minimum_radius, const double initial_velocity,
-  const double wheel_base, const double max_steer_angle_rate,
-  const PathWithLaneId & centerline_path, const geometry_msgs::msg::Pose & start_pose);
+  const double minimum_radius, const double initial_velocity, const double wheel_base,
+  const double max_steer_angle_rate, const PathWithLaneId & centerline_path,
+  const geometry_msgs::msg::Pose & start_pose);
 
 /**
  * @brief Calculate circular path

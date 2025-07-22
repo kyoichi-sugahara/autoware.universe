@@ -629,76 +629,6 @@ PathWithLaneId createPathWithLaneIdFromClothoidPaths(
 }
 
 /**
- * @brief 円弧パスのセグメントをクロソイド曲線に変換する関数
- * @param circular_path 円弧パス（2つのセグメントを含む）
- * @param start_pose 開始姿勢
- * @param initial_velocity 初期速度
- * @param wheel_base ホイールベース
- * @param max_steer_angle_rate 最大ステア角速度
- * @param point_interval 点間隔
- * @return クロソイドパスの配列
- */
-std::vector<std::vector<geometry_msgs::msg::Point>> convertCircularPathToClothoidPaths(
-  const CompositeArcPath & circular_path, const geometry_msgs::msg::Pose & start_pose,
-  double initial_velocity, double wheel_base, double max_steer_angle_rate, double point_interval)
-{
-  std::vector<std::vector<geometry_msgs::msg::Point>> clothoid_paths;
-
-  if (circular_path.segments.size() < 2) {
-    std::cerr << "Circular path must have at least 2 segments" << std::endl;
-    return clothoid_paths;
-  }
-
-  geometry_msgs::msg::Pose current_segment_pose = start_pose;
-
-  // 第1セグメント（開始セグメント）の処理
-  const auto & first_segment = circular_path.segments[0];
-  auto first_clothoid_points = convertArcToClothoidWithCorrection(
-    first_segment, current_segment_pose, initial_velocity, wheel_base, max_steer_angle_rate,
-    point_interval);
-
-  // 第1セグメントの変換が失敗した場合の早期リターン
-  if (first_clothoid_points.empty()) {
-    std::cerr << "Failed to convert first segment to clothoid" << std::endl;
-    return clothoid_paths;
-  }
-
-  clothoid_paths.push_back(first_clothoid_points);
-
-  // 第1セグメント終了時の姿勢を計算（第2セグメントの開始姿勢として使用）
-  geometry_msgs::msg::Pose second_segment_start_pose;
-  const auto & last_point_first = first_clothoid_points.back();
-  second_segment_start_pose.position = last_point_first;
-
-  // 終点での進行方向を計算（最後の2点から）
-  if (first_clothoid_points.size() >= 2) {
-    // TODO(Sugahara): ここでyawの計算方法あってる？
-    const auto & second_last_first = first_clothoid_points[first_clothoid_points.size() - 2];
-    double dx = last_point_first.x - second_last_first.x;
-    double dy = last_point_first.y - second_last_first.y;
-    double heading = std::atan2(dy, dx);
-    second_segment_start_pose.orientation =
-      tf2::toMsg(tf2::Quaternion(tf2::Vector3(0, 0, 1), heading));
-  } else {
-    second_segment_start_pose.orientation = current_segment_pose.orientation;
-  }
-
-  // 第2セグメント（終了セグメント）の処理
-  const auto & second_segment = circular_path.segments[1];
-  auto second_clothoid_points = convertArcToClothoidWithCorrection(
-    second_segment, second_segment_start_pose, initial_velocity, wheel_base, max_steer_angle_rate,
-    point_interval);
-
-  if (second_clothoid_points.empty()) {
-    std::cerr << "Failed to convert second segment to clothoid" << std::endl;
-    return clothoid_paths;
-  }
-  clothoid_paths.push_back(second_clothoid_points);
-
-  return clothoid_paths;
-}
-
-/**
  * @brief センターラインパスとクロソイドパスを結合する関数
  */
 PathWithLaneId combinePathWithCenterline(
@@ -812,7 +742,6 @@ std::vector<geometry_msgs::msg::Pose> createStraightPathToEndPose(
 /**
  * @brief Calculate necessary longitudinal distance for circular path planning with clothoid
  * consideration
- * @param lateral_offset Lateral offset from the path
  * @param minimum_radius Minimum turning radius
  * @param initial_velocity Initial velocity for clothoid calculation
  * @param wheel_base Vehicle wheel base
@@ -822,32 +751,27 @@ std::vector<geometry_msgs::msg::Pose> createStraightPathToEndPose(
  * @return Calculated longitudinal distance
  */
 double calc_necessary_longitudinal_distance(
-  const double lateral_offset, const double minimum_radius, const double initial_velocity,
-  const double wheel_base, const double max_steer_angle_rate,
-  const PathWithLaneId & centerline_path, const geometry_msgs::msg::Pose & start_pose)
+  const double minimum_radius, const double initial_velocity, const double wheel_base,
+  const double max_steer_angle_rate, const PathWithLaneId & centerline_path,
+  const geometry_msgs::msg::Pose & start_pose)
 {
-  // Calculate clothoid parameters for Arc1 (used throughout the function)
-  const double circular_steer_angle1 = std::atan(wheel_base / minimum_radius);
-  const double minimum_steer_time1 = circular_steer_angle1 / max_steer_angle_rate;
-  const double L_min1 = initial_velocity * minimum_steer_time1;
-
   // Trial distances based on minimum radius
   const std::vector<double> trial_distances = {
     0.5 * minimum_radius, 0.75 * minimum_radius, 1.0 * minimum_radius, 1.5 * minimum_radius,
     2.0 * minimum_radius, 3.0 * minimum_radius,  4.0 * minimum_radius, 5.0 * minimum_radius,
     6.0 * minimum_radius, 8.0 * minimum_radius,  10.0 * minimum_radius};
 
-  // Evaluation parameters
-  constexpr double error_threshold = 0.5;
-
   // Results tracking
   std::vector<std::pair<double, double>> evaluation_results;
   evaluation_results.reserve(trial_distances.size());
 
   double best_distance = 0.0;
-  double best_score = -1e9;  // Prioritize longer Arc1 length
+  double best_score = -1e9;  // Prioritize longer circular segments
   bool found_valid = false;
   int valid_results_count = 0;
+
+  // Define lateral error threshold
+  const double lateral_error_threshold = 0.5;  // 0.5 meters tolerance
 
   for (const double trial_distance : trial_distances) {
     // Get target pose using findTargetPoseAlongPath
@@ -855,6 +779,7 @@ double calc_necessary_longitudinal_distance(
       start_planner_utils::findTargetPoseAlongPath(centerline_path, start_pose, trial_distance);
 
     // Calculate relative pose information
+    // TODO(Sugahara): ここでlateral_offset がプラスな場合は直進経路でよい。
     const auto relative_pose_info =
       start_planner_utils::calculateRelativePoseInVehicleCoordinate(start_pose, target_pose);
 
@@ -863,17 +788,11 @@ double calc_necessary_longitudinal_distance(
       start_pose, relative_pose_info.longitudinal_distance_vehicle,
       relative_pose_info.lateral_distance_vehicle, relative_pose_info.angle_diff, minimum_radius);
 
-    // Check if circular path generation was successful
-    if (circular_path.segments.empty()) {
-      std::cout << "  Trial distance: " << std::fixed << std::setprecision(2) << trial_distance
-                << " m - SKIPPED (circular path generation failed)" << std::endl;
-      continue;
-    }
-
-    // Extract arc information from the generated circular path
+    // Check if circular path generation failed
     if (circular_path.segments.size() < 2) {
       std::cout << "  Trial distance: " << std::fixed << std::setprecision(2) << trial_distance
-                << " m - SKIPPED (insufficient arc segments)" << std::endl;
+                << " m - Circular path generation failed (segments: "
+                << circular_path.segments.size() << ")" << std::endl;
       continue;
     }
 
@@ -907,12 +826,11 @@ double calc_necessary_longitudinal_distance(
 
     // Calculate clothoid parameters for each arc based on their respective radii
     // Arc1 clothoid parameters (based on arc1.radius)
-    const double circular_steer_angle1_actual = std::atan(wheel_base / arc1.radius);
-    const double minimum_steer_time1_actual = circular_steer_angle1_actual / max_steer_angle_rate;
-    const double L_min1_actual = initial_velocity * minimum_steer_time1_actual;
-    const double A_min1_actual = std::sqrt(arc1.radius * L_min1_actual);
-    const double alpha_clothoid1 =
-      (L_min1_actual * L_min1_actual) / (2.0 * A_min1_actual * A_min1_actual);
+    const double circular_steer_angle1 = std::atan(wheel_base / arc1.radius);
+    const double minimum_steer_time1 = circular_steer_angle1 / max_steer_angle_rate;
+    const double L_min1 = initial_velocity * minimum_steer_time1;
+    const double A_min1 = std::sqrt(arc1.radius * L_min1);
+    const double alpha_clothoid1 = (L_min1 * L_min1) / (2.0 * A_min1 * A_min1);
 
     // Arc2 clothoid parameters (based on arc2.radius)
     const double circular_steer_angle2 = std::atan(wheel_base / arc2.radius);
@@ -958,11 +876,13 @@ double calc_necessary_longitudinal_distance(
     // Combined clothoid score (prioritize the worse case)
     const double combined_clothoid_score = std::min(clothoid_score1, clothoid_score2);
 
-    // Calculate lateral error from the actual target pose
+    // Calculate lateral error from the target lateral offset
+    // 実際の横方向距離と目標値の差を計算
     const double actual_lateral_offset = relative_pose_info.lateral_distance_vehicle;
-    const double lateral_error = std::abs(actual_lateral_offset - lateral_offset);
+    const double lateral_error = std::abs(actual_lateral_offset);
+    const bool lateral_acceptable = (lateral_error <= lateral_error_threshold);
 
-    // Store evaluation result with arc2_length for debugging
+    // Store evaluation result for debugging
     evaluation_results.emplace_back(trial_distance, arc1_length);
     valid_results_count++;
 
@@ -977,10 +897,9 @@ double calc_necessary_longitudinal_distance(
               << "°, Alpha2: " << std::setprecision(3) << alpha_clothoid2 * 180.0 / M_PI
               << "°, Clothoid feasible: "
               << (sufficient_for_clothoid1 && sufficient_for_clothoid2 ? "YES" : "NO")
-              << ", Score: " << std::setprecision(3) << combined_clothoid_score << std::endl;
+              << " m, Score: " << std::setprecision(3) << combined_clothoid_score << std::endl;
 
-    // Update best candidate selection (prioritize clothoid feasibility)
-    if (lateral_error <= error_threshold) {
+    if (lateral_acceptable) {
       if (combined_clothoid_score > best_score) {
         best_score = combined_clothoid_score;
         best_distance = trial_distance;
@@ -996,24 +915,36 @@ double calc_necessary_longitudinal_distance(
   // Output selection results
   std::cout << "\n--- Selection Results ---" << std::endl;
   std::cout << "Valid results: " << valid_results_count << std::endl;
+  std::cout << "Target lateral offset: " << std::fixed << std::setprecision(3) << std::endl;
 
   if (found_valid) {
-    std::cout << "Acceptable results (error <= " << std::fixed << std::setprecision(1)
-              << error_threshold << "m): found" << std::endl;
+    std::cout << "Acceptable results (lateral error <= " << std::fixed << std::setprecision(1)
+              << lateral_error_threshold << " m): found" << std::endl;
     std::cout << "Selected result: Clothoid score = " << std::setprecision(3) << best_score
               << ", Distance = " << std::setprecision(3) << best_distance << " m" << std::endl;
   } else {
-    std::cout << "No acceptable results found" << std::endl;
+    std::cout << "No acceptable results found, using best available solution" << std::endl;
+    std::cout << "Selected result: Clothoid score = " << std::setprecision(3) << best_score
+              << ", Distance = " << std::setprecision(3) << best_distance << " m" << std::endl;
   }
 
   // Fallback if no valid solution found
-  if (!found_valid && best_distance == 0.0) {
+  if (best_distance == 0.0) {
     // Use clothoid-based estimation
-    const double clothoid_based_distance =
-      std::max(4.0 * minimum_radius, std::max(std::abs(lateral_offset) * 2.0, L_min1 * 2.0));
+    // Get a target pose for relative pose calculation
+    const geometry_msgs::msg::Pose fallback_target_pose =
+      start_planner_utils::findTargetPoseAlongPath(
+        centerline_path, start_pose, 4.0 * minimum_radius);
+    const auto fallback_relative_pose_info =
+      start_planner_utils::calculateRelativePoseInVehicleCoordinate(
+        start_pose, fallback_target_pose);
+
+    const double clothoid_based_distance = std::max(
+      4.0 * minimum_radius,
+      std::max(
+        std::abs(fallback_relative_pose_info.lateral_distance_vehicle) * 3.0,
+        std::abs(fallback_relative_pose_info.longitudinal_distance_vehicle) * 3.0));
     best_distance = clothoid_based_distance;
-    std::cout << "Using clothoid-based estimation: " << std::setprecision(3) << best_distance
-              << " m" << std::endl;
   }
 
   return best_distance;
@@ -1033,14 +964,6 @@ CompositeArcPath calc_circular_path(
   const double lateral_distance, const double angle_diff, const double minimum_radius)
 {
   const double PI = M_PI;
-
-  std::cout << "\n=== Circular Path Planning (Relative Direct) ===" << std::endl;
-  std::cout << std::fixed << std::setprecision(2);
-  std::cout << "Start: (" << start_pose.position.x << ", " << start_pose.position.y
-            << "), yaw=" << tf2::getYaw(start_pose.orientation) * 180.0 / PI << "°" << std::endl;
-  std::cout << "Relative target: longitudinal=" << longitudinal_distance
-            << "m, lateral=" << lateral_distance << "m, angle_diff=" << angle_diff * 180.0 / PI
-            << "°" << std::endl;
 
   // Calculate in relative coordinate system (origin at start point, X-axis as forward direction)
   // Start point: (0, 0, 0)
@@ -1452,26 +1375,19 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
 
   const Pose straight_end_pose = straight_poses.back();
 
-  // lateral_offset: returns positive value when straight_end_pose.position is on the left side
-  // of the trajectory segment
-  const double lateral_offset = centerline_path.points.empty()
-                                  ? 0.0
-                                  : autoware::motion_utils::calcLateralOffset(
-                                      centerline_path.points, straight_end_pose.position);
-
   // =====================================================================
   // STEP 5: 各ステア角度での処理ループ
   // =====================================================================
   for (const auto & steer_angle : max_steer_angle) {
     // ===================================================================
-    // STEP 5-1: クロソイドパス生成
+    // STEP 5-1: 円弧パスの生成
     // ===================================================================
     // Calculate minimum radius based on the maximum steer angle
     const double minimum_radius = wheel_base / std::tan(steer_angle);
 
     const double longitudinal_distance = calc_necessary_longitudinal_distance(
-      -lateral_offset, minimum_radius, initial_velocity, wheel_base, max_steer_angle_rate,
-      centerline_path, start_pose);
+      minimum_radius, initial_velocity, wheel_base, max_steer_angle_rate, centerline_path,
+      start_pose);
 
     const Pose target_pose = start_planner_utils::findTargetPoseAlongPath(
       centerline_path, straight_end_pose, longitudinal_distance);
@@ -1484,28 +1400,116 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       straight_end_pose, relative_pose_info.longitudinal_distance_vehicle,
       relative_pose_info.lateral_distance_vehicle, relative_pose_info.angle_diff, minimum_radius);
 
-    if (circular_path.segments.empty()) {
-      std::cerr << "No circular path segments found for steer angle " << steer_angle * 180.0 / M_PI
-                << " deg." << std::endl;
-      continue;
-    }
-
-    geometry_msgs::msg::Pose current_segment_pose = straight_end_pose;
-    std::vector<std::vector<geometry_msgs::msg::Point>> clothoid_paths;
-
-    // 円弧パスをクロソイド曲線に変換
-    clothoid_paths = convertCircularPathToClothoidPaths(
-      circular_path, current_segment_pose, initial_velocity, wheel_base, max_steer_angle_rate,
-      parameters_.center_line_path_interval);
-
-    if (clothoid_paths.empty()) {
-      std::cerr << "Failed to convert circular path to clothoid paths for steer angle "
-                << steer_angle * 180.0 / M_PI << " deg." << std::endl;
+    // Check if circular path generation failed
+    if (circular_path.segments.size() < 2) {
+      RCLCPP_INFO(
+        rclcpp::get_logger("ClothoidPullOut"),
+        "Circular path generation failed for steer angle %f deg. Relative pose info: %f, %f, %f. "
+        "Continuing to next candidate.",
+        steer_angle * 180.0 / M_PI, relative_pose_info.longitudinal_distance_vehicle,
+        relative_pose_info.lateral_distance_vehicle, relative_pose_info.angle_diff);
+      planner_debug_data.conditions_evaluation.emplace_back("circular path generation failed");
       continue;
     }
 
     // ===================================================================
-    // STEP 5-2: 目標速度の取得とパス結合・リサンプリング
+    // STEP 5-2: クロソイドパスの生成
+    // ===================================================================
+    geometry_msgs::msg::Pose current_segment_pose = straight_end_pose;
+    std::vector<std::vector<geometry_msgs::msg::Point>> clothoid_paths;
+
+    // 第1セグメント（開始セグメント）の処理
+    const auto & first_segment = circular_path.segments[0];
+
+    // 第1セグメントのクロソイド変換処理
+    const double first_minimum_radius = first_segment.radius;
+    const double first_circular_steer_angle = std::atan(wheel_base / first_minimum_radius);
+    const double first_minimum_steer_time = first_circular_steer_angle / max_steer_angle_rate;
+    const double first_L_min = initial_velocity * first_minimum_steer_time;
+    const double first_A_min = std::sqrt(first_minimum_radius * first_L_min);
+
+    std::cerr << "First segment clothoid parameters: radius=" << first_minimum_radius
+              << ", A_min=" << first_A_min << ", L_min=" << first_L_min
+              << ", velocity=" << initial_velocity << std::endl;
+
+    auto first_clothoid_points = convertArcToClothoid(
+      first_segment, current_segment_pose, first_A_min, first_L_min,
+      parameters_.center_line_path_interval);
+
+    if (first_clothoid_points.empty()) {
+      std::cerr
+        << "First segment clothoid conversion failed! Check parameters and arc segment validity."
+        << std::endl;
+      std::cerr << "First arc segment: radius=" << first_segment.radius << ", center=("
+                << first_segment.center.x << ", " << first_segment.center.y << ")"
+                << ", is_clockwise=" << first_segment.is_clockwise << std::endl;
+      planner_debug_data.conditions_evaluation.emplace_back(
+        "first segment clothoid conversion failed");
+      continue;
+    }
+
+    // 第1セグメントの終点補正を適用
+    auto first_corrected_points =
+      correctClothoidByRigidTransform(first_clothoid_points, first_segment, current_segment_pose);
+
+    clothoid_paths.push_back(first_corrected_points);
+
+    // 第1セグメント終了時の姿勢を計算（第2セグメントの開始姿勢として使用）
+    geometry_msgs::msg::Pose second_segment_start_pose;
+    const auto & last_point_first = first_corrected_points.back();
+    second_segment_start_pose.position = last_point_first;
+
+    // 終点での進行方向を計算（最後の2点から）
+    if (first_corrected_points.size() >= 2) {
+      // TODO(Sugahara): ここでyawの計算方法あってる？
+      const auto & second_last_first = first_corrected_points[first_corrected_points.size() - 2];
+      double dx = last_point_first.x - second_last_first.x;
+      double dy = last_point_first.y - second_last_first.y;
+      double heading = std::atan2(dy, dx);
+      second_segment_start_pose.orientation =
+        tf2::toMsg(tf2::Quaternion(tf2::Vector3(0, 0, 1), heading));
+    } else {
+      second_segment_start_pose.orientation = current_segment_pose.orientation;
+    }
+
+    // 第2セグメント（終了セグメント）の処理
+    const auto & second_segment = circular_path.segments[1];
+
+    // 第2セグメントのクロソイド変換処理
+    const double second_minimum_radius = second_segment.radius;
+    const double second_circular_steer_angle = std::atan(wheel_base / second_minimum_radius);
+    const double second_minimum_steer_time = second_circular_steer_angle / max_steer_angle_rate;
+    const double second_L_min = initial_velocity * second_minimum_steer_time;
+    const double second_A_min = std::sqrt(second_minimum_radius * second_L_min);
+
+    std::cerr << "Second segment clothoid parameters: radius=" << second_minimum_radius
+              << ", A_min=" << second_A_min << ", L_min=" << second_L_min
+              << ", velocity=" << initial_velocity << std::endl;
+
+    auto second_clothoid_points = convertArcToClothoid(
+      second_segment, second_segment_start_pose, second_A_min, second_L_min,
+      parameters_.center_line_path_interval);
+
+    if (second_clothoid_points.empty()) {
+      std::cerr
+        << "Second segment clothoid conversion failed! Check parameters and arc segment validity."
+        << std::endl;
+      std::cerr << "Second arc segment: radius=" << second_segment.radius << ", center=("
+                << second_segment.center.x << ", " << second_segment.center.y << ")"
+                << ", is_clockwise=" << second_segment.is_clockwise << std::endl;
+      planner_debug_data.conditions_evaluation.emplace_back(
+        "second segment clothoid conversion failed");
+      continue;
+    }
+
+    // 第2セグメントの終点補正を適用
+    auto second_corrected_points = correctClothoidByRigidTransform(
+      second_clothoid_points, second_segment, second_segment_start_pose);
+
+    clothoid_paths.push_back(second_corrected_points);
+
+    // ===================================================================
+    // STEP 5-4: 目標速度の取得とパス結合・リサンプリング
     // ===================================================================
     // 目標速度を取得（centerline_pathからtarget_poseに最も近い点の速度を使用）
     double target_velocity = initial_velocity;  // デフォルト値
@@ -1529,7 +1533,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
       utils::resamplePathWithSpline(combined_path, parameters_.center_line_path_interval);
 
     // ===================================================================
-    // STEP 5-3: 最終パスの作成（前後直進パスとの結合、yaw角の再計算）
+    // STEP 5-5: 最終パスの作成（前後直進パスとの結合、yaw角の再計算）
     // ===================================================================
     PathWithLaneId final_path;
     final_path.header = resampled_combined_path.header;
@@ -1575,7 +1579,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     }
 
     // ===================================================================
-    // STEP 5-4: 車線逸脱判定とパス検証
+    // STEP 5-6: 車線逸脱判定とパス検証
     // ===================================================================
     const auto lanelet_map_ptr = planner_data->route_handler->getLaneletMapPtr();
 
@@ -1670,7 +1674,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     clothoid_path.header = planner_data->route_handler->getRouteHeader();
 
     // ===================================================================
-    // STEP 5-5: 衝突判定
+    // STEP 5-7: 衝突判定
     // ===================================================================
     // Create PullOutPath for collision check
     PullOutPath temp_pull_out_path;
@@ -1688,7 +1692,7 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     }
 
     // ===================================================================
-    // STEP 5-6: 成功時の結果返却
+    // STEP 5-8: 成功時の結果返却
     // ===================================================================
     // 検証に成功したら、最終的なPullOutPathを作成して返す
     PullOutPath pull_out_path;
