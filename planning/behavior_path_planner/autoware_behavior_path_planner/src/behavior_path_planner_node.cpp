@@ -716,33 +716,6 @@ PathWithLaneId::SharedPtr BehaviorPathPlannerNode::getPath(
                                           : planner_data->prev_output_path;
   path->header = planner_data->route_handler->getRouteHeader();
   return path;
-
-  PathWithLaneId connected_path;
-  const auto module_status_ptr_vec = planner_manager->getSceneModuleStatus();
-
-  const auto resampled_path = utils::resamplePathWithSpline(
-    *path, planner_data->parameters.output_path_interval, keepInputPoints(module_status_ptr_vec));
-  return std::make_shared<PathWithLaneId>(resampled_path);
-}
-
-// This is a temporary process until motion planning can take the terminal pose into account
-bool BehaviorPathPlannerNode::keepInputPoints(
-  const std::vector<std::shared_ptr<SceneModuleStatus>> & statuses) const
-{
-  const std::vector<std::string> target_modules = {"goal_planner", "avoidance"};
-
-  const auto target_status = ModuleStatus::RUNNING;
-
-  for (auto & status : statuses) {
-    if (status->is_waiting_approval || status->status == target_status) {
-      if (
-        std::find(target_modules.begin(), target_modules.end(), status->module_name) !=
-        target_modules.end()) {
-        return true;
-      }
-    }
-  }
-  return false;
 }
 
 void BehaviorPathPlannerNode::onTrafficSignals(const TrafficLightGroupArray::ConstSharedPtr msg)
