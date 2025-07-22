@@ -812,7 +812,6 @@ std::vector<geometry_msgs::msg::Pose> createStraightPathToEndPose(
 /**
  * @brief Calculate necessary longitudinal distance for circular path planning with clothoid
  * consideration
- * @param lateral_offset Lateral offset from the path
  * @param minimum_radius Minimum turning radius
  * @param initial_velocity Initial velocity for clothoid calculation
  * @param wheel_base Vehicle wheel base
@@ -822,14 +821,17 @@ std::vector<geometry_msgs::msg::Pose> createStraightPathToEndPose(
  * @return Calculated longitudinal distance
  */
 double calc_necessary_longitudinal_distance(
-  const double lateral_offset, const double minimum_radius, const double initial_velocity,
-  const double wheel_base, const double max_steer_angle_rate,
-  const PathWithLaneId & centerline_path, const geometry_msgs::msg::Pose & start_pose)
+  const double minimum_radius, 
+  const double initial_velocity,
+  const double wheel_base, 
+  const double max_steer_angle_rate,
+  const PathWithLaneId & centerline_path, 
+  const geometry_msgs::msg::Pose & start_pose)
 {
-  // Calculate clothoid parameters for Arc1 (used throughout the function)
-  const double circular_steer_angle1 = std::atan(wheel_base / minimum_radius);
-  const double minimum_steer_time1 = circular_steer_angle1 / max_steer_angle_rate;
-  const double L_min1 = initial_velocity * minimum_steer_time1;
+  // Calculate clothoid parameters for minimum radius (used throughout the function)
+  const double circular_steer_angle_min = std::atan(wheel_base / minimum_radius);
+  const double minimum_steer_time_min = circular_steer_angle_min / max_steer_angle_rate;
+  const double L_min = initial_velocity * minimum_steer_time_min;
 
   // Trial distances based on minimum radius
   const std::vector<double> trial_distances = {
@@ -837,15 +839,13 @@ double calc_necessary_longitudinal_distance(
     2.0 * minimum_radius, 3.0 * minimum_radius,  4.0 * minimum_radius, 5.0 * minimum_radius,
     6.0 * minimum_radius, 8.0 * minimum_radius,  10.0 * minimum_radius};
 
-  // Evaluation parameters
-  constexpr double error_threshold = 0.5;
 
   // Results tracking
   std::vector<std::pair<double, double>> evaluation_results;
   evaluation_results.reserve(trial_distances.size());
 
   double best_distance = 0.0;
-  double best_score = -1e9;  // Prioritize longer Arc1 length
+  double best_score = -1e9;  // Prioritize longer circular segments
   bool found_valid = false;
   int valid_results_count = 0;
 
@@ -855,6 +855,7 @@ double calc_necessary_longitudinal_distance(
       start_planner_utils::findTargetPoseAlongPath(centerline_path, start_pose, trial_distance);
 
     // Calculate relative pose information
+    // TODO(Sugahara): ここでlateral_offset がプラスな場合は直進経路でよい。
     const auto relative_pose_info =
       start_planner_utils::calculateRelativePoseInVehicleCoordinate(start_pose, target_pose);
 
@@ -862,20 +863,6 @@ double calc_necessary_longitudinal_distance(
     const auto circular_path = calc_circular_path(
       start_pose, relative_pose_info.longitudinal_distance_vehicle,
       relative_pose_info.lateral_distance_vehicle, relative_pose_info.angle_diff, minimum_radius);
-
-    // Check if circular path generation was successful
-    if (circular_path.segments.empty()) {
-      std::cout << "  Trial distance: " << std::fixed << std::setprecision(2) << trial_distance
-                << " m - SKIPPED (circular path generation failed)" << std::endl;
-      continue;
-    }
-
-    // Extract arc information from the generated circular path
-    if (circular_path.segments.size() < 2) {
-      std::cout << "  Trial distance: " << std::fixed << std::setprecision(2) << trial_distance
-                << " m - SKIPPED (insufficient arc segments)" << std::endl;
-      continue;
-    }
 
     const auto & arc1 = circular_path.segments[0];
     const auto & arc2 = circular_path.segments[1];
@@ -907,12 +894,11 @@ double calc_necessary_longitudinal_distance(
 
     // Calculate clothoid parameters for each arc based on their respective radii
     // Arc1 clothoid parameters (based on arc1.radius)
-    const double circular_steer_angle1_actual = std::atan(wheel_base / arc1.radius);
-    const double minimum_steer_time1_actual = circular_steer_angle1_actual / max_steer_angle_rate;
-    const double L_min1_actual = initial_velocity * minimum_steer_time1_actual;
-    const double A_min1_actual = std::sqrt(arc1.radius * L_min1_actual);
-    const double alpha_clothoid1 =
-      (L_min1_actual * L_min1_actual) / (2.0 * A_min1_actual * A_min1_actual);
+    const double circular_steer_angle1 = std::atan(wheel_base / arc1.radius);
+    const double minimum_steer_time1 = circular_steer_angle1 / max_steer_angle_rate;
+    const double L_min1 = initial_velocity * minimum_steer_time1;
+    const double A_min1 = std::sqrt(arc1.radius * L_min1);
+    const double alpha_clothoid1 = (L_min1 * L_min1) / (2.0 * A_min1 * A_min1);
 
     // Arc2 clothoid parameters (based on arc2.radius)
     const double circular_steer_angle2 = std::atan(wheel_base / arc2.radius);
@@ -958,11 +944,12 @@ double calc_necessary_longitudinal_distance(
     // Combined clothoid score (prioritize the worse case)
     const double combined_clothoid_score = std::min(clothoid_score1, clothoid_score2);
 
-    // Calculate lateral error from the actual target pose
+    // Calculate lateral error from the target lateral offset
+    // 実際の横方向距離と目標値の差を計算
     const double actual_lateral_offset = relative_pose_info.lateral_distance_vehicle;
-    const double lateral_error = std::abs(actual_lateral_offset - lateral_offset);
+    const double lateral_error = std::abs(actual_lateral_offset - target_lateral_offset);
 
-    // Store evaluation result with arc2_length for debugging
+    // Store evaluation result for debugging
     evaluation_results.emplace_back(trial_distance, arc1_length);
     valid_results_count++;
 
@@ -977,10 +964,13 @@ double calc_necessary_longitudinal_distance(
               << "°, Alpha2: " << std::setprecision(3) << alpha_clothoid2 * 180.0 / M_PI
               << "°, Clothoid feasible: "
               << (sufficient_for_clothoid1 && sufficient_for_clothoid2 ? "YES" : "NO")
-              << ", Score: " << std::setprecision(3) << combined_clothoid_score << std::endl;
+              << ", Lateral error: " << std::setprecision(3) << lateral_error
+              << " m, Score: " << std::setprecision(3) << combined_clothoid_score << std::endl;
 
-    // Update best candidate selection (prioritize clothoid feasibility)
-    if (lateral_error <= error_threshold) {
+    // Update best candidate selection (prioritize clothoid feasibility and lateral accuracy)
+    const bool lateral_acceptable = (lateral_error <= lateral_error_threshold);
+    
+    if (lateral_acceptable) {
       if (combined_clothoid_score > best_score) {
         best_score = combined_clothoid_score;
         best_distance = trial_distance;
@@ -996,21 +986,28 @@ double calc_necessary_longitudinal_distance(
   // Output selection results
   std::cout << "\n--- Selection Results ---" << std::endl;
   std::cout << "Valid results: " << valid_results_count << std::endl;
+  std::cout << "Target lateral offset: " << std::fixed << std::setprecision(3) 
+            << target_lateral_offset << " m" << std::endl;
 
   if (found_valid) {
-    std::cout << "Acceptable results (error <= " << std::fixed << std::setprecision(1)
-              << error_threshold << "m): found" << std::endl;
+    std::cout << "Acceptable results (lateral error <= " << std::fixed << std::setprecision(1)
+              << lateral_error_threshold << " m): found" << std::endl;
     std::cout << "Selected result: Clothoid score = " << std::setprecision(3) << best_score
               << ", Distance = " << std::setprecision(3) << best_distance << " m" << std::endl;
   } else {
-    std::cout << "No acceptable results found" << std::endl;
+    std::cout << "No acceptable results found, using best available solution" << std::endl;
+    std::cout << "Selected result: Clothoid score = " << std::setprecision(3) << best_score
+              << ", Distance = " << std::setprecision(3) << best_distance << " m" << std::endl;
   }
 
   // Fallback if no valid solution found
-  if (!found_valid && best_distance == 0.0) {
+  if (best_distance == 0.0) {
     // Use clothoid-based estimation
-    const double clothoid_based_distance =
-      std::max(4.0 * minimum_radius, std::max(std::abs(lateral_offset) * 2.0, L_min1 * 2.0));
+    const double clothoid_based_distance = std::max({
+      4.0 * minimum_radius,
+      std::abs(target_lateral_offset) * 3.0,  // より保守的な係数
+      L_min * 3.0  // クロソイド長の3倍
+    });
     best_distance = clothoid_based_distance;
     std::cout << "Using clothoid-based estimation: " << std::setprecision(3) << best_distance
               << " m" << std::endl;
@@ -1472,9 +1469,6 @@ std::optional<PullOutPath> ClothoidPullOut::plan(
     const double longitudinal_distance = calc_necessary_longitudinal_distance(
       -lateral_offset, minimum_radius, initial_velocity, wheel_base, max_steer_angle_rate,
       centerline_path, start_pose);
-
-    const Pose target_pose = start_planner_utils::findTargetPoseAlongPath(
-      centerline_path, straight_end_pose, longitudinal_distance);
 
     // TODO(Sugahara): ここでlateral_offset がプラスな場合は直進経路でよい。
     const auto relative_pose_info =
