@@ -304,6 +304,8 @@ trajectory_follower::LateralOutput MpcLateralController::run(
   }
 
   publishPredictedTraj(predicted_traj);
+  const bool is_stopped = isStoppedState();
+  debug_values.data.push_back(static_cast<float>(is_stopped));
   publishDebugValues(debug_values);
 
   const auto createLateralOutput =
@@ -324,7 +326,7 @@ trajectory_follower::LateralOutput MpcLateralController::run(
     return output;
   };
 
-  if (isStoppedState()) {
+  if (is_stopped) {
     // Reset input buffer
     debug_throttle("Stopped state detected, use previous control command");
     for (auto & value : m_mpc->m_input_buffer) {
