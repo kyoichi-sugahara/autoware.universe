@@ -24,6 +24,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
 namespace autoware::lidar_frnet
 {
@@ -61,17 +62,28 @@ LidarFRNetNode::LidarFRNetNode(const rclcpp::NodeOptions & options)
   frnet_ = std::make_unique<LidarFRNet>(
     trt_config, model_params, preprocessing_params, postprocessing_params, get_logger());
 
+  frnet_->allocateMessages(cloud_seg_layout_, cloud_viz_layout_, cloud_filtered_layout_);
+  frnet_->setPublishSegmentedPointcloud(
+    std::bind(&LidarFRNetNode::publishSegmentedPointcloud, this, std::placeholders::_1));
+  frnet_->setPublishVisualizationPointcloud(
+    std::bind(&LidarFRNetNode::publishVisualizationPointcloud, this, std::placeholders::_1));
+  frnet_->setPublishFilteredPointcloud(
+    std::bind(&LidarFRNetNode::publishFilteredPointcloud, this, std::placeholders::_1));
+
   cloud_in_sub_ =
     std::make_unique<cuda_blackboard::CudaBlackboardSubscriber<cuda_blackboard::CudaPointCloud2>>(
       *this, "~/input/pointcloud",
       std::bind(&LidarFRNetNode::cloudCallback, this, std::placeholders::_1));
 
-  cloud_seg_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(
-    "~/output/pointcloud/segmentation", rclcpp::SensorDataQoS{}.keep_last(1));
-  cloud_viz_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(
-    "~/output/pointcloud/visualization", rclcpp::SensorDataQoS{}.keep_last(1));
-  cloud_filtered_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(
-    "~/output/pointcloud/filtered", rclcpp::SensorDataQoS{}.keep_last(1));
+  cloud_seg_pub_ =
+    std::make_unique<cuda_blackboard::CudaBlackboardPublisher<cuda_blackboard::CudaPointCloud2>>(
+      *this, "~/output/pointcloud/segmentation");
+  cloud_viz_pub_ =
+    std::make_unique<cuda_blackboard::CudaBlackboardPublisher<cuda_blackboard::CudaPointCloud2>>(
+      *this, "~/output/pointcloud/visualization");
+  cloud_filtered_pub_ =
+    std::make_unique<cuda_blackboard::CudaBlackboardPublisher<cuda_blackboard::CudaPointCloud2>>(
+      *this, "~/output/pointcloud/filtered");
 
   published_time_pub_ = std::make_unique<autoware_utils::PublishedTimePublisher>(this);
 
@@ -122,20 +134,11 @@ void LidarFRNetNode::cloudCallback(
   }
 
   std::unordered_map<std::string, double> proc_timing;
-  auto cloud_seg_msg =
-    ros_utils::getMsgFromLayout(msg->header, msg->height, msg->width, cloud_seg_layout_);
-  auto cloud_viz_msg =
-    ros_utils::getMsgFromLayout(msg->header, msg->height, msg->width, cloud_viz_layout_);
-  auto cloud_filtered_msg =
-    ros_utils::getMsgFromLayout(msg->header, msg->height, msg->width, cloud_filtered_layout_);
 
-  if (!frnet_->process(
-        msg, cloud_seg_msg, cloud_viz_msg, cloud_filtered_msg, active_comm, proc_timing))
+  if (!frnet_->process(msg, active_comm, proc_timing)) {
     return;
+  }
 
-  cloud_seg_pub_->publish(cloud_seg_msg);
-  cloud_viz_pub_->publish(cloud_viz_msg);
-  cloud_filtered_pub_->publish(cloud_filtered_msg);
   published_time_pub_->publish_if_subscribed(cloud_seg_pub_, msg->header.stamp);
 
   if (debug_publisher_ptr_ && stop_watch_ptr_) {
@@ -156,6 +159,24 @@ void LidarFRNetNode::cloudCallback(
         topic, time_ms);
     }
   }
+}
+
+void LidarFRNetNode::publishSegmentedPointcloud(
+  std::unique_ptr<const cuda_blackboard::CudaPointCloud2> msg_ptr)
+{
+  cloud_seg_pub_->publish(std::move(msg_ptr));
+}
+
+void LidarFRNetNode::publishVisualizationPointcloud(
+  std::unique_ptr<const cuda_blackboard::CudaPointCloud2> msg_ptr)
+{
+  cloud_viz_pub_->publish(std::move(msg_ptr));
+}
+
+void LidarFRNetNode::publishFilteredPointcloud(
+  std::unique_ptr<const cuda_blackboard::CudaPointCloud2> msg_ptr)
+{
+  cloud_filtered_pub_->publish(std::move(msg_ptr));
 }
 
 void LidarFRNetNode::diagnoseProcessingTime(diagnostic_updater::DiagnosticStatusWrapper & stat)

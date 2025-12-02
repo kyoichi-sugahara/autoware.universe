@@ -36,6 +36,7 @@
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
 namespace autoware::lidar_frnet
 {
@@ -57,18 +58,59 @@ public:
 
   bool process(
     const std::shared_ptr<const cuda_blackboard::CudaPointCloud2> & cloud_in,
-    sensor_msgs::msg::PointCloud2 & cloud_seg_out, sensor_msgs::msg::PointCloud2 & cloud_viz_out,
-    sensor_msgs::msg::PointCloud2 & cloud_filtered, const utils::ActiveComm & active_comm,
-    std::unordered_map<std::string, double> & proc_timing);
+    const utils::ActiveComm & active_comm, std::unordered_map<std::string, double> & proc_timing);
+
+  void setPublishSegmentedPointcloud(
+    std::function<void(std::unique_ptr<const cuda_blackboard::CudaPointCloud2>)> func)
+  {
+    publish_segmented_pointcloud_ = std::move(func);
+  }
+
+  void setPublishVisualizationPointcloud(
+    std::function<void(std::unique_ptr<const cuda_blackboard::CudaPointCloud2>)> func)
+  {
+    publish_visualization_pointcloud_ = std::move(func);
+  }
+
+  void setPublishFilteredPointcloud(
+    std::function<void(std::unique_ptr<const cuda_blackboard::CudaPointCloud2>)> func)
+  {
+    publish_filtered_pointcloud_ = std::move(func);
+  }
 
 private:
   bool preprocess(const uint32_t input_num_points);
   bool inference();
   bool postprocess(
-    const uint32_t input_num_points, const utils::ActiveComm & active_comm,
-    sensor_msgs::msg::PointCloud2 & cloud_seg_out, sensor_msgs::msg::PointCloud2 & cloud_viz_out,
-    sensor_msgs::msg::PointCloud2 & cloud_filtered);
+    const uint32_t input_num_points, const std_msgs::msg::Header & header,
+    const utils::ActiveComm & active_comm);
   void initTensors();
+
+  /**
+   * @brief Initialize and store point cloud layouts, then allocate output messages
+   *
+   * This method stores the point cloud layouts for segmentation, visualization, and filtered
+   * outputs, and allocates CUDA memory for the output messages. This should be called once
+   * during initialization.
+   *
+   * @param cloud_seg_layout Layout configuration for segmentation point cloud
+   * @param cloud_viz_layout Layout configuration for visualization point cloud
+   * @param cloud_filtered_layout Layout configuration for filtered point cloud
+   */
+  void allocateMessages(
+    const ros_utils::PointCloudLayout & cloud_seg_layout,
+    const ros_utils::PointCloudLayout & cloud_viz_layout,
+    const ros_utils::PointCloudLayout & cloud_filtered_layout);
+
+  /**
+   * @brief Allocate output messages using stored point cloud layouts
+   *
+   * This method reallocates CUDA memory for output messages that were previously published
+   * and set to nullptr. It uses the layouts stored by the parameterized version of
+   * allocateMessages(). This is called automatically at the end of postprocess() to prepare
+   * messages for the next processing cycle.
+   */
+  void allocateMessages();
 
   std::once_flag init_cloud_;
 
@@ -81,6 +123,24 @@ private:
   utils::NetworkParams network_params_;
   utils::PreprocessingParams preprocessing_params_;
   utils::PostprocessingParams postprocessing_params_;
+
+  // Callback functions for publishing
+  std::function<void(std::unique_ptr<const cuda_blackboard::CudaPointCloud2>)>
+    publish_segmented_pointcloud_;
+  std::function<void(std::unique_ptr<const cuda_blackboard::CudaPointCloud2>)>
+    publish_visualization_pointcloud_;
+  std::function<void(std::unique_ptr<const cuda_blackboard::CudaPointCloud2>)>
+    publish_filtered_pointcloud_;
+
+  // Output messages
+  std::unique_ptr<cuda_blackboard::CudaPointCloud2> cloud_seg_msg_ptr_{nullptr};
+  std::unique_ptr<cuda_blackboard::CudaPointCloud2> cloud_viz_msg_ptr_{nullptr};
+  std::unique_ptr<cuda_blackboard::CudaPointCloud2> cloud_filtered_msg_ptr_{nullptr};
+
+  // Point cloud layouts
+  ros_utils::PointCloudLayout cloud_seg_layout_;
+  ros_utils::PointCloudLayout cloud_viz_layout_;
+  ros_utils::PointCloudLayout cloud_filtered_layout_;
 
   cudaStream_t stream_;
   // Inference
