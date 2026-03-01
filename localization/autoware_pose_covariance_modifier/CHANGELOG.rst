@@ -2,6 +2,36 @@
 Changelog for package autoware_pose_covariance_modifier
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+
+0.49.0 (2025-12-30)
+-------------------
+
+0.48.0 (2025-11-18)
+-------------------
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+
+0.46.0 (2025-06-20)
+-------------------
+* Merge remote-tracking branch 'upstream/main' into tmp/TaikiYamada/bump_version_base
+* feat(autoware_ndt_scan_matcher)!: port the package to Autoware Core (`#10688 <https://github.com/autowarefoundation/autoware_universe/issues/10688>`_)
+* Contributors: Ryohsuke Mitsudome, TaikiYamada4
+
+0.45.0 (2025-05-22)
+-------------------
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 

@@ -2,6 +2,111 @@
 Changelog for package autoware_lidar_apollo_instance_segmentation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat!: remove ROS 2 Galactic codes (`#11905 <https://github.com/autowarefoundation/autoware_universe/issues/11905>`_)
+* fix(lidar_apollo_instance_segmentation): add missing dep, clean up CMakeLists (`#11876 <https://github.com/autowarefoundation/autoware_universe/issues/11876>`_)
+* fix: add missing ament_index_cpp dependency (`#11875 <https://github.com/autowarefoundation/autoware_universe/issues/11875>`_)
+* Contributors: Mete Fatih Cırıt, Ryohsuke Mitsudome
+
+0.49.0 (2025-12-30)
+-------------------
+* Merge remote-tracking branch 'origin/main' into prepare-0.49.0-changelog
+* fix(lidar_apollo_instance_segmentation): fixed preprocessing (`#8172 <https://github.com/autowarefoundation/autoware_universe/issues/8172>`_)
+  Co-authored-by: Mete Fatih Cırıt <mfc@autoware.org>
+* fix(autoware_lidar_apollo_instance_segmentation): add empty point cloud guard (`#11745 <https://github.com/autowarefoundation/autoware_universe/issues/11745>`_)
+  * fix(autoware_lidar_apollo_instance_segmentation): add empty point cloud guard
+  Add validation to check for empty point clouds before processing to prevent
+  undefined behavior and potential crashes.
+  * Apply suggestion from @Copilot
+  Co-authored-by: Copilot <175728472+Copilot@users.noreply.github.com>
+  * Update perception/autoware_lidar_apollo_instance_segmentation/src/node.cpp
+  * Update perception/autoware_lidar_apollo_instance_segmentation/src/node.cpp
+  * style(pre-commit): autofix
+  ---------
+  Co-authored-by: Copilot <175728472+Copilot@users.noreply.github.com>
+  Co-authored-by: pre-commit-ci-lite[bot] <117423508+pre-commit-ci-lite[bot]@users.noreply.github.com>
+* Contributors: Kenzo Lobos Tsunekawa, Ryohsuke Mitsudome, Yutaka Kondo
+
+0.48.0 (2025-11-18)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* refactor(autoware_lidar_apollo_instance_segmentation): refactor launch and parameter (`#11405 <https://github.com/autowarefoundation/autoware_universe/issues/11405>`_)
+  refactor params
+* fix(autoware_lidar_apollo_instance_segmentation): remove invalid key and change variable int to double (`#11396 <https://github.com/autowarefoundation/autoware_universe/issues/11396>`_)
+  * remove invalid key and change variable int to double
+  * change type to int
+  * update schema
+  ---------
+* fix(lidar_apollo_instance_segmentation): revert apollo parameter pr 10097 (`#11357 <https://github.com/autowarefoundation/autoware_universe/issues/11357>`_)
+  * Revert "feat(autoware_lidar_apollo_instance_segmentation): created the schema file, updated the readme file and deleted the default parameter in node files (`#10097 <https://github.com/autowarefoundation/autoware_universe/issues/10097>`_)"
+  This reverts commit dcb9739b5c684afaede1f164f259b7364a7c32cf.
+  * feat(autoware_lidar_apollo_instance_segmentation): created the schema file, updated the readme file and deleted the default parameter in node files (`#10097 <https://github.com/autowarefoundation/autoware_universe/issues/10097>`_)
+  * feat(autoware_lidar_apollo_instance_segmentation): Created the schema file, updated the readme file and deleted the default parameter in node files
+  * style(pre-commit): autofix
+  * Update hdl-64.schema.json
+  * Update vlp-16.schema.json
+  * Update vls-128.schema.json
+  * Update hdl-64.param.yaml
+  * Update vlp-16.param.yaml
+  * Update vls-128.param.yaml
+  * style(pre-commit): autofix
+  * style(pre-commit): autofix
+  * style(pre-commit): autofix
+  * fix(apollo_instance_segmentation): nest params under lidar_instance_segmentation; remove stray pipe
+  * fix(apollo_instance_segmentation): nest params under lidar_instance_segmentation for schema compliance
+  ---------
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+  Co-authored-by: Taekjin LEE <taekjin.lee@tier4.jp>
+  ---------
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+* feat(autoware_lidar_apollo_instance_segmentation): created the schema file, updated the readme file and deleted the default parameter in node files (`#10097 <https://github.com/autowarefoundation/autoware_universe/issues/10097>`_)
+  * feat(autoware_lidar_apollo_instance_segmentation): Created the schema file, updated the readme file and deleted the default parameter in node files
+  * style(pre-commit): autofix
+  * Update hdl-64.schema.json
+  * Update vlp-16.schema.json
+  * Update vls-128.schema.json
+  * Update hdl-64.param.yaml
+  * Update vlp-16.param.yaml
+  * Update vls-128.param.yaml
+  * style(pre-commit): autofix
+  * style(pre-commit): autofix
+  * style(pre-commit): autofix
+  * fix(apollo_instance_segmentation): nest params under lidar_instance_segmentation; remove stray pipe
+  * fix(apollo_instance_segmentation): nest params under lidar_instance_segmentation for schema compliance
+  ---------
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+  Co-authored-by: Taekjin LEE <taekjin.lee@tier4.jp>
+* Contributors: Masato Saeki, Ryohsuke Mitsudome, Taekjin LEE, Vishal Chauhan
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+
+0.46.0 (2025-06-20)
+-------------------
+
+0.45.0 (2025-05-22)
+-------------------
+* Merge remote-tracking branch 'origin/main' into tmp/notbot/bump_version_base
+* chore: perception code owner update (`#10645 <https://github.com/autowarefoundation/autoware_universe/issues/10645>`_)
+  * chore: update maintainers in multiple perception packages
+  * Revert "chore: update maintainers in multiple perception packages"
+  This reverts commit f2838c33d6cd82bd032039e2a12b9cb8ba6eb584.
+  * chore: update maintainers in multiple perception packages
+  * chore: add Kok Seang Tan as maintainer in multiple perception packages
+  ---------
+* Contributors: Taekjin LEE, TaikiYamada4
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 

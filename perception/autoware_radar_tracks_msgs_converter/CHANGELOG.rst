@@ -2,6 +2,48 @@
 Changelog for package autoware_radar_tracks_msgs_converter
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat!: remove ROS 2 Galactic codes (`#11905 <https://github.com/autowarefoundation/autoware_universe/issues/11905>`_)
+* Contributors: Ryohsuke Mitsudome
+
+0.49.0 (2025-12-30)
+-------------------
+
+0.48.0 (2025-11-18)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* fix: tf2 uses hpp headers in rolling (and is backported) (`#11620 <https://github.com/autowarefoundation/autoware_universe/issues/11620>`_)
+* Contributors: Ryohsuke Mitsudome, Tim Clephas
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+* fix(radar_tracks_objects_converter): publish topic even if objects array is empty (`#11002 <https://github.com/autowarefoundation/autoware_universe/issues/11002>`_)
+  fix: publish topic even if objects is empty
+* Contributors: Yoshi Ri
+
+0.46.0 (2025-06-20)
+-------------------
+* Merge remote-tracking branch 'upstream/main' into tmp/TaikiYamada/bump_version_base
+* chore(radar): delete maintainer for radar packages (`#10815 <https://github.com/autowarefoundation/autoware_universe/issues/10815>`_)
+  * chore(radar): delete maintainer name
+  * fix typo
+  ---------
+* Contributors: Satoshi Tanaka, TaikiYamada4
+
+0.45.0 (2025-05-22)
+-------------------
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 

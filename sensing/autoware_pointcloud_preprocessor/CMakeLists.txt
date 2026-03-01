@@ -71,7 +71,6 @@ add_library(concatenate_data SHARED
   src/concatenate_data/cloud_collector.cpp
   src/concatenate_data/collector_matching_strategy.cpp
   src/concatenate_data/concatenate_pointclouds.cpp
-  src/concatenate_data/utils.cpp
 )
 
 target_include_directories(concatenate_data PUBLIC
@@ -82,6 +81,7 @@ target_include_directories(concatenate_data PUBLIC
 ament_target_dependencies(concatenate_data
   SYSTEM
   autoware_point_types
+  autoware_sensing_msgs
   autoware_utils
   autoware_vehicle_msgs
   managed_transform_buffer
@@ -103,6 +103,7 @@ ament_auto_add_library(pointcloud_preprocessor_filter SHARED
   src/outlier_filter/ring_outlier_filter_node.cpp
   src/outlier_filter/radius_search_2d_outlier_filter_node.cpp
   src/outlier_filter/voxel_grid_outlier_filter_node.cpp
+  src/outlier_filter/polar_voxel_outlier_filter_node.cpp
   src/outlier_filter/dual_return_outlier_filter_node.cpp
   src/passthrough_filter/passthrough_filter_node.cpp
   src/passthrough_filter/passthrough_filter_uint16_node.cpp
@@ -111,7 +112,12 @@ ament_auto_add_library(pointcloud_preprocessor_filter SHARED
   src/vector_map_filter/lanelet2_map_filter_node.cpp
   src/distortion_corrector/distortion_corrector.cpp
   src/distortion_corrector/distortion_corrector_node.cpp
+  src/blockage_diag/blockage_detection.cpp
+  src/blockage_diag/blockage_diag.cpp
   src/blockage_diag/blockage_diag_node.cpp
+  src/blockage_diag/dust_detection.cpp
+  src/blockage_diag/multi_frame_detection_aggregator.cpp
+  src/blockage_diag/pointcloud2_to_depth_image.cpp
   src/polygon_remover/polygon_remover.cpp
   src/vector_map_filter/vector_map_inside_area_filter_node.cpp
   src/utility/geometry.cpp
@@ -180,6 +186,11 @@ rclcpp_components_register_node(pointcloud_preprocessor_filter
 rclcpp_components_register_node(pointcloud_preprocessor_filter
   PLUGIN "autoware::pointcloud_preprocessor::VoxelGridOutlierFilterComponent"
   EXECUTABLE voxel_grid_outlier_filter_node)
+
+# -- Polar Voxel Outlier Filter --
+rclcpp_components_register_node(pointcloud_preprocessor_filter
+  PLUGIN "autoware::pointcloud_preprocessor::PolarVoxelOutlierFilterComponent"
+  EXECUTABLE polar_voxel_outlier_filter_node)
 
 # -- Radius Search 2D Outlier Filter --
 rclcpp_components_register_node(pointcloud_preprocessor_filter
@@ -297,9 +308,54 @@ if(BUILD_TESTING)
     test/test_concatenate_node_unit.cpp
   )
 
+  ament_add_gtest(test_pickup_based_voxel_grid_downsample_filter_node
+    test/test_pickup_based_voxel_grid_downsample_filter_node.cpp
+  )
+
+  ament_add_gtest(test_concatenation_info
+    test/test_concatenation_info.cpp
+  )
+
+  ament_add_gtest(test_polar_voxel_outlier_filter_node
+    test/test_polar_voxel_outlier_filter_node.cpp
+  )
+
+  ament_add_gtest(test_blockage_diag
+    test/blockage_diag/test_blockage_diag.cpp
+  )
+
+  ament_add_gtest(test_blockage_diag_node
+    test/blockage_diag/test_blockage_diag_node.cpp
+  )
+
+  ament_add_gtest(test_pointcloud2_to_depth_image
+    test/blockage_diag/test_pointcloud2_to_depth_image.cpp
+  )
+
+  ament_add_gtest(test_blockage_detection
+    test/blockage_diag/test_blockage_detection.cpp
+  )
+
+  ament_add_gtest(test_dust_detection
+    test/blockage_diag/test_dust_detection.cpp
+  )
+
+  ament_add_gtest(test_multi_frame_detection_aggregator
+    test/blockage_diag/test_multi_frame_detection_aggregator.cpp
+  )
+
   target_link_libraries(test_utilities pointcloud_preprocessor_filter)
   target_link_libraries(test_distortion_corrector_node pointcloud_preprocessor_filter)
   target_link_libraries(test_concatenate_node_unit pointcloud_preprocessor_filter)
+  target_link_libraries(test_pickup_based_voxel_grid_downsample_filter_node pointcloud_preprocessor_filter)
+  target_link_libraries(test_concatenation_info concatenate_data)
+  target_link_libraries(test_polar_voxel_outlier_filter_node pointcloud_preprocessor_filter)
+  target_link_libraries(test_blockage_diag pointcloud_preprocessor_filter)
+  target_link_libraries(test_blockage_diag_node pointcloud_preprocessor_filter)
+  target_link_libraries(test_pointcloud2_to_depth_image pointcloud_preprocessor_filter)
+  target_link_libraries(test_blockage_detection pointcloud_preprocessor_filter)
+  target_link_libraries(test_dust_detection pointcloud_preprocessor_filter)
+  target_link_libraries(test_multi_frame_detection_aggregator pointcloud_preprocessor_filter)
 
   add_ros_test(
     test/test_concatenate_node_component.py

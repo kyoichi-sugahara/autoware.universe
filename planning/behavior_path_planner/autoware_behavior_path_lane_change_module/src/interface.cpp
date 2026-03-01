@@ -24,12 +24,15 @@
 #include <autoware_utils/ros/marker_helper.hpp>
 #include <autoware_utils/system/time_keeper.hpp>
 
+#include <fmt/format.h>
+
 #include <algorithm>
 #include <limits>
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 namespace autoware::behavior_path_planner
 {
@@ -43,7 +46,7 @@ LaneChangeInterface::LaneChangeInterface(
     objects_of_interest_marker_interface_ptr_map,
   const std::shared_ptr<PlanningFactorInterface> & planning_factor_interface,
   std::unique_ptr<LaneChangeBase> && module_type)
-: SceneModuleInterface{name, node, rtc_interface_ptr_map, objects_of_interest_marker_interface_ptr_map, planning_factor_interface},  // NOLINT
+: SceneModuleInterface{name, node, rtc_interface_ptr_map, objects_of_interest_marker_interface_ptr_map, planning_factor_interface, ModuleStatus::WAITING_APPROVAL},  // NOLINT
   parameters_{std::move(parameters)},
   module_type_{std::move(module_type)}
 {
@@ -56,6 +59,7 @@ void LaneChangeInterface::processOnExit()
   module_type_->resetParameters();
   debug_marker_.markers.clear();
   post_process_safety_status_ = {};
+  interface_debug_ = {};
   resetPathCandidate();
 }
 
@@ -65,7 +69,28 @@ bool LaneChangeInterface::isExecutionRequested() const
     return true;
   }
 
-  return module_type_->isLaneChangeRequired();
+  if (auto err = module_type_->isLaneChangeRequired()) {
+    interface_debug_.request_info = err.value();
+    return false;
+  }
+
+  interface_debug_.request_info = {};
+
+  const auto & current_lanes = module_type_->get_current_lanes();
+  const auto & target_lanes = module_type_->get_target_lanes();
+
+  auto get_ids = [](const auto & lanes) {
+    std::vector<decltype(lanes[0].id())> ids;
+    ids.reserve(lanes.size());
+    for (const auto & lane : lanes) ids.push_back(lane.id());
+    return ids;
+  };
+
+  interface_debug_.request_info = fmt::format(
+    "Current lanes: {} | Target lanes: {}", fmt::join(get_ids(current_lanes), ", "),
+    fmt::join(get_ids(target_lanes), ", "));
+
+  return true;
 }
 
 bool LaneChangeInterface::isExecutionReady() const
@@ -106,15 +131,6 @@ BehaviorModuleOutput LaneChangeInterface::plan()
   resetPathCandidate();
   resetPathReference();
 
-  // plan() should be called only when the module is in the RUNNING state, but
-  // due to planner manager implementation, it can be called in the IDLE state.
-  // TODO(Azu, Quda): consider a proper fix.
-  if (getCurrentStatus() == ModuleStatus::IDLE) {
-    auto output = getPreviousModuleOutput();
-    path_reference_ = std::make_shared<PathWithLaneId>(output.reference_path);
-    return output;
-  }
-
   auto output = module_type_->generateOutput();
   path_reference_ = std::make_shared<PathWithLaneId>(output.reference_path);
 
@@ -145,12 +161,9 @@ BehaviorModuleOutput LaneChangeInterface::plan()
         path.start_distance_to_path_change, path.finish_distance_to_path_change, true,
         State::WAITING_FOR_EXECUTION);
     } else {
-      const auto force_activated = std::any_of(
-        rtc_interface_ptr_map_.begin(), rtc_interface_ptr_map_.end(),
-        [&](const auto & rtc) { return rtc.second->isForceActivated(uuid_map_.at(rtc.first)); });
       updateRTCStatus(
-        path.start_distance_to_path_change, path.finish_distance_to_path_change, !force_activated,
-        State::RUNNING);
+        path.start_distance_to_path_change, path.finish_distance_to_path_change,
+        !is_rtc_force_activated(), State::RUNNING);
     }
   }
 
@@ -177,6 +190,10 @@ BehaviorModuleOutput LaneChangeInterface::planWaitingApproval()
 
   if (!module_type_->isValidPath()) {
     path_candidate_ = std::make_shared<PathWithLaneId>();
+    updateRTCStatus(
+      std::numeric_limits<double>::lowest(), std::numeric_limits<double>::lowest(), false,
+      State::WAITING_FOR_EXECUTION);
+    module_type_->resetParameters();
     return out;
   }
 
@@ -237,15 +254,32 @@ bool LaneChangeInterface::canTransitSuccessState()
     return true;
   }
 
+  if (
+    planner_data_ && planner_data_->operation_mode &&
+    planner_data_->operation_mode->mode != OperationModeState::AUTONOMOUS &&
+    module_type_->is_near_terminal_end()) {
+    return true;
+  }
+
   log_debug_throttled("Lane changing process is ongoing");
   return false;
 }
 
 bool LaneChangeInterface::canTransitFailureState()
 {
-  const auto force_activated = std::any_of(
-    rtc_interface_ptr_map_.begin(), rtc_interface_ptr_map_.end(),
-    [&](const auto & rtc) { return rtc.second->isForceActivated(uuid_map_.at(rtc.first)); });
+  const auto force_activated = std::invoke([&]() {
+    if (!is_rtc_force_activated()) {
+      return false;
+    }
+
+    if (!module_type_->isValidPath()) {
+      RCLCPP_WARN_THROTTLE(
+        getLogger(), *clock_, 1000, "Force activated, but no valid path. Ignore force activation.");
+      return false;
+    }
+
+    return true;
+  });
 
   if (force_activated) {
     RCLCPP_WARN_THROTTLE(getLogger(), *clock_, 5000, "unsafe but force executed");
@@ -268,6 +302,24 @@ bool LaneChangeInterface::canTransitFailureState()
   }
 
   if (state == LaneChangeStates::Abort) {
+    if (!module_type_->isAbortState()) {
+      RCLCPP_DEBUG(getLogger(), "Transit to Abort state.");
+
+      const auto current_pose = module_type_->getEgoPose();
+
+      const auto planning_factor_direction = std::invoke([&]() {
+        if (module_type_->getDirection() == Direction::LEFT) {
+          return PlanningFactor::SHIFT_LEFT;
+        }
+        if (module_type_->getDirection() == Direction::RIGHT) {
+          return PlanningFactor::SHIFT_RIGHT;
+        }
+        return PlanningFactor::NONE;
+      });
+
+      planning_factor_interface_->add(
+        0.0, current_pose, planning_factor_direction, SafetyFactorArray{}, true, 0.0, 0.0, "abort");
+    }
     module_type_->toAbortState();
     return false;
   }
@@ -286,11 +338,21 @@ bool LaneChangeInterface::canTransitFailureState()
 
 std::pair<LaneChangeStates, std::string_view> LaneChangeInterface::check_transit_failure()
 {
+  if (
+    planner_data_ && planner_data_->operation_mode &&
+    planner_data_->operation_mode->mode != OperationModeState::AUTONOMOUS &&
+    module_type_->is_near_terminal_end()) {
+    return {LaneChangeStates::Cancel, "ManualModeNearTerminal"};
+  }
   if (module_type_->isAbortState()) {
     if (module_type_->hasFinishedAbort()) {
       return {LaneChangeStates::Cancel, "Aborted"};
     }
     return {LaneChangeStates::Abort, "Aborting"};
+  }
+
+  if (!module_type_->is_ego_in_current_or_target_lanes()) {
+    return {LaneChangeStates::Cancel, "EgoOutOfLanes"};
   }
 
   if (isWaitingApproval()) {
@@ -304,18 +366,16 @@ std::pair<LaneChangeStates, std::string_view> LaneChangeInterface::check_transit
     return {LaneChangeStates::Cancel, "InvalidPath"};
   }
 
+  if (module_type_->is_near_terminal_end()) {
+    return {LaneChangeStates::Warning, "TooNearTerminal"};
+  }
+
   const auto is_preparing = module_type_->isEgoOnPreparePhase();
   const auto can_return_to_current = module_type_->isAbleToReturnCurrentLane();
 
   // regardless of safe and unsafe, we want to cancel lane change.
-  if (is_preparing) {
-    const auto force_deactivated = std::any_of(
-      rtc_interface_ptr_map_.begin(), rtc_interface_ptr_map_.end(),
-      [&](const auto & rtc) { return rtc.second->isForceDeactivated(uuid_map_.at(rtc.first)); });
-
-    if (force_deactivated && can_return_to_current) {
-      return {LaneChangeStates::Cancel, "ForceDeactivation"};
-    }
+  if (is_preparing && is_rtc_force_deactivated() && can_return_to_current) {
+    return {LaneChangeStates::Cancel, "ForceDeactivation"};
   }
 
   if (post_process_safety_status_.is_safe) {
@@ -330,10 +390,6 @@ std::pair<LaneChangeStates, std::string_view> LaneChangeInterface::check_transit
   // lane, for example, during an evasive maneuver around a static object.
   if (is_preparing && can_return_to_current) {
     return {LaneChangeStates::Cancel, "SafeToCancel"};
-  }
-
-  if (module_type_->is_near_terminal()) {
-    return {LaneChangeStates::Warning, "TooNearTerminal"};
   }
 
   if (!module_type_->isAbortEnabled()) {
@@ -401,6 +457,13 @@ void LaneChangeInterface::updateSteeringFactorPtr(const BehaviorModuleOutput & o
   const auto finish_distance = autoware::motion_utils::calcSignedArcLength(
     output.path.points, current_position, status.lane_change_path.info.shift_line.end.position);
 
+  const auto start_idx = autoware::motion_utils::findNearestIndex(
+    output.path.points, status.lane_change_path.info.shift_line.start.position);
+  const auto finish_idx = autoware::motion_utils::findNearestIndex(
+    output.path.points, status.lane_change_path.info.shift_line.end.position);
+  const double start_velocity = output.path.points.at(start_idx).point.longitudinal_velocity_mps;
+  const double end_velocity = output.path.points.at(finish_idx).point.longitudinal_velocity_mps;
+
   const auto planning_factor_direction = std::invoke([&]() {
     if (module_type_->getDirection() == Direction::LEFT) {
       return PlanningFactor::SHIFT_LEFT;
@@ -408,14 +471,16 @@ void LaneChangeInterface::updateSteeringFactorPtr(const BehaviorModuleOutput & o
     if (module_type_->getDirection() == Direction::RIGHT) {
       return PlanningFactor::SHIFT_RIGHT;
     }
-    return PlanningFactor::UNKNOWN;
+    return PlanningFactor::NONE;
   });
 
   const auto & lane_change_debug = module_type_->getDebugData();
   planning_factor_interface_->add(
     start_distance, finish_distance, status.lane_change_path.info.shift_line.start,
     status.lane_change_path.info.shift_line.end, planning_factor_direction,
-    utils::path_safety_checker::to_safety_factor_array(lane_change_debug.collision_check_objects));
+    utils::path_safety_checker::to_safety_factor_array(lane_change_debug.collision_check_objects),
+    true, start_velocity, end_velocity, status.lane_change_path.info.shift_line.start_shift_length,
+    status.lane_change_path.info.shift_line.end_shift_length, "");
 }
 
 void LaneChangeInterface::updateSteeringFactorPtr(
@@ -428,11 +493,23 @@ void LaneChangeInterface::updateSteeringFactorPtr(
     return PlanningFactor::SHIFT_RIGHT;
   });
 
+  const auto status = module_type_->getLaneChangeStatus();
+  const auto start_idx = autoware::motion_utils::findNearestIndex(
+    selected_path.path.points, status.lane_change_path.info.shift_line.start.position);
+  const auto finish_idx = autoware::motion_utils::findNearestIndex(
+    selected_path.path.points, status.lane_change_path.info.shift_line.end.position);
+  const double start_velocity =
+    selected_path.path.points.at(start_idx).point.longitudinal_velocity_mps;
+  const double end_velocity =
+    selected_path.path.points.at(finish_idx).point.longitudinal_velocity_mps;
+
   const auto & lane_change_debug = module_type_->getDebugData();
   planning_factor_interface_->add(
     output.start_distance_to_path_change, output.finish_distance_to_path_change,
     selected_path.info.shift_line.start, selected_path.info.shift_line.end,
     planning_factor_direction,
-    utils::path_safety_checker::to_safety_factor_array(lane_change_debug.collision_check_objects));
+    utils::path_safety_checker::to_safety_factor_array(lane_change_debug.collision_check_objects),
+    true, start_velocity, end_velocity, selected_path.info.shift_line.start_shift_length,
+    selected_path.info.shift_line.end_shift_length, "");
 }
 }  // namespace autoware::behavior_path_planner

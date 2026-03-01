@@ -16,14 +16,15 @@
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <rclcpp/node_options.hpp>
+#include <tf2/LinearMath/Quaternion.hpp>
 
 #include <autoware_planning_msgs/msg/trajectory.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include <gtest/gtest-param-test.h>
 #include <gtest/gtest.h>
-#include <tf2/LinearMath/Quaternion.h>
 
+#include <cmath>
 #include <memory>
 #include <tuple>
 
@@ -135,7 +136,7 @@ INSTANTIATE_TEST_SUITE_P(
     std::make_tuple(
       make_linear_trajectory(make_trajectory_point(0, 0), make_trajectory_point(10, 0), 11, 1.0),
       make_linear_trajectory(make_trajectory_point(0, 0), make_trajectory_point(10, 1.01), 11, 1.0),
-      1.01, false),
+      1.01, true),
 
     std::make_tuple(
       make_linear_trajectory(make_trajectory_point(0, 0), make_trajectory_point(10, 0), 11, -1.0),
@@ -152,7 +153,7 @@ INSTANTIATE_TEST_SUITE_P(
       make_linear_trajectory(make_trajectory_point(0, 0), make_trajectory_point(10, 0), 11, -1.0),
       make_linear_trajectory(
         make_trajectory_point(0, 0), make_trajectory_point(10, 1.01), 11, -1.0),
-      1.01, false),
+      1.01, true),
 
     std::make_tuple(
       make_linear_trajectory(make_trajectory_point(0, 0), make_trajectory_point(10, 0), 11, 1.0),

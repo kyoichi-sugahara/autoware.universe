@@ -1,4 +1,4 @@
-// Copyright 2020 Tier IV, Inc.
+// Copyright 2020 TIER IV, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@
 #include <boost/geometry.hpp>
 #include <boost/geometry/geometries/linestring.hpp>
 #include <boost/geometry/geometries/point_xy.hpp>
+
+#include <lanelet2_core/primitives/Polygon.h>
 
 #include <memory>
 #include <optional>
@@ -55,11 +57,21 @@ struct CollisionPoint
   double time_to_vehicle{};
 };
 
+struct StopPoseWithObjectUuids
+{
+  geometry_msgs::msg::Pose stop_pose{};
+  std::vector<unique_identifier_msgs::msg::UUID> target_object_ids{};
+};
+
 struct DebugData
 {
   DebugData() = default;
   explicit DebugData(const std::shared_ptr<const PlannerData> planner_data)
   : base_link2front(planner_data->vehicle_info_.max_longitudinal_offset_m)
+  {
+  }
+  explicit DebugData(const PlannerData & planner_data)
+  : base_link2front(planner_data.vehicle_info_.max_longitudinal_offset_m)
   {
   }
 
@@ -87,6 +99,10 @@ struct DebugData
   // occlusion data
   std::vector<lanelet::BasicPolygon2d> occlusion_detection_areas;
   geometry_msgs::msg::Point crosswalk_origin;
+
+  // parked vehicles stop
+  lanelet::BasicPolygon2d parked_vehicles_stop_search_area;
+  bool parked_vehicles_stop_already_stopped = false;
 };
 
 std::vector<std::pair<int64_t, lanelet::ConstLanelet>> getCrosswalksOnPath(
@@ -105,6 +121,12 @@ std::optional<std::pair<geometry_msgs::msg::Point, geometry_msgs::msg::Point>>
 getPathEndPointsOnCrosswalk(
   const PathWithLaneId & ego_path, const lanelet::BasicPolygon2d & polygon,
   const geometry_msgs::msg::Point & ego_pos);
+
+std::optional<std::pair<geometry_msgs::msg::Point, geometry_msgs::msg::Point>>
+getPathEndPointsOnCrosswalk(
+  const autoware::experimental::trajectory::Trajectory<
+    autoware_internal_planning_msgs::msg::PathPointWithLaneId> & ego_path,
+  const lanelet::BasicPolygon2d & polygon, const geometry_msgs::msg::Point & ego_pos);
 
 std::vector<geometry_msgs::msg::Point> getLinestringIntersects(
   const PathWithLaneId & ego_path, const lanelet::BasicLineString2d & linestring,

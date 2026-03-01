@@ -2,6 +2,118 @@
 Changelog for package autoware_behavior_velocity_traffic_light_module
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat!: remove ROS 2 Galactic codes (`#11905 <https://github.com/autowarefoundation/autoware_universe/issues/11905>`_)
+* feat(autoware_behavior_velocity_traffic_light_module): support arrow-aware passing judgment on yellow signal (`#11704 <https://github.com/autowarefoundation/autoware_universe/issues/11704>`_)
+  * feat: arrow yellow pass
+  * ref: change comment out
+  * style(pre-commit): autofix
+  * docs: add description for yellow pass
+  * style(pre-commit): autofix
+  * ref: cleaned up the code
+  * ref: change param name
+  * style(pre-commit): autofix
+  * ref: add private variable
+  * style(pre-commit): autofix
+  * chore: change variable name
+  * feat: test module
+  * style(pre-commit): autofix
+  * chore: add variable comment out
+  * chore: rename nongreen variable
+  * fix: transition logic doesn't handle the case
+  * chore: add comment about yellow signal
+  * chore: use the helper method
+  * style(pre-commit): autofix
+  * fix: lint error
+  * ref: improve code health
+  * style(pre-commit): autofix
+  * fix: comment & test coverage
+  * style(pre-commit): autofix
+  * ref: change default-initialized properly
+  * Update planning/behavior_velocity_planner/autoware_behavior_velocity_traffic_light_module/test/test_traffic_light_module.cpp
+  * fix: change reference to “lanelet2_utils”
+  * ref: use any_of for readability
+  * style(pre-commit): autofix
+  ---------
+  Co-authored-by: pre-commit-ci-lite[bot] <117423508+pre-commit-ci-lite[bot]@users.noreply.github.com>
+  Co-authored-by: Shumpei Wakabayashi <42209144+shmpwk@users.noreply.github.com>
+* Contributors: Ryohsuke Mitsudome, toki-1441
+
+0.49.0 (2025-12-30)
+-------------------
+* Merge remote-tracking branch 'origin/main' into prepare-0.49.0-changelog
+* refactor: fix leftover dependent autoware_utils from updating vehicle_info_utils (`#11734 <https://github.com/autowarefoundation/autoware_universe/issues/11734>`_)
+* Contributors: Mete Fatih Cırıt, Ryohsuke Mitsudome
+
+0.48.0 (2025-11-18)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat(behavior_velocity_traffic_light_module): use Trajectory instead of PathWithLaneId (`#11577 <https://github.com/autowarefoundation/autoware_universe/issues/11577>`_)
+  use Trajectory instead of PathWithLaneId
+* fix: tf2 uses hpp headers in rolling (and is backported) (`#11620 <https://github.com/autowarefoundation/autoware_universe/issues/11620>`_)
+* feat(behavior_velocity_rtc_interface, behavior_velocity\_*_module): replace PathWithLaneId with Trajectory<> class (`#11555 <https://github.com/autowarefoundation/autoware_universe/issues/11555>`_)
+* fix(crosswalk, traffic_light): correct distance calculation by swapping src and dst (`#11393 <https://github.com/autowarefoundation/autoware_universe/issues/11393>`_)
+  * fix: correct distance calculation by swapping src and dst
+  * fix: correct distance calculation by swapping src and dst
+  ---------
+* fix(traffic_light_module): update stop line when route changes (`#11293 <https://github.com/autowarefoundation/autoware_universe/issues/11293>`_)
+  * fix traffic light
+  * add comment
+  ---------
+* fix(behavior_velocity_traffic_light_module): modify the way the parameter is used (`#11263 <https://github.com/autowarefoundation/autoware_universe/issues/11263>`_)
+  * fix
+  * update document
+  * style(pre-commit): autofix
+  ---------
+  Co-authored-by: pre-commit-ci-lite[bot] <117423508+pre-commit-ci-lite[bot]@users.noreply.github.com>
+* fix(traffic_light): fix: incorrect inserted stop point calculation for restart suppression (`#11165 <https://github.com/autowarefoundation/autoware_universe/issues/11165>`_)
+* Contributors: Mitsuhiro Sakamoto, Ryohsuke Mitsudome, Satoshi OTA, Tim Clephas, Yukinari Hisaki
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+* style(pre-commit): update to clang-format-20 (`#11088 <https://github.com/autowarefoundation/autoware_universe/issues/11088>`_)
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+* style(pre-commit): autofix (`#10982 <https://github.com/autowarefoundation/autoware_universe/issues/10982>`_)
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+* feat(autoware_behavior_velocity_traffic_light_module): enhance rviz for v2i (`#10867 <https://github.com/autowarefoundation/autoware_universe/issues/10867>`_)
+  update
+* Contributors: Mete Fatih Cırıt, Ryohsuke Mitsudome, Yukinari Hisaki
+
+0.46.0 (2025-06-20)
+-------------------
+* Merge remote-tracking branch 'upstream/main' into tmp/TaikiYamada/bump_version_base
+* feat(autoware_behavior_velocity_traffic_light_module): add v2i (`#10768 <https://github.com/autowarefoundation/autoware_universe/issues/10768>`_)
+  add v2i
+* Contributors: TaikiYamada4, Yukinari Hisaki
+
+0.45.0 (2025-05-22)
+-------------------
+* Merge remote-tracking branch 'origin/main' into tmp/notbot/bump_version_base
+* feat(behavior_velocity_planner): extend stop line to path bound (`#10435 <https://github.com/autowarefoundation/autoware_universe/issues/10435>`_)
+  * extend stop line to path bound
+  * style(pre-commit): autofix
+  * change signature of stop line extension function
+  * add tests for detection area module
+  * fix test for no stopping area module
+  * fix tests for traffic light module
+  * include necessary header
+  * fix test for detection area module
+  ---------
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+* feat(behavior_velocity_planner): only wait for the required subscriptions (`#10546 <https://github.com/autowarefoundation/autoware_universe/issues/10546>`_)
+* Contributors: Mitsuhiro Sakamoto, TaikiYamada4, Takayuki Murooka
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 * Merge remote-tracking branch 'origin/main' into humble

@@ -24,6 +24,10 @@
 #include "system_monitor/traffic_reader/traffic_reader_common.hpp"
 
 #include <diagnostic_updater/diagnostic_updater.hpp>
+#include <rclcpp/rclcpp.hpp>
+
+#include <tier4_external_api_msgs/msg/network_interface_status.hpp>
+#include <tier4_external_api_msgs/msg/network_status.hpp>
 
 #include <boost/asio.hpp>
 
@@ -366,8 +370,16 @@ protected:
    */
   void close_connection();
 
+  /**
+   * @brief publish Network status
+   */
+  void publishNetworkStatus();
+
   diagnostic_updater::Updater updater_;  //!< @brief Updater class which advertises to /diagnostics
   rclcpp::TimerBase::SharedPtr timer_;   //!< @brief timer to get Network information
+
+  rclcpp::Publisher<tier4_external_api_msgs::msg::NetworkStatus>::SharedPtr
+    pub_network_status_;  //!< @brief publisher
 
   char hostname_[HOST_NAME_MAX + 1];             //!< @brief host name
   std::map<std::string, Bytes> bytes_;           //!< @brief list of bytes

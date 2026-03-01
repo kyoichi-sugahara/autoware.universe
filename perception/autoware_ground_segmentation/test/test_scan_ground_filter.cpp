@@ -17,21 +17,14 @@
 #include "tf2_ros/transform_broadcaster.h"
 
 #include <sensor_msgs/point_cloud2_iterator.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <tf2_sensor_msgs/tf2_sensor_msgs.hpp>
 
 #include <gtest/gtest.h>
+#include <yaml-cpp/yaml.h>
 
 #include <memory>
 #include <vector>
-
-#ifdef ROS_DISTRO_GALACTIC
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-#include <tf2_sensor_msgs/tf2_sensor_msgs.h>
-#else
-#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
-#include <tf2_sensor_msgs/tf2_sensor_msgs.hpp>
-#endif
-
-#include <yaml-cpp/yaml.h>
 
 void convertPCL2PointCloud2(
   const pcl::PointCloud<pcl::PointXYZI> & pcl_cloud, sensor_msgs::msg::PointCloud2 & cloud)
@@ -114,7 +107,6 @@ protected:
     parameters.emplace_back(
       rclcpp::Parameter("non_ground_height_threshold", non_ground_height_threshold_));
     parameters.emplace_back(rclcpp::Parameter("grid_size_m", grid_size_m_));
-    parameters.emplace_back(rclcpp::Parameter("grid_mode_switch_radius", grid_mode_switch_radius_));
     parameters.emplace_back(rclcpp::Parameter("gnd_grid_buffer_size", gnd_grid_buffer_size_));
     parameters.emplace_back(rclcpp::Parameter("detection_range_z_max", detection_range_z_max_));
     parameters.emplace_back(rclcpp::Parameter("elevation_grid_mode", elevation_grid_mode_));
@@ -124,6 +116,7 @@ protected:
       rclcpp::Parameter("radial_divider_angle_deg", radial_divider_angle_deg_));
     parameters.emplace_back(
       rclcpp::Parameter("use_recheck_ground_cluster", use_recheck_ground_cluster_));
+    parameters.emplace_back(rclcpp::Parameter("recheck_start_distance", recheck_start_distance_));
     parameters.emplace_back(rclcpp::Parameter("use_lowest_point", use_lowest_point_));
     parameters.emplace_back(
       rclcpp::Parameter("publish_processing_time_detail", publish_processing_time_detail_));
@@ -195,7 +188,6 @@ public:
     split_height_distance_ = params["split_height_distance"].as<float>();
     non_ground_height_threshold_ = params["non_ground_height_threshold"].as<float>();
     grid_size_m_ = params["grid_size_m"].as<float>();
-    grid_mode_switch_radius_ = params["grid_mode_switch_radius"].as<float>();
     gnd_grid_buffer_size_ = params["gnd_grid_buffer_size"].as<uint16_t>();
     detection_range_z_max_ = params["detection_range_z_max"].as<float>();
     elevation_grid_mode_ = params["elevation_grid_mode"].as<bool>();
@@ -204,6 +196,7 @@ public:
     center_pcl_shift_ = params["center_pcl_shift"].as<float>();
     radial_divider_angle_deg_ = params["radial_divider_angle_deg"].as<float>();
     use_recheck_ground_cluster_ = params["use_recheck_ground_cluster"].as<bool>();
+    recheck_start_distance_ = params["recheck_start_distance"].as<float>();
     use_lowest_point_ = params["use_lowest_point"].as<bool>();
     publish_processing_time_detail_ = params["publish_processing_time_detail"].as<bool>();
   }
@@ -214,7 +207,6 @@ public:
   float split_height_distance_ = 0.0;
   float non_ground_height_threshold_ = 0.0;
   float grid_size_m_ = 0.0;
-  float grid_mode_switch_radius_ = 0.0;
   uint16_t gnd_grid_buffer_size_ = 0;
   float detection_range_z_max_ = 0.0;
   bool elevation_grid_mode_ = false;
@@ -223,6 +215,7 @@ public:
   float center_pcl_shift_;
   float radial_divider_angle_deg_;
   bool use_recheck_ground_cluster_;
+  float recheck_start_distance_;
   bool use_lowest_point_;
   bool publish_processing_time_detail_;
 };

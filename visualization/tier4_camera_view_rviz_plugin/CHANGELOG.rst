@@ -2,6 +2,37 @@
 Changelog for package tier4_camera_view_rviz_plugin
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat: visualization related packages support jazzy (`#11621 <https://github.com/autowarefoundation/autoware_universe/issues/11621>`_)
+  fix::visualization::fix visualization packages compile error when using ros2 jazzy
+* Contributors: Ryohsuke Mitsudome, 心刚
+
+0.49.0 (2025-12-30)
+-------------------
+
+0.48.0 (2025-11-18)
+-------------------
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+
+0.46.0 (2025-06-20)
+-------------------
+
+0.45.0 (2025-05-22)
+-------------------
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 

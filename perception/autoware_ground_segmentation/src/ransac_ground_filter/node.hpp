@@ -19,6 +19,8 @@
 #include "autoware_utils/system/time_keeper.hpp"
 
 #include <managed_transform_buffer/managed_transform_buffer.hpp>
+#include <tf2/transform_datatypes.hpp>
+#include <tf2_eigen/tf2_eigen.hpp>
 
 #include <geometry_msgs/msg/pose_array.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
@@ -27,13 +29,6 @@
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl_conversions/pcl_conversions.h>
-#include <tf2/transform_datatypes.h>
-
-#ifdef ROS_DISTRO_GALACTIC
-#include <tf2_eigen/tf2_eigen.h>
-#else
-#include <tf2_eigen/tf2_eigen.hpp>
-#endif
 
 #include <chrono>
 #include <memory>
@@ -119,7 +114,7 @@ private:
   OnSetParametersCallbackHandle::SharedPtr set_param_res_;
 
   /** \brief Parameter service callback */
-  rcl_interfaces::msg::SetParametersResult paramCallback(const std::vector<rclcpp::Parameter> & p);
+  rcl_interfaces::msg::SetParametersResult param_callback(const std::vector<rclcpp::Parameter> & p);
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW

@@ -56,6 +56,11 @@ void InputStream::onMessage(
 
   types::DynamicObjectList dynamic_objects = types::toDynamicObjectList(objects, channel_.index);
 
+  // Set trust_extension information from channel configuration
+  for (auto & object : dynamic_objects.objects) {
+    object.trust_extension = channel_.trust_extension;
+  }
+
   // Model the object uncertainty only if it is not available
   types::DynamicObjectList objects_with_uncertainty =
     uncertainty::modelUncertainty(dynamic_objects);
@@ -94,19 +99,17 @@ void InputStream::onMessage(
       object.shape.dimensions.y = object.shape.dimensions.x;
     }
     // else, it is bounding box and nothing to do
-
-    // calculate nearest point
-    const auto self_transform = odometry_->getTransform(timestamp);
-    if (!self_transform) {
-      return;
-    }
-    shapes::getNearestCornerOrSurface(*self_transform, object);
-
-    // if object extension is not reliable, enlarge covariance of position and extend shape
   }
 
   // Normalize the object uncertainty
   uncertainty::normalizeUncertainty(dynamic_objects);
+
+  // If the channel does not trust existence probability, set it to default
+  if (!channel_.trust_existence_probability) {
+    for (auto & object : dynamic_objects.objects) {
+      object.existence_probability = types::default_existence_probability;
+    }
+  }
 
   // Move the objects_with_uncertainty to the objects queue
   objects_que_.push_back(std::move(dynamic_objects));

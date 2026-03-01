@@ -9,8 +9,7 @@
 
     thresholds:
       max_distance_deviation: 1.0
-      lateral_jerk: 5.0
-      steering_rate: 2.0 # rad/s
+      lateral_jerk: 10.0
       acc_error_offset: 0.8
       acc_error_scale: 0.2
       rolling_back_velocity: 0.5
@@ -21,7 +20,13 @@
       assumed_limit_acc: 5.0
       assumed_delay_time: 0.2
       nominal_latency: 0.01
+      yaw_deviation_error: 1.0
+      yaw_deviation_warn: 0.5
 
     acc_lpf_gain: 0.97 # Time constant 1.11s
     vel_lpf_gain: 0.9 # Time constant 0.33
     hold_velocity_error_until_stop: true
+
+    over_velocity:
+      # Longer time constant to avoid reacting to instantaneous velocity changes
+      vel_lpf_gain: 0.985 # Time constant 2.0s at 30msec sampling period

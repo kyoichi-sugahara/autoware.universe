@@ -25,6 +25,7 @@
 #include <autoware/motion_utils/trajectory/trajectory.hpp>
 #include <autoware_utils/geometry/geometry.hpp>
 #include <autoware_utils/ros/parameter.hpp>
+#include <autoware_utils/ros/published_time_publisher.hpp>
 #include <autoware_utils/ros/update_param.hpp>
 #include <autoware_utils/system/stop_watch.hpp>
 
@@ -51,11 +52,10 @@ void DynamicObstacleStopModule::init(rclcpp::Node & node, const std::string & mo
     node.create_publisher<visualization_msgs::msg::MarkerArray>("~/" + ns_ + "/debug_markers", 1);
   virtual_wall_publisher_ =
     node.create_publisher<visualization_msgs::msg::MarkerArray>("~/" + ns_ + "/virtual_walls", 1);
+  debug_trajectory_publisher_ = node.create_publisher<autoware_planning_msgs::msg::Trajectory>(
+    "~/debug/" + ns_ + "/trajectory", 1);
   processing_diag_publisher_ = std::make_shared<autoware_utils::ProcessingTimePublisher>(
     &node, "~/debug/" + ns_ + "/processing_time_ms_diag");
-  processing_time_publisher_ =
-    node.create_publisher<autoware_internal_debug_msgs::msg::Float64Stamped>(
-      "~/debug/" + ns_ + "/processing_time_ms", 1);
 
   using autoware_utils::get_or_declare_parameter;
   auto & p = params_;
@@ -96,14 +96,6 @@ void DynamicObstacleStopModule::update_parameters(const std::vector<rclcpp::Para
   update_param(parameters, ns_ + ".ignore_unavoidable_collisions", p.ignore_unavoidable_collisions);
 }
 
-void DynamicObstacleStopModule::publish_processing_time(const double processing_time_ms)
-{
-  autoware_internal_debug_msgs::msg::Float64Stamped processing_time_msg;
-  processing_time_msg.stamp = clock_->now();
-  processing_time_msg.data = processing_time_ms;
-  processing_time_publisher_->publish(processing_time_msg);
-}
-
 VelocityPlanningResult DynamicObstacleStopModule::plan(
   [[maybe_unused]] const std::vector<autoware_planning_msgs::msg::TrajectoryPoint> &
     raw_trajectory_points,
@@ -114,7 +106,6 @@ VelocityPlanningResult DynamicObstacleStopModule::plan(
   debug_data_.reset_data();
   autoware_utils::StopWatch<std::chrono::microseconds> stopwatch;
   if (smoothed_trajectory_points.size() < 2) {
-    publish_processing_time(stopwatch.toc() / 1000);
     return result;
   }
 
@@ -201,7 +192,6 @@ VelocityPlanningResult DynamicObstacleStopModule::plan(
   processing_times["collisions"] = collisions_duration_us / 1000;
   processing_times["Total"] = total_time_us / 1000;
   processing_diag_publisher_->publish(processing_times);
-  publish_processing_time(processing_times["Total"]);
   return result;
 }
 

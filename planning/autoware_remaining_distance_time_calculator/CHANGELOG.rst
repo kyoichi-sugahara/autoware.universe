@@ -2,6 +2,52 @@
 Changelog for package autoware_remaining_distance_time_calculator
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* refactor(planning): deprecate getClosestLanelet usage (`#12032 <https://github.com/autowarefoundation/autoware_universe/issues/12032>`_)
+* Contributors: Mamoru Sobue, Ryohsuke Mitsudome
+
+0.49.0 (2025-12-30)
+-------------------
+* Merge remote-tracking branch 'origin/main' into prepare-0.49.0-changelog
+* feat(autoware_lanelet2_utils): replace from/toBinMsg (Planning and Control Component) (`#11784 <https://github.com/autowarefoundation/autoware_universe/issues/11784>`_)
+  * planning component toBinMsg replacement
+  * control component fromBinMsg replacement
+  * planning component fromBinMsg replacement
+  ---------
+* Contributors: Ryohsuke Mitsudome, Sarun MUKDAPITAK
+
+0.48.0 (2025-11-18)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat(autoware_lanelet2_utils): replace ported functions from autoware_lanelet2_extension (`#11593 <https://github.com/autowarefoundation/autoware_universe/issues/11593>`_)
+  Co-authored-by: Mamoru Sobue <hilo.soblin@gmail.com>
+* feat(autoware_remaining_distance_time_calculator): pre-load all the road lanes to speed up processing time (`#11408 <https://github.com/autowarefoundation/autoware_universe/issues/11408>`_)
+  * pre-load all the road lanes to speed up processing time
+  * remove optional and add size checks
+  * remove unnecessary includes
+  ---------
+* Contributors: Ryohsuke Mitsudome, Sarun MUKDAPITAK, danielsanchezaran
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+
+0.46.0 (2025-06-20)
+-------------------
+
+0.45.0 (2025-05-22)
+-------------------
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 * Merge remote-tracking branch 'origin/main' into humble

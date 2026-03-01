@@ -60,6 +60,8 @@ public:
 
   double getEgoSpeed() const { return std::abs(data_->self_odometry->twist.twist.linear.x); }
 
+  bool isVehicleStopped() const { return getEgoSpeed() < 0.3; }
+
   geometry_msgs::msg::Pose getEgoPose() const { return data_->self_odometry->pose.pose; }
 
   geometry_msgs::msg::Point getEgoPosition() const
@@ -75,10 +77,16 @@ public:
     return 0 < idx ? idx - 1 : 0;
   }
 
-  double getLateralMinJerkLimit() const
+  double getAvoidanceLateralMinJerkLimit() const
   {
     const auto idx = getConstraintsMapIndex(getEgoSpeed(), parameters_->velocity_map);
-    return parameters_->lateral_min_jerk_map.at(idx);
+    return parameters_->avoid_lateral_min_jerk_map.at(idx);
+  }
+
+  double getReturnLateralMinJerkLimit() const
+  {
+    const auto idx = getConstraintsMapIndex(getEgoSpeed(), parameters_->velocity_map);
+    return parameters_->return_lateral_min_jerk_map.at(idx);
   }
 
   double getLateralMaxJerkLimit() const
@@ -119,7 +127,17 @@ public:
     const auto & p = parameters_;
     const auto nominal_speed = std::max(getEgoSpeed(), p->nominal_avoidance_speed);
     const auto nominal_jerk =
-      p->lateral_min_jerk_map.at(getConstraintsMapIndex(nominal_speed, p->velocity_map));
+      p->avoid_lateral_min_jerk_map.at(getConstraintsMapIndex(nominal_speed, p->velocity_map));
+    return autoware::motion_utils::calc_longitudinal_dist_from_jerk(
+      shift_length, nominal_jerk, nominal_speed);
+  }
+
+  double getNominalReturnDistance(const double shift_length) const
+  {
+    const auto & p = parameters_;
+    const auto nominal_speed = std::max(getEgoSpeed(), p->nominal_avoidance_speed);
+    const auto nominal_jerk =
+      p->return_lateral_min_jerk_map.at(getConstraintsMapIndex(nominal_speed, p->velocity_map));
     return autoware::motion_utils::calc_longitudinal_dist_from_jerk(
       shift_length, nominal_jerk, nominal_speed);
   }
@@ -134,8 +152,15 @@ public:
   double getMaxAvoidanceDistance(const double shift_length) const
   {
     const auto distance_from_jerk = autoware::motion_utils::calc_longitudinal_dist_from_jerk(
-      shift_length, getLateralMinJerkLimit(), getAvoidanceEgoSpeed());
+      shift_length, getAvoidanceLateralMinJerkLimit(), getAvoidanceEgoSpeed());
     return std::max(getNominalAvoidanceDistance(shift_length), distance_from_jerk);
+  }
+
+  double getMaxReturnDistance(const double shift_length) const
+  {
+    const auto distance_from_jerk = autoware::motion_utils::calc_longitudinal_dist_from_jerk(
+      shift_length, getReturnLateralMinJerkLimit(), getAvoidanceEgoSpeed());
+    return std::max(getNominalReturnDistance(shift_length), distance_from_jerk);
   }
 
   double getSharpAvoidanceDistance(const double shift_length) const
@@ -231,7 +256,7 @@ public:
     const auto max_shift_length = std::max(
       std::abs(parameters_->max_right_shift_length), std::abs(parameters_->max_left_shift_length));
     const auto dynamic_distance = autoware::motion_utils::calc_longitudinal_dist_from_jerk(
-      max_shift_length, getLateralMinJerkLimit(), speed);
+      max_shift_length, getAvoidanceLateralMinJerkLimit(), speed);
 
     return std::clamp(
       1.5 * dynamic_distance + getNominalPrepareDistance(),
@@ -306,6 +331,10 @@ public:
 
   bool isEnoughPrepareDistance(const double prepare_distance) const
   {
+    if (isVehicleStopped() && parameters_->policy_close_distance_avoidance != "ignore") {
+      return true;  // too slow to prepare
+    }
+
     const auto & p = parameters_;
     return prepare_distance >
            std::max(getEgoSpeed() * p->min_prepare_time, p->min_prepare_distance);
@@ -346,6 +375,23 @@ public:
     }
 
     const auto & object = objects.front();
+
+    if (object.is_parking_violation && parameters_->policy_parking_violation_vehicle == "manual") {
+      return std::make_pair(false, true);
+    }
+
+    if (
+      object.is_adjacent_lane_stop_vehicle &&
+      parameters_->policy_adjacent_lane_stop_vehicle == "manual") {
+      return std::make_pair(false, true);
+    }
+
+    if (object.info == ObjectInfo::CLOSE_DISTANCE_AVOIDANCE) {
+      if (parameters_->policy_close_distance_avoidance == "manual") {
+        return std::make_pair(false, true);
+      }
+      return std::make_pair(true, false);
+    }
 
     // if the object is NOT ambiguous, this module doesn't wait operator approval if RTC is running
     // as AUTO mode.

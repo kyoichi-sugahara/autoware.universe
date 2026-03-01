@@ -22,22 +22,16 @@
 
 #include <autoware_utils/ros/diagnostics_interface.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <tf2/LinearMath/Transform.hpp>
+#include <tf2/convert.hpp>
+#include <tf2/transform_datatypes.hpp>
 
 #include "autoware_perception_msgs/msg/detected_objects.hpp"
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include <message_filters/subscriber.h>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/synchronizer.h>
-#include <tf2/LinearMath/Transform.h>
-#include <tf2/convert.h>
-#include <tf2/transform_datatypes.h>
-
-#ifdef ROS_DISTRO_GALACTIC
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-#else
-#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
-#endif
-
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 
@@ -51,9 +45,11 @@ namespace autoware::object_merger
 {
 class ObjectAssociationMergerNode : public rclcpp::Node
 {
+  using Label = autoware_perception_msgs::msg::ObjectClassification;
+
 public:
   explicit ObjectAssociationMergerNode(const rclcpp::NodeOptions & node_options);
-  enum class PriorityMode : int { Object0 = 0, Object1 = 1, Confidence = 2 };
+  enum class PriorityMode : int { Object0 = 0, Object1 = 1, Confidence = 2, ClassBased = 3 };
 
 private:
   void objectsCallback(
@@ -86,6 +82,10 @@ private:
   std::unique_ptr<autoware_utils::DiagnosticsInterface> diagnostics_interface_ptr_;
 
   PriorityMode priority_mode_;
+  std::vector<int64_t> class_based_priority_matrix_;
+
+  int NUMBER_OF_CLASSES_;
+
   bool remove_overlapped_unknown_objects_;
   struct
   {

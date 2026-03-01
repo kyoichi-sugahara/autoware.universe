@@ -14,20 +14,21 @@
 
 #include "map_based_prediction/map_based_prediction_node.hpp"
 
+#include "map_based_prediction/data_structure.hpp"
 #include "map_based_prediction/utils.hpp"
 
 #include <autoware/interpolation/linear_interpolation.hpp>
+#include <autoware/lanelet2_utils/conversion.hpp>
+#include <autoware/lanelet2_utils/geometry.hpp>
 #include <autoware/motion_utils/resample/resample.hpp>
 #include <autoware/motion_utils/trajectory/trajectory.hpp>
-#include <autoware_lanelet2_extension/utility/message_conversion.hpp>
-#include <autoware_lanelet2_extension/utility/query.hpp>
-#include <autoware_lanelet2_extension/utility/utilities.hpp>
+#include <autoware/object_recognition_utils/object_recognition_utils.hpp>
 #include <autoware_utils/autoware_utils.hpp>
 #include <autoware_utils/geometry/geometry.hpp>
 #include <autoware_utils/math/constants.hpp>
 #include <autoware_utils/math/normalization.hpp>
 #include <autoware_utils/math/unit_conversion.hpp>
-#include <autoware_utils/ros/uuid_helper.hpp>
+#include <tf2/utils.hpp>
 
 #include <autoware_perception_msgs/msg/detected_objects.hpp>
 #include <diagnostic_msgs/msg/diagnostic_status.hpp>
@@ -42,7 +43,6 @@
 #include <lanelet2_core/geometry/LaneletMap.h>
 #include <lanelet2_core/geometry/Point.h>
 #include <lanelet2_routing/RoutingGraph.h>
-#include <tf2/utils.h>
 
 #include <algorithm>
 #include <chrono>
@@ -169,12 +169,12 @@ void calcLateralKinematics(
 /**
  * @brief look for matching lanelet between current/previous object state and calculate velocity
  *
- * @param prev_obj previous ObjectData
- * @param current_obj current ObjectData to be updated
+ * @param prev_obj previous RoadUser
+ * @param current_obj current RoadUser to be updated
  * @param routing_graph_ptr_ routing graph pointer
  */
 void updateLateralKinematicsVector(
-  const ObjectData & prev_obj, ObjectData & current_obj,
+  const RoadUser & prev_obj, RoadUser & current_obj,
   const lanelet::routing::RoutingGraphPtr routing_graph_ptr_, const double lowpass_cutoff)
 {
   const double dt = (current_obj.header.stamp.sec - prev_obj.header.stamp.sec) +
@@ -343,8 +343,9 @@ void replaceObjectYawWithLaneletsYaw(
   double sum_x = 0.0;
   double sum_y = 0.0;
   for (const auto & current_lanelet : current_lanelets) {
-    const auto lanelet_angle =
-      lanelet::utils::getLaneletAngle(current_lanelet.lanelet, pose_with_cov.pose.position);
+    const auto lanelet_angle = autoware::experimental::lanelet2_utils::get_lanelet_angle(
+      current_lanelet.lanelet,
+      autoware::experimental::lanelet2_utils::from_ros(pose_with_cov.pose).basicPoint());
     sum_x += std::cos(lanelet_angle);
     sum_y += std::sin(lanelet_angle);
   }
@@ -442,10 +443,15 @@ MapBasedPredictionNode::MapBasedPredictionNode(const rclcpp::NodeOptions & node_
     double min_crosswalk_user_velocity = declare_parameter<double>("min_crosswalk_user_velocity");
     double max_crosswalk_user_delta_yaw_threshold_for_lanelet =
       declare_parameter<double>("max_crosswalk_user_delta_yaw_threshold_for_lanelet");
+    double max_crosswalk_user_on_road_distance =
+      declare_parameter<double>("max_crosswalk_user_on_road_distance");
     bool use_crosswalk_signal =
       declare_parameter<bool>("crosswalk_with_signal.use_crosswalk_signal");
     double threshold_velocity_assumed_as_stopping =
       declare_parameter<double>("crosswalk_with_signal.threshold_velocity_assumed_as_stopping");
+    double crossing_intention_duration = declare_parameter<double>("crossing_intention_duration");
+    double no_crossing_intention_duration =
+      declare_parameter<double>("no_crossing_intention_duration");
     std::vector<double> distance_set_for_no_intention_to_walk =
       declare_parameter<std::vector<double>>(
         "crosswalk_with_signal.distance_set_for_no_intention_to_walk");
@@ -454,10 +460,11 @@ MapBasedPredictionNode::MapBasedPredictionNode(const rclcpp::NodeOptions & node_
         "crosswalk_with_signal.timeout_set_for_no_intention_to_walk");
     predictor_vru_->setParameters(
       match_lost_and_appeared_crosswalk_users, min_crosswalk_user_velocity,
-      max_crosswalk_user_delta_yaw_threshold_for_lanelet, use_crosswalk_signal,
-      threshold_velocity_assumed_as_stopping, distance_set_for_no_intention_to_walk,
-      timeout_set_for_no_intention_to_walk, prediction_sampling_time_interval_,
-      prediction_time_horizon_.pedestrian);
+      max_crosswalk_user_delta_yaw_threshold_for_lanelet, max_crosswalk_user_on_road_distance,
+      use_crosswalk_signal, threshold_velocity_assumed_as_stopping,
+      distance_set_for_no_intention_to_walk, timeout_set_for_no_intention_to_walk,
+      prediction_sampling_time_interval_, prediction_time_horizon_.pedestrian,
+      crossing_intention_duration, no_crossing_intention_duration);
   }
 
   // debug parameter
@@ -599,9 +606,17 @@ void MapBasedPredictionNode::updateDiagnostics(
 void MapBasedPredictionNode::mapCallback(const LaneletMapBin::ConstSharedPtr msg)
 {
   RCLCPP_DEBUG(get_logger(), "[Map Based Prediction]: Start loading lanelet");
-  lanelet_map_ptr_ = std::make_shared<lanelet::LaneletMap>();
-  lanelet::utils::conversion::fromBinMsg(
-    *msg, lanelet_map_ptr_, &traffic_rules_ptr_, &routing_graph_ptr_);
+  lanelet_map_ptr_ = autoware::experimental::lanelet2_utils::remove_const(
+    autoware::experimental::lanelet2_utils::from_autoware_map_msgs(*msg));
+
+  auto routing_graph_and_traffic_rules =
+    autoware::experimental::lanelet2_utils::instantiate_routing_graph_and_traffic_rules(
+      lanelet_map_ptr_);
+
+  routing_graph_ptr_ =
+    autoware::experimental::lanelet2_utils::remove_const(routing_graph_and_traffic_rules.first);
+  traffic_rules_ptr_ = routing_graph_and_traffic_rules.second;
+
   lru_cache_of_convert_path_type_.clear();  // clear cache
   RCLCPP_DEBUG(get_logger(), "[Map Based Prediction]: Map is loaded");
 
@@ -680,9 +695,11 @@ void MapBasedPredictionNode::objectsCallback(const TrackedObjects::ConstSharedPt
       transformed_object.kinematics.pose_with_covariance.pose = pose_in_map.pose;
     }
 
-    // get tracking label and update it for the prediction
-    const auto & label_ = transformed_object.classification.front().label;
-    const auto label = utils::changeLabelForPrediction(label_, object, lanelet_map_ptr_);
+    // get the maximum probability label from the classification array
+    const auto & label_ =
+      autoware::object_recognition_utils::getHighestProbLabel(transformed_object.classification);
+    // overwrite the label for VRU in specific cases
+    const auto label = utils::changeVRULabelForPrediction(label_, object, lanelet_map_ptr_);
 
     switch (label) {
       case ObjectClassification::PEDESTRIAN:
@@ -767,12 +784,6 @@ void MapBasedPredictionNode::updateObjectData(TrackedObject & object)
     return;
   }
 
-  // Compute yaw angle from the velocity and position of the object
-  const auto & object_pose = object.kinematics.pose_with_covariance.pose;
-  const auto & object_twist = object.kinematics.twist_with_covariance.twist;
-  const auto future_object_pose = autoware_utils::calc_offset_pose(
-    object_pose, object_twist.linear.x * 0.1, object_twist.linear.y * 0.1, 0.0);
-
   // assumption: the object vx is much larger than vy
   if (object.kinematics.twist_with_covariance.twist.linear.x >= 0.0) return;
 
@@ -783,26 +794,19 @@ void MapBasedPredictionNode::updateObjectData(TrackedObject & object)
   constexpr double min_abs_speed = 1e-1;  // 0.1 m/s
   if (abs_object_speed < min_abs_speed) return;
 
-  switch (object.kinematics.orientation_availability) {
-    case autoware_perception_msgs::msg::TrackedObjectKinematics::SIGN_UNKNOWN: {
-      const auto original_yaw =
-        tf2::getYaw(object.kinematics.pose_with_covariance.pose.orientation);
-      // flip the angle
-      object.kinematics.pose_with_covariance.pose.orientation =
-        autoware_utils::create_quaternion_from_yaw(autoware_utils::pi + original_yaw);
-      break;
-    }
-    default: {
-      const auto updated_object_yaw =
-        autoware_utils::calc_azimuth_angle(object_pose.position, future_object_pose.position);
+  // invert yaw to align with tracked movement when state is SIGN_UNKNOWN
+  if (
+    object.kinematics.orientation_availability ==
+    autoware_perception_msgs::msg::TrackedObjectKinematics::SIGN_UNKNOWN) {
+    const auto original_yaw = tf2::getYaw(object.kinematics.pose_with_covariance.pose.orientation);
+    // flip the angle
+    object.kinematics.pose_with_covariance.pose.orientation =
+      autoware_utils::create_quaternion_from_yaw(autoware_utils::pi + original_yaw);
 
-      object.kinematics.pose_with_covariance.pose.orientation =
-        autoware_utils::create_quaternion_from_yaw(updated_object_yaw);
-      break;
-    }
+    // flip the vector
+    object.kinematics.twist_with_covariance.twist.linear.x *= -1.0;
+    object.kinematics.twist_with_covariance.twist.linear.y *= -1.0;
   }
-  object.kinematics.twist_with_covariance.twist.linear.x *= -1.0;
-  object.kinematics.twist_with_covariance.twist.linear.y *= -1.0;
 
   return;
 }
@@ -827,36 +831,35 @@ void MapBasedPredictionNode::updateRoadUsersHistory(
   std::string object_id = autoware_utils::to_hex_string(object.object_id);
   const auto current_lanelets = getLanelets(current_lanelets_data);
 
-  ObjectData single_object_data;
-  single_object_data.header = header;
-  single_object_data.current_lanelets = current_lanelets;
-  single_object_data.future_possible_lanelets = current_lanelets;
-  single_object_data.pose = object.kinematics.pose_with_covariance.pose;
+  RoadUser road_user;
+  road_user.header = header;
+  road_user.current_lanelets = current_lanelets;
+  road_user.future_possible_lanelets = current_lanelets;
+  road_user.pose = object.kinematics.pose_with_covariance.pose;
   const double object_yaw = tf2::getYaw(object.kinematics.pose_with_covariance.pose.orientation);
-  single_object_data.pose.orientation = autoware_utils::create_quaternion_from_yaw(object_yaw);
-  single_object_data.time_delay = std::fabs((this->get_clock()->now() - header.stamp).seconds());
-  single_object_data.twist = object.kinematics.twist_with_covariance.twist;
+  road_user.pose.orientation = autoware_utils::create_quaternion_from_yaw(object_yaw);
+  road_user.time_delay = std::fabs((this->get_clock()->now() - header.stamp).seconds());
+  road_user.twist = object.kinematics.twist_with_covariance.twist;
 
   // Init lateral kinematics
   for (const auto & current_lane : current_lanelets) {
     const LateralKinematicsToLanelet lateral_kinematics =
-      initLateralKinematics(current_lane, single_object_data.pose);
-    single_object_data.lateral_kinematics_set[current_lane] = lateral_kinematics;
+      initLateralKinematics(current_lane, road_user.pose);
+    road_user.lateral_kinematics_set[current_lane] = lateral_kinematics;
   }
 
   if (road_users_history_.count(object_id) == 0) {
     // New Object(Create a new object in object histories)
-    std::deque<ObjectData> object_data = {single_object_data};
-    road_users_history_.emplace(object_id, object_data);
+    road_users_history_.emplace(object_id, std::deque<RoadUser>({road_user}));
   } else {
     // Object that is already in the object buffer
-    std::deque<ObjectData> & object_data = road_users_history_.at(object_id);
+    std::deque<RoadUser> & road_users = road_users_history_.at(object_id);
     // get previous object data and update
-    const auto prev_object_data = object_data.back();
+    const auto prev_road_user = road_users.back();
     updateLateralKinematicsVector(
-      prev_object_data, single_object_data, routing_graph_ptr_, cutoff_freq_of_velocity_lpf_);
+      prev_road_user, road_user, routing_graph_ptr_, cutoff_freq_of_velocity_lpf_);
 
-    object_data.push_back(single_object_data);
+    road_users.push_back(road_user);
   }
 }
 
@@ -933,7 +936,7 @@ std::vector<LaneletPathWithPathInfo> MapBasedPredictionNode::getPredictedReferen
       double search_dist = (final_speed_surpasses_limit && !object_has_surpassed_limit_already)
                              ? get_search_distance_with_partial_acc(target_speed_limit)
                              : get_search_distance_with_decaying_acc();
-      search_dist += lanelet::utils::getLaneletLength3d(current_lanelet_data.lanelet);
+      search_dist += lanelet::geometry::length3d(current_lanelet_data.lanelet);
       possible_params.routingCostLimit = search_dist;
     }
 
@@ -1140,7 +1143,7 @@ Maneuver MapBasedPredictionNode::predictObjectManeuverByTimeToLaneChange(
     return Maneuver::LANE_FOLLOW;
   }
 
-  const std::deque<ObjectData> & object_info = road_users_history_.at(object_id);
+  const std::deque<RoadUser> & object_info = road_users_history_.at(object_id);
 
   // Step2. Check if object history length longer than history_time_length
   const int latest_id = static_cast<int>(object_info.size()) - 1;
@@ -1213,7 +1216,7 @@ Maneuver MapBasedPredictionNode::predictObjectManeuverByLatDiffDistance(
     return Maneuver::LANE_FOLLOW;
   }
 
-  const std::deque<ObjectData> & object_info = road_users_history_.at(object_id);
+  const std::deque<RoadUser> & object_info = road_users_history_.at(object_id);
   const double current_time = (this->get_clock()->now()).seconds();
 
   // Step2. Get the previous id
@@ -1244,7 +1247,8 @@ Maneuver MapBasedPredictionNode::predictObjectManeuverByLatDiffDistance(
   lanelet::ConstLanelet prev_lanelet = prev_lanelets.front();
   double closest_prev_yaw = std::numeric_limits<double>::max();
   for (const auto & lanelet : prev_lanelets) {
-    const double lane_yaw = lanelet::utils::getLaneletAngle(lanelet, prev_pose.position);
+    const double lane_yaw = autoware::experimental::lanelet2_utils::get_lanelet_angle(
+      lanelet, autoware::experimental::lanelet2_utils::from_ros(prev_pose).basicPoint());
     const double delta_yaw = tf2::getYaw(prev_pose.orientation) - lane_yaw;
     const double normalized_delta_yaw = autoware_utils::normalize_radian(delta_yaw);
     if (normalized_delta_yaw < closest_prev_yaw) {
@@ -1466,7 +1470,7 @@ std::pair<PosePath, double> MapBasedPredictionNode::convertLaneletPathToPosePath
         geometry_msgs::msg::Pose prev_p;
         for (const auto & lanelet_p : prev_lanelet.centerline()) {
           geometry_msgs::msg::Pose current_p;
-          current_p.position = lanelet::utils::conversion::toGeomMsgPt(lanelet_p);
+          current_p.position = experimental::lanelet2_utils::to_ros(lanelet_p);
           if (init_flag) {
             init_flag = false;
             prev_p = current_p;
@@ -1494,7 +1498,7 @@ std::pair<PosePath, double> MapBasedPredictionNode::convertLaneletPathToPosePath
       geometry_msgs::msg::Pose prev_p;
       for (const auto & lanelet_p : lanelet.centerline()) {
         geometry_msgs::msg::Pose current_p;
-        current_p.position = lanelet::utils::conversion::toGeomMsgPt(lanelet_p);
+        current_p.position = experimental::lanelet2_utils::to_ros(lanelet_p);
         if (init_flag) {
           init_flag = false;
           prev_p = current_p;

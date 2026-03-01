@@ -15,22 +15,17 @@
 #include "ament_index_cpp/get_package_share_directory.hpp"
 #include "autoware/simple_planning_simulator/simple_planning_simulator_core.hpp"
 #include "gtest/gtest.h"
-#include "tf2/utils.h"
 
+#include <tf2/utils.hpp>
+
+#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 #include "tier4_vehicle_msgs/msg/actuation_command_stamped.hpp"
 
 #include <iostream>
+#include <memory>
 #include <string>
 #include <tuple>
 #include <utility>
-
-#ifdef ROS_DISTRO_GALACTIC
-#include "tf2_geometry_msgs/tf2_geometry_msgs.h"
-#else
-#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
-#endif
-
-#include <memory>
 
 namespace autoware::simulator::simple_planning_simulator
 {

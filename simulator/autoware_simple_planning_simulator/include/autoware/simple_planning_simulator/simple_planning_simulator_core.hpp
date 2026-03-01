@@ -118,17 +118,6 @@ public:
   std::shared_ptr<std::normal_distribution<>> steer_dist_;
 };
 
-class BrownianNoiseGenerator
-{
-public:
-  BrownianNoiseGenerator() {}
-
-  std::shared_ptr<std::mt19937> rand_engine_;
-  double accumulated_pos_x_ = 0.0;
-  double accumulated_pos_y_ = 0.0;
-  std::shared_ptr<std::normal_distribution<>> pos_dist_;
-};
-
 using InputCommand = std::variant<std::monostate, ActuationCommandStamped, Control>;
 
 class PLANNING_SIMULATOR_PUBLIC SimplePlanningSimulator : public rclcpp::Node
@@ -212,14 +201,12 @@ private:
   /* flags */
   bool is_initialized_ = false;         //!< @brief flag to check the initial position is set
   bool add_measurement_noise_ = false;  //!< @brief flag to add measurement noise
-  bool add_brownian_noise_ = false;     //!< @brief flag to add brownian noise
 
   InputCommand current_input_command_{};
 
   DeltaTime delta_time_{};  //!< @brief to calculate delta time
 
   MeasurementNoiseGenerator measurement_noise_{};  //!< @brief for measurement noise
-  BrownianNoiseGenerator brownian_noise_{};        //!< @brief for brownian noise
 
   double x_stddev_ = 0.0;  //!< @brief x standard deviation for dummy covariance in map coordinate
   double y_stddev_ = 0.0;  //!< @brief y standard deviation for dummy covariance in map coordinate
@@ -340,12 +327,6 @@ private:
    * @param [in] steer steering to add noise
    */
   void add_measurement_noise(Odometry & odom, VelocityReport & vel, SteeringReport & steer) const;
-
-  /**
-   * @brief add brownian noise
-   * @param [in] odometry odometry to add noise
-   */
-  void add_brownian_noise(Odometry & odom) const;
 
   /**
    * @brief set initial state of simulated vehicle

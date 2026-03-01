@@ -2,6 +2,66 @@
 Changelog for package autoware_path_optimizer
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* fix(path_optimizer): eliminate redundant move (`#11874 <https://github.com/autowarefoundation/autoware_universe/issues/11874>`_)
+* Contributors: Mete Fatih Cırıt, Ryohsuke Mitsudome
+
+0.49.0 (2025-12-30)
+-------------------
+* Merge remote-tracking branch 'origin/main' into prepare-0.49.0-changelog
+* docs: fix broken links (`#11815 <https://github.com/autowarefoundation/autoware_universe/issues/11815>`_)
+* feat(autoware_vehicle_info_utils): refactor footprint generation (`#11696 <https://github.com/autowarefoundation/autoware_universe/issues/11696>`_)
+  Co-authored-by: Mamoru Sobue <hilo.soblin@gmail.com>
+* feat(path_optimiser): added logging for MPT (`#11771 <https://github.com/autowarefoundation/autoware_universe/issues/11771>`_)
+  * added logging
+  * style(pre-commit): autofix
+  ---------
+  Co-authored-by: pre-commit-ci-lite[bot] <117423508+pre-commit-ci-lite[bot]@users.noreply.github.com>
+* refactor: fix leftover dependent autoware_utils from updating vehicle_info_utils (`#11734 <https://github.com/autowarefoundation/autoware_universe/issues/11734>`_)
+* Contributors: Arjun Jagdish Ram, Mete Fatih Cırıt, Ryohsuke Mitsudome, Sarun MUKDAPITAK
+
+0.48.0 (2025-11-18)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* fix: tf2 uses hpp headers in rolling (and is backported) (`#11620 <https://github.com/autowarefoundation/autoware_universe/issues/11620>`_)
+* fix(path_optimizer): fix out_of_range die (`#11211 <https://github.com/autowarefoundation/autoware_universe/issues/11211>`_)
+* Contributors: Kosuke Takeuchi, Ryohsuke Mitsudome, Tim Clephas
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+* style(pre-commit): autofix (`#10982 <https://github.com/autowarefoundation/autoware_universe/issues/10982>`_)
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+* Contributors: Ryohsuke Mitsudome
+
+0.46.0 (2025-06-20)
+-------------------
+* Merge remote-tracking branch 'upstream/main' into tmp/TaikiYamada/bump_version_base
+* fix(path_optimizer): undefined behavior when optimizer failure (`#10726 <https://github.com/autowarefoundation/autoware_universe/issues/10726>`_)
+  * change AND condition to OR
+  * fix condition again
+  Co-authored-by: Arjun Jagdish Ram <arjun.ram@tier4.jp>
+  * fix build error
+  * revert is_optimization_failed\_ condition
+  * minor refactoring (`#1 <https://github.com/autowarefoundation/autoware_universe/issues/1>`_)
+  ---------
+  Co-authored-by: Arjun Jagdish Ram <arjun.ram@tier4.jp>
+  Co-authored-by: Takayuki Murooka <takayuki5168@gmail.com>
+* Contributors: Kento Yabuuchi, TaikiYamada4
+
+0.45.0 (2025-05-22)
+-------------------
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 * Merge remote-tracking branch 'origin/main' into humble

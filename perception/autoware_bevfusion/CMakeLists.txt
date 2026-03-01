@@ -48,40 +48,20 @@ else()
   set(TRT_AVAIL OFF)
 endif()
 
-# set flags for CUDNN availability
-option(CUDNN_AVAIL "CUDNN available" OFF)
-# try to find the CUDNN module
-find_library(CUDNN_LIBRARY
-NAMES libcudnn.so${__cudnn_ver_suffix} libcudnn${__cudnn_ver_suffix}.dylib ${__cudnn_lib_win_name}
-PATHS $ENV{LD_LIBRARY_PATH} ${__libpath_cudart} ${CUDNN_ROOT_DIR} ${PC_CUDNN_LIBRARY_DIRS} ${CMAKE_INSTALL_PREFIX}
-PATH_SUFFIXES lib lib64 bin
-DOC "CUDNN library."
-)
-if(CUDNN_LIBRARY)
-  if(CUDA_VERBOSE)
-    message(STATUS "CUDNN is available!")
-    message(STATUS "CUDNN_LIBRARY: ${CUDNN_LIBRARY}")
-  endif()
-  set(CUDNN_AVAIL ON)
-else()
-  message("CUDNN is NOT available")
-  set(CUDNN_AVAIL OFF)
-endif()
-
 # set flags for spconv availability
 option(SPCONV_AVAIL "spconv available" OFF)
 # try to find spconv
 find_package(cumm)
 find_package(spconv)
 if(${cumm_FOUND} AND ${spconv_FOUND})
-  message("spconv is available!")
+  message(STATUS "spconv is available!")
   set(SPCONV_AVAIL ON)
 else()
-  message("spconv is NOT available")
+  message(WARNING "spconv is NOT available")
   set(SPCONV_AVAIL OFF)
 endif()
 
-if(TRT_AVAIL AND CUDA_AVAIL AND CUDNN_AVAIL AND SPCONV_AVAIL)
+if(TRT_AVAIL AND CUDA_AVAIL AND SPCONV_AVAIL)
   find_package(ament_cmake_auto REQUIRED)
   ament_auto_find_build_dependencies()
 
@@ -101,6 +81,16 @@ if(TRT_AVAIL AND CUDA_AVAIL AND CUDNN_AVAIL AND SPCONV_AVAIL)
 
   # cSpell:ignore expt
   list(APPEND CUDA_NVCC_FLAGS "--expt-relaxed-constexpr -diag-suppress 1675 --extended-lambda")
+  list(APPEND CUDA_NVCC_FLAGS "-gencode arch=compute_86,code=sm_86")
+  list(APPEND CUDA_NVCC_FLAGS "-gencode arch=compute_87,code=sm_87")
+  list(APPEND CUDA_NVCC_FLAGS "-gencode arch=compute_89,code=sm_89")
+  if(CUDA_VERSION VERSION_LESS "13.0")
+    list(APPEND CUDA_NVCC_FLAGS "-gencode arch=compute_101,code=sm_101")
+  else()  # CUDA 13.0 renamed SM101 to SM110
+    list(APPEND CUDA_NVCC_FLAGS "-gencode arch=compute_110,code=sm_110")
+  endif()
+  list(APPEND CUDA_NVCC_FLAGS "-gencode arch=compute_120,code=sm_120")
+  list(APPEND CUDA_NVCC_FLAGS "-gencode arch=compute_120,code=compute_120")
 
   cuda_add_library(${PROJECT_NAME}_cuda_lib SHARED
     lib/postprocess/circle_nms_kernel.cu
@@ -137,7 +127,6 @@ if(TRT_AVAIL AND CUDA_AVAIL AND CUDNN_AVAIL AND SPCONV_AVAIL)
     ${CUDA_LIBRARIES}
     ${CUBLAS_LIBRARIES}
     ${CUDA_curand_LIBRARY}
-    ${CUDNN_LIBRARY}
     ${PROJECT_NAME}_cuda_lib
   )
 
@@ -151,6 +140,7 @@ if(TRT_AVAIL AND CUDA_AVAIL AND CUDNN_AVAIL AND SPCONV_AVAIL)
 
   ament_auto_add_library(${PROJECT_NAME}_component SHARED
     src/bevfusion_node.cpp
+    src/bevfusion_node_utils.cpp
   )
 
   target_link_libraries(${PROJECT_NAME}_component

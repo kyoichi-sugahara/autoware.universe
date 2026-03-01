@@ -2,6 +2,93 @@
 Changelog for package autoware_detected_object_validation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat!: remove ROS 2 Galactic codes (`#11905 <https://github.com/autowarefoundation/autoware_universe/issues/11905>`_)
+* Contributors: Ryohsuke Mitsudome
+
+0.49.0 (2025-12-30)
+-------------------
+* Merge remote-tracking branch 'origin/main' into prepare-0.49.0-changelog
+* feat(autoware_lanelet2_utils): replace from/toBinMsg (Sensing, Visualization and Perception Component) (`#11785 <https://github.com/autowarefoundation/autoware_universe/issues/11785>`_)
+  * perception component toBinMsg replacement
+  * visualization component fromBinMsg replacement
+  * sensing component fromBinMsg replacement
+  * perception component fromBinMsg replacement
+  ---------
+* Contributors: Ryohsuke Mitsudome, Sarun MUKDAPITAK
+
+0.48.0 (2025-11-18)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat(autoware_lanelet2_utils): porting functions from lanelet2_extension to autoware_lanelet2_utils package (replacing usage) in perception component  (`#11387 <https://github.com/autowarefoundation/autoware_universe/issues/11387>`_)
+  Co-authored-by: Mamoru Sobue <hilo.soblin@gmail.com>
+* chore(perception): add maintainer (`#11458 <https://github.com/autowarefoundation/autoware_universe/issues/11458>`_)
+  add maintainer
+* Contributors: Masaki Baba, Ryohsuke Mitsudome, Sarun MUKDAPITAK
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+* fix(autoware_detected_object_validation): templatize lanelet filter (`#10883 <https://github.com/autowarefoundation/autoware_universe/issues/10883>`_)
+  * templatize node and add filter for tracked objects
+  * add test for tracked objects
+  * Update README.md
+  ---------
+  Co-authored-by: Taekjin LEE <taekjin.lee@tier4.jp>
+  Co-authored-by: Taekjin LEE <technolojin@gmail.com>
+* Contributors: Masaki Baba
+
+0.46.0 (2025-06-20)
+-------------------
+* Merge remote-tracking branch 'upstream/main' into tmp/TaikiYamada/bump_version_base
+* feat(obstacle_pointcloud_validator): add processing time ms for track… (`#10738 <https://github.com/autowarefoundation/autoware_universe/issues/10738>`_)
+  feat(obstacle_pointcloud_validator): add processing time ms for tracking perception performance
+  Co-authored-by: Jian Kang <jian.kang@tier4.jp>
+* feat(autoware_detected_object_validation): add lanelet object elevation filter (`#10649 <https://github.com/autowarefoundation/autoware_universe/issues/10649>`_)
+  * add 3d lanelet filter
+  * style(pre-commit): autofix
+  * add missing include
+  * refactor
+  * style(pre-commit): autofix
+  * remove unused
+  * fix and update
+  * fix typo
+  * update content
+  * make it const
+  * remove old comment
+  * fix and change the var of args to match
+  * remove height filter test and add elevation filter test
+  * apply some of clang-tidy suggestions
+  * apply of clang-tidy suggestion
+  * fix log message
+  * fix typo
+  ---------
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+  Co-authored-by: Taekjin LEE <taekjin.lee@tier4.jp>
+* Contributors: Kang, Masaki Baba, TaikiYamada4
+
+0.45.0 (2025-05-22)
+-------------------
+* Merge remote-tracking branch 'origin/main' into tmp/notbot/bump_version_base
+* chore: perception code owner update (`#10645 <https://github.com/autowarefoundation/autoware_universe/issues/10645>`_)
+  * chore: update maintainers in multiple perception packages
+  * Revert "chore: update maintainers in multiple perception packages"
+  This reverts commit f2838c33d6cd82bd032039e2a12b9cb8ba6eb584.
+  * chore: update maintainers in multiple perception packages
+  * chore: add Kok Seang Tan as maintainer in multiple perception packages
+  ---------
+* Contributors: Taekjin LEE, TaikiYamada4
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 * Merge remote-tracking branch 'origin/main' into humble

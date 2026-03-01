@@ -2,6 +2,96 @@
 Changelog for package autoware_traffic_light_multi_camera_fusion
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat(autoware_traffic_light_multi_camera_fusion): use valid color and use whole elements as state (`#11989 <https://github.com/autowarefoundation/autoware_universe/issues/11989>`_)
+  * feat(autoware_traffic_light_multi_camera_fusion): remove unknown and use whole elements as state
+  * refactor the compareStateKeyLogOdds
+  ---------
+* Contributors: Masato Saeki, Ryohsuke Mitsudome
+
+0.49.0 (2025-12-30)
+-------------------
+* Merge remote-tracking branch 'origin/main' into prepare-0.49.0-changelog
+* feat(autoware_lanelet2_utils): replace from/toBinMsg (Sensing, Visualization and Perception Component) (`#11785 <https://github.com/autowarefoundation/autoware_universe/issues/11785>`_)
+  * perception component toBinMsg replacement
+  * visualization component fromBinMsg replacement
+  * sensing component fromBinMsg replacement
+  * perception component fromBinMsg replacement
+  ---------
+* Contributors: Ryohsuke Mitsudome, Sarun MUKDAPITAK
+
+0.48.0 (2025-11-18)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* fix(traffic_light_camera_fusion): change group fusion algorithm (`#11297 <https://github.com/autowarefoundation/autoware_universe/issues/11297>`_)
+  * fix(traffic_light_camera_fusion): change group fusion algorithm
+  * style(pre-commit): autofix
+  * fix: potential array access violation
+  * fix: validate func
+  * feat: bayesian update
+  * doc(traffic_light_camera_fusion): add bayesian method
+  * chore: adding comments to variables and functions
+  * doc: make simple, add figure
+  * doc: fix github style
+  * doc: fix mermaid error
+  * style(pre-commit): autofix
+  * chore: add param prior_log_odds
+  * fix: modified summation function
+  * feat: support color and shape
+  * style(pre-commit): autofix
+  * doc: update param schema
+  * fix: bayesian estimation
+  * style(pre-commit): autofix
+  * fix: build error
+  * fix: code health
+  * fix: code complex
+  * fix: complex branch
+  * style(pre-commit): autofix
+  * modify docs
+  ---------
+  Co-authored-by: pre-commit-ci-lite[bot] <117423508+pre-commit-ci-lite[bot]@users.noreply.github.com>
+  Co-authored-by: Shumpei Wakabayashi <42209144+shmpwk@users.noreply.github.com>
+  Co-authored-by: Yuxuan Liu <619684051@qq.com>
+  Co-authored-by: Taekjin LEE <taekjin.lee@tier4.jp>
+  Co-authored-by: Masato Saeki <78376491+MasatoSaeki@users.noreply.github.com>
+  Co-authored-by: MasatoSaeki <masato.saeki@tier4.jp>
+* refactor(autoware_traffic_light_multi_camera_fusion): split utils and add test  (`#10360 <https://github.com/autowarefoundation/autoware_universe/issues/10360>`_)
+  * init
+  * chore
+  * style(pre-commit): autofix
+  * add remained test
+  * add include file
+  * refactor
+  * move variable from cpp to hpp
+  * chore
+  ---------
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+* Contributors: Masato Saeki, Ryohsuke Mitsudome, toki-1441
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+
+0.46.0 (2025-06-20)
+-------------------
+
+0.45.0 (2025-05-22)
+-------------------
+* Merge remote-tracking branch 'origin/main' into tmp/notbot/bump_version_base
+* chore: update traffic light packages code owner (`#10644 <https://github.com/autowarefoundation/autoware_universe/issues/10644>`_)
+  chore: add Taekjin Lee as maintainer to multiple perception packages
+* Contributors: Taekjin LEE, TaikiYamada4
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 

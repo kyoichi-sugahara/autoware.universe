@@ -2,6 +2,36 @@
 Changelog for package autoware_joy_controller
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat: control : fix contol packages compile error when using ros2 jazzy (`#11556 <https://github.com/autowarefoundation/autoware_universe/issues/11556>`_)
+* Contributors: Ryohsuke Mitsudome, 心刚
+
+0.49.0 (2025-12-30)
+-------------------
+
+0.48.0 (2025-11-18)
+-------------------
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+
+0.46.0 (2025-06-20)
+-------------------
+
+0.45.0 (2025-05-22)
+-------------------
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 

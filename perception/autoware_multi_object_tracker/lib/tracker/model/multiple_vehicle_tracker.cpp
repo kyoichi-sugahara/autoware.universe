@@ -28,6 +28,7 @@ MultipleVehicleTracker::MultipleVehicleTracker(
   normal_vehicle_tracker_(object_model::normal_vehicle, time, object),
   big_vehicle_tracker_(object_model::big_vehicle, time, object)
 {
+  tracker_type_ = TrackerType::MULTIPLE_VEHICLE;
 }
 
 bool MultipleVehicleTracker::predict(const rclcpp::Time & time)
@@ -47,20 +48,48 @@ bool MultipleVehicleTracker::measure(
   return true;
 }
 
+bool MultipleVehicleTracker::conditionedUpdate(
+  const types::DynamicObject & measurement, const types::DynamicObject & prediction,
+  const autoware_perception_msgs::msg::Shape & tracker_shape, const rclcpp::Time & measurement_time,
+  const types::InputChannel & channel_info)
+{
+  big_vehicle_tracker_.conditionedUpdate(
+    measurement, prediction, tracker_shape, measurement_time, channel_info);
+  normal_vehicle_tracker_.conditionedUpdate(
+    measurement, prediction, tracker_shape, measurement_time, channel_info);
+
+  return true;
+}
+
+void MultipleVehicleTracker::setObjectShape(const autoware_perception_msgs::msg::Shape & shape)
+{
+  big_vehicle_tracker_.setObjectShape(shape);
+  normal_vehicle_tracker_.setObjectShape(shape);
+}
+
 bool MultipleVehicleTracker::getTrackedObject(
-  const rclcpp::Time & time, types::DynamicObject & object) const
+  const rclcpp::Time & time, types::DynamicObject & object, const bool to_publish) const
 {
   using Label = autoware_perception_msgs::msg::ObjectClassification;
   const uint8_t label = getHighestProbLabel();
 
   if (label == Label::CAR) {
-    normal_vehicle_tracker_.getTrackedObject(time, object);
+    normal_vehicle_tracker_.getTrackedObject(time, object, to_publish);
   } else if (label == Label::BUS || label == Label::TRUCK || label == Label::TRAILER) {
-    big_vehicle_tracker_.getTrackedObject(time, object);
+    big_vehicle_tracker_.getTrackedObject(time, object, to_publish);
+  } else {
+    // If the label is others, use the normal vehicle tracker as a fallback
+    normal_vehicle_tracker_.getTrackedObject(time, object, to_publish);
   }
   object.uuid = object_.uuid;
-  object.classification = object_.classification;
   return true;
+}
+
+void MultipleVehicleTracker::setOrientationAvailability(
+  const types::OrientationAvailability & orientation_availability)
+{
+  normal_vehicle_tracker_.setOrientationAvailability(orientation_availability);
+  big_vehicle_tracker_.setOrientationAvailability(orientation_availability);
 }
 
 }  // namespace autoware::multi_object_tracker

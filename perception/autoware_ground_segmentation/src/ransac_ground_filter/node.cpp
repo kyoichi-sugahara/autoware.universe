@@ -114,7 +114,7 @@ RANSACGroundFilterComponent::RANSACGroundFilterComponent(const rclcpp::NodeOptio
 
   using std::placeholders::_1;
   set_param_res_ = this->add_on_set_parameters_callback(
-    std::bind(&RANSACGroundFilterComponent::paramCallback, this, _1));
+    std::bind(&RANSACGroundFilterComponent::param_callback, this, _1));
 
   pcl::console::setVerbosityLevel(pcl::console::L_ALWAYS);
 
@@ -224,6 +224,14 @@ void RANSACGroundFilterComponent::filter(
   if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
 
   std::scoped_lock lock(mutex_);
+
+  // check for empty point cloud
+  if (input->data.empty() || input->width == 0 || input->height == 0) {
+    RCLCPP_DEBUG(get_logger(), "Empty point cloud received, skipping processing");
+    output = *input;
+    return;
+  }
+
   sensor_msgs::msg::PointCloud2::SharedPtr input_transformed_ptr(new sensor_msgs::msg::PointCloud2);
   if (!managed_tf_buffer_->transformPointcloud(
         base_frame_, *input, *input_transformed_ptr, input->header.stamp,
@@ -326,7 +334,7 @@ void RANSACGroundFilterComponent::filter(
   }
 }
 
-rcl_interfaces::msg::SetParametersResult RANSACGroundFilterComponent::paramCallback(
+rcl_interfaces::msg::SetParametersResult RANSACGroundFilterComponent::param_callback(
   const std::vector<rclcpp::Parameter> & p)
 {
   std::scoped_lock lock(mutex_);

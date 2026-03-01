@@ -2,6 +2,69 @@
 Changelog for package autoware_pose_estimator_arbiter
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat: localization related packages support jazzy (`#11419 <https://github.com/autowarefoundation/autoware_universe/issues/11419>`_)
+* Contributors: Ryohsuke Mitsudome, 心刚
+
+0.49.0 (2025-12-30)
+-------------------
+* Merge remote-tracking branch 'origin/main' into prepare-0.49.0-changelog
+* docs: fix broken links (`#11815 <https://github.com/autowarefoundation/autoware_universe/issues/11815>`_)
+* feat(autoware_lanelet2_utils): replace from/toBinMsg (Map and Localization Component) (`#11787 <https://github.com/autowarefoundation/autoware_universe/issues/11787>`_)
+  * localization component toBinMsg replacement
+  * map component fromBinMsg replacement
+  * localization component fromBinMsg replacement
+  * remove unused dep from localization/autoware_pose_estimator_arbiter
+  ---------
+* chore(yabloc_image_processing, autoware_pose_estimator_arbiter): resolve cmake targets (`#11795 <https://github.com/autowarefoundation/autoware_universe/issues/11795>`_)
+  * resolve sophus
+  * resolve magic_enum
+  ---------
+* Contributors: Mete Fatih Cırıt, Ryohsuke Mitsudome, Sarun MUKDAPITAK, Taeseung Sohn
+
+0.48.0 (2025-11-18)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* chore: update maintainer (`#11373 <https://github.com/autowarefoundation/autoware_universe/issues/11373>`_)
+  * chore: update maintainer
+  remove Ryu Yamamoto
+  * chore: update maintainer
+  remove Kento Yabuuchi
+  * chore: update maintainer
+  remove Shintaro Sakoda
+  ---------
+* Contributors: Motz, Ryohsuke Mitsudome
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+
+0.46.0 (2025-06-20)
+-------------------
+* Merge remote-tracking branch 'upstream/main' into tmp/TaikiYamada/bump_version_base
+* feat(autoware_ndt_scan_matcher)!: port the package to Autoware Core (`#10688 <https://github.com/autowarefoundation/autoware_universe/issues/10688>`_)
+* Contributors: Ryohsuke Mitsudome, TaikiYamada4
+
+0.45.0 (2025-05-22)
+-------------------
+* Merge remote-tracking branch 'origin/main' into tmp/notbot/bump_version_base
+* fix(autoware_pose_estimator_arbiter): fix deprecated autoware_utils header (`#10510 <https://github.com/autowarefoundation/autoware_universe/issues/10510>`_)
+  * fix autoware_utils header
+  * style(pre-commit): autofix
+  ---------
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+* Contributors: Kazu, TaikiYamada4
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 

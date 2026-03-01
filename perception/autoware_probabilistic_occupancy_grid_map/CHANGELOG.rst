@@ -2,6 +2,74 @@
 Changelog for package autoware_probabilistic_occupancy_grid_map
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat(autoware_probabilistic_occupancy_grid_map): update nvcc flags (`#12052 <https://github.com/autowarefoundation/autoware_universe/issues/12052>`_)
+* feat!: remove ROS 2 Galactic codes (`#11905 <https://github.com/autowarefoundation/autoware_universe/issues/11905>`_)
+* fix(probabilistic_occupancy_grid_map): add missing `#include <cstdint>` (`#11919 <https://github.com/autowarefoundation/autoware_universe/issues/11919>`_)
+* Contributors: Amadeusz Szymko, Mete Fatih Cırıt, Ryohsuke Mitsudome
+
+0.49.0 (2025-12-30)
+-------------------
+* Merge remote-tracking branch 'origin/main' into prepare-0.49.0-changelog
+* docs: fix broken links (`#11815 <https://github.com/autowarefoundation/autoware_universe/issues/11815>`_)
+* fix(autoware_probabilistic_occupancy_grid_map): prevent local_map leak in occupancy grid map updateOrigin (`#11765 <https://github.com/autowarefoundation/autoware_universe/issues/11765>`_)
+  * fix(occupancy_grid_map): avoid local_map leak in updateOrigin
+  * style(pre-commit): autofix
+  * Fix local map resize type and format copyMapRegion
+  ---------
+  Co-authored-by: pre-commit-ci-lite[bot] <117423508+pre-commit-ci-lite[bot]@users.noreply.github.com>
+* Contributors: Hongliang Liu, Mete Fatih Cırıt, Ryohsuke Mitsudome
+
+0.48.0 (2025-11-18)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* fix(autoware_probabilistic_occupancy_grid_map): skip frame when TF is unavailable to avoid crash (`#11281 <https://github.com/autowarefoundation/autoware_universe/issues/11281>`_)
+* Contributors: Ryohsuke Mitsudome, multimeters
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+* style(pre-commit): update to clang-format-20 (`#11088 <https://github.com/autowarefoundation/autoware_universe/issues/11088>`_)
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+* style(pre-commit): autofix (`#10982 <https://github.com/autowarefoundation/autoware_universe/issues/10982>`_)
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+* Contributors: Mete Fatih Cırıt, Ryohsuke Mitsudome
+
+0.46.0 (2025-06-20)
+-------------------
+
+0.45.0 (2025-05-22)
+-------------------
+* Merge remote-tracking branch 'origin/main' into tmp/notbot/bump_version_base
+* feat(autoware_probabilistic_occupancy_grid_map): added target architectures for the ogm (`#10614 <https://github.com/autowarefoundation/autoware_universe/issues/10614>`_)
+  * chore: added target architectures for the ogm
+  * chore: mistook the compute capabilities of edge devices
+  ---------
+* chore: perception code owner update (`#10645 <https://github.com/autowarefoundation/autoware_universe/issues/10645>`_)
+  * chore: update maintainers in multiple perception packages
+  * Revert "chore: update maintainers in multiple perception packages"
+  This reverts commit f2838c33d6cd82bd032039e2a12b9cb8ba6eb584.
+  * chore: update maintainers in multiple perception packages
+  * chore: add Kok Seang Tan as maintainer in multiple perception packages
+  ---------
+* fix(probabilistic_occupancy_grid_map): add missing parameter for multi-lidar (`#10578 <https://github.com/autowarefoundation/autoware_universe/issues/10578>`_)
+  add new parameter for multi-lidar
+* fix(autoware_probabilistic_occupancy_grid_map): fix to avoid division by zero (`#10599 <https://github.com/autowarefoundation/autoware_universe/issues/10599>`_)
+* fix(autoware_probabilistic_occupancy_grid_map): incorrect placement of updateOrigin init call check (`#10565 <https://github.com/autowarefoundation/autoware_universe/issues/10565>`_)
+* fix(autoware_probabilistic_occupancy_grid_map): skipped first iteration (`#10558 <https://github.com/autowarefoundation/autoware_universe/issues/10558>`_)
+  fix: the first iteration fails due to how the algorithm is designed (the delta between poses is too high). However, the first iteration of the update routine is actually not needed in the first iteration, so I skipped it
+* Contributors: Amadeusz Szymko, Kento Yabuuchi, Kenzo Lobos Tsunekawa, Taekjin LEE, TaikiYamada4, Tomohito ANDO
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 * Merge remote-tracking branch 'origin/main' into humble

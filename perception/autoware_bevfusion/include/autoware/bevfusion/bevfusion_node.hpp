@@ -46,6 +46,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace autoware::bevfusion
@@ -64,6 +65,34 @@ private:
   void cameraInfoCallback(const sensor_msgs::msg::CameraInfo & msg, std::size_t camera_id);
   void diagnoseProcessingTime(diagnostic_updater::DiagnosticStatusWrapper & stat);
 
+  // Helper methods for constructor
+  void initializeSensorFusionSubscribers(std::int64_t num_cameras);
+  void validateParameters(
+    const std::vector<float> & point_cloud_range, const std::vector<float> & voxel_size);
+
+  // Helper methods for cloudCallback
+  bool checkSensorFusionReadiness();
+  bool areAllSensorDataAvailable() const;
+  void precomputeIntrinsicsExtrinsics();
+  void computeCameraMasks(double lidar_stamp);
+  void publishDetectionResults(
+    const autoware_perception_msgs::msg::DetectedObjects & output_msg,
+    const std_msgs::msg::Header & header);
+  void publishDebugInfo(
+    const std::unordered_map<std::string, double> & proc_timing,
+    const std_msgs::msg::Header & header);
+
+  // Helper methods for diagnoseProcessingTime
+  void addNoInferenceDiagnostics(
+    diagnostic_updater::DiagnosticStatusWrapper & stat, std::stringstream & message);
+  diagnostic_msgs::msg::DiagnosticStatus::_level_type checkProcessingTimeStatus(
+    diagnostic_updater::DiagnosticStatusWrapper & stat, std::stringstream & message,
+    const rclcpp::Time & timestamp_now);
+  diagnostic_msgs::msg::DiagnosticStatus::_level_type checkConsecutiveDelays(
+    diagnostic_updater::DiagnosticStatusWrapper & stat, std::stringstream & message,
+    const rclcpp::Time & timestamp_now,
+    diagnostic_msgs::msg::DiagnosticStatus::_level_type current_level);
+
   std::unique_ptr<cuda_blackboard::CudaBlackboardSubscriber<cuda_blackboard::CudaPointCloud2>>
     cloud_sub_;
   std::vector<rclcpp::Subscription<sensor_msgs::msg::Image>::ConstSharedPtr> image_subs_;
@@ -75,7 +104,6 @@ private:
   tf2_ros::TransformListener tf_listener_{tf_buffer_};
 
   DetectionClassRemapper detection_class_remapper_;
-  float score_threshold_{0.0};
   std::vector<std::string> class_names_;
   std::optional<std::string> lidar_frame_;
   float max_camera_lidar_delay_;

@@ -2,6 +2,39 @@
 Changelog for package autoware_component_interface_tools
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* fix(autoware_component_interface_tools): link with yaml-cpp (`#11872 <https://github.com/autowarefoundation/autoware_universe/issues/11872>`_)
+* Contributors: Mete Fatih Cırıt, Ryohsuke Mitsudome
+
+0.49.0 (2025-12-30)
+-------------------
+
+0.48.0 (2025-11-18)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat: add common interface tools test (`#5815 <https://github.com/autowarefoundation/autoware_universe/issues/5815>`_)
+* Contributors: Ryohsuke Mitsudome, shulanbushangshu
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+
+0.46.0 (2025-06-20)
+-------------------
+
+0.45.0 (2025-05-22)
+-------------------
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 

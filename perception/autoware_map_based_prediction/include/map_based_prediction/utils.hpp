@@ -21,13 +21,13 @@
 #include <autoware_utils/math/normalization.hpp>
 #include <autoware_utils/math/unit_conversion.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <tf2/utils.hpp>
 
 #include <autoware_perception_msgs/msg/predicted_objects.hpp>
 #include <autoware_perception_msgs/msg/tracked_objects.hpp>
 
 #include <lanelet2_core/LaneletMap.h>
 #include <lanelet2_core/geometry/LaneletMap.h>
-#include <tf2/utils.h>
 
 #include <deque>
 #include <memory>
@@ -74,7 +74,7 @@ bool withinRoadLanelet(
  * @param label
  * @return ObjectClassification::_label_type
  */
-ObjectClassification::_label_type changeLabelForPrediction(
+ObjectClassification::_label_type changeVRULabelForPrediction(
   const ObjectClassification::_label_type & label, const TrackedObject & object,
   const lanelet::LaneletMapPtr & lanelet_map_ptr_);
 
@@ -83,12 +83,12 @@ std::unordered_set<std::string> removeOldObjectsHistory(
   const double current_time, const double buffer_time,
   std::unordered_map<std::string, std::deque<T>> & target_objects);
 
-extern template std::unordered_set<std::string> removeOldObjectsHistory<ObjectData>(
+extern template std::unordered_set<std::string> removeOldObjectsHistory<RoadUser>(
   const double current_time, const double buffer_time,
-  std::unordered_map<std::string, std::deque<ObjectData>> & target_objects);
-extern template std::unordered_set<std::string> removeOldObjectsHistory<CrosswalkUserData>(
+  std::unordered_map<std::string, std::deque<RoadUser>> & target_objects);
+extern template std::unordered_set<std::string> removeOldObjectsHistory<CrosswalkUser>(
   const double current_time, const double buffer_time,
-  std::unordered_map<std::string, std::deque<CrosswalkUserData>> & target_objects);
+  std::unordered_map<std::string, std::deque<CrosswalkUser>> & target_objects);
 
 PredictedObjectKinematics convertToPredictedKinematics(
   const TrackedObjectKinematics & tracked_object);
@@ -108,7 +108,7 @@ bool isDuplicated(
 
 bool checkCloseLaneletCondition(
   const std::pair<double, lanelet::Lanelet> & lanelet, const TrackedObject & object,
-  const std::unordered_map<std::string, std::deque<ObjectData>> & road_users_history,
+  const std::unordered_map<std::string, std::deque<RoadUser>> & road_users_history,
   const double dist_threshold_for_searching_lanelet,
   const double delta_yaw_threshold_for_searching_lanelet);
 
@@ -123,10 +123,12 @@ lanelet::Lanelets getLeftOppositeLanelets(
 
 LaneletsData getCurrentLanelets(
   const TrackedObject & object, lanelet::LaneletMapPtr lanelet_map_ptr,
-  const std::unordered_map<std::string, std::deque<ObjectData>> & road_users_history,
+  const std::unordered_map<std::string, std::deque<RoadUser>> & road_users_history,
   const double dist_threshold_for_searching_lanelet,
   const double delta_yaw_threshold_for_searching_lanelet, const double sigma_lateral_offset,
   const double sigma_yaw_angle_deg);
+double lateral_distance_to_lanelet_bounds(
+  const lanelet::ConstLanelet & ll, const geometry_msgs::msg::Point & point);
 
 }  // namespace utils
 

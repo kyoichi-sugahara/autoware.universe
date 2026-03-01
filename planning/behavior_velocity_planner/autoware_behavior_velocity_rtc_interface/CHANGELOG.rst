@@ -2,6 +2,48 @@
 Changelog for package autoware_behavior_velocity_rtc_interface
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+
+0.49.0 (2025-12-30)
+-------------------
+
+0.48.0 (2025-11-18)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat(behavior_velocity_rtc_interface, behavior_velocity\_*_module): replace PathWithLaneId with Trajectory<> class (`#11555 <https://github.com/autowarefoundation/autoware_universe/issues/11555>`_)
+* feat(RTC, behavior_velocity_planner): set manual RTC via the lanelet map (`#11340 <https://github.com/autowarefoundation/autoware_universe/issues/11340>`_)
+  * first attempt at a solution to set the auto/manual mode for a module
+  * implementation for crosswalk and intersections modules
+  * update READMEs
+  * fix crosswalk -> intersection
+  Co-authored-by: Satoshi OTA <44889564+satoshi-ota@users.noreply.github.com>
+  ---------
+  Co-authored-by: Satoshi OTA <44889564+satoshi-ota@users.noreply.github.com>
+* Contributors: Maxime CLEMENT, Mitsuhiro Sakamoto, Ryohsuke Mitsudome
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+
+0.46.0 (2025-06-20)
+-------------------
+
+0.45.0 (2025-05-22)
+-------------------
+* Merge remote-tracking branch 'origin/main' into tmp/notbot/bump_version_base
+* fix(behavior_velocity_planner): add missing header (`#10561 <https://github.com/autowarefoundation/autoware_universe/issues/10561>`_)
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+* Contributors: Masaki Baba, TaikiYamada4
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 

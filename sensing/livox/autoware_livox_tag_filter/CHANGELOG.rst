@@ -2,6 +2,44 @@
 Changelog for package autoware_livox_tag_filter
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+
+0.49.0 (2025-12-30)
+-------------------
+* Merge remote-tracking branch 'origin/main' into prepare-0.49.0-changelog
+* fix(autoware_livox_tag_filter): add empty point cloud guard (`#11746 <https://github.com/autowarefoundation/autoware_universe/issues/11746>`_)
+  Add validation to check for empty point clouds before processing to prevent
+  undefined behavior in PCL functions and potential crashes.
+* Contributors: Ryohsuke Mitsudome, Yutaka Kondo
+
+0.48.0 (2025-11-18)
+-------------------
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+
+0.46.0 (2025-06-20)
+-------------------
+* Merge remote-tracking branch 'upstream/main' into tmp/TaikiYamada/bump_version_base
+* feat(livox_tag_filter): add conversion to PointXYZIRC in point cloud … (`#10736 <https://github.com/autowarefoundation/autoware_universe/issues/10736>`_)
+  * feat(livox_tag_filter): add conversion to PointXYZIRC in point cloud processing
+  * fix(livox_tag_filter): update point cloud message conversion to use correct point type
+  ---------
+* Contributors: Akihisa Nagata, TaikiYamada4
+
+0.45.0 (2025-05-22)
+-------------------
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 

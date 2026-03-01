@@ -24,6 +24,7 @@
 #include <autoware_utils/ros/update_param.hpp>
 #include <pcl_ros/transforms.hpp>
 #include <rclcpp/node.hpp>
+#include <tf2/utils.hpp>
 
 #include <geometry_msgs/msg/polygon.hpp>
 
@@ -31,7 +32,15 @@
 #include <boost/geometry/algorithms/correct.hpp>
 #include <boost/geometry/algorithms/intersection.hpp>
 #include <boost/geometry/algorithms/within.hpp>
+#include <boost/version.hpp>
+
+#if BOOST_VERSION < 107600  // Header removed in version 1.76.0 (Humble)
 #include <boost/geometry/strategies/agnostic/hull_graham_andrew.hpp>
+#endif
+
+#include <tf2_eigen/tf2_eigen.hpp>
+
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include <pcl/PCLPointCloud2.h>
 #include <pcl/filters/crop_hull.h>
@@ -41,7 +50,6 @@
 #include <pcl/point_types.h>
 #include <pcl/registration/gicp.h>
 #include <pcl/segmentation/extract_clusters.h>
-#include <tf2/utils.h>
 
 #include <algorithm>
 #include <cmath>
@@ -51,14 +59,6 @@
 #include <optional>
 #include <string>
 #include <vector>
-#ifdef ROS_DISTRO_GALACTIC
-#include <tf2_eigen/tf2_eigen.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-#else
-#include <tf2_eigen/tf2_eigen.hpp>
-
-#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
-#endif
 
 namespace
 {
@@ -857,6 +857,7 @@ void AEB::createObjectDataUsingPredictedObjects(
         obj.position = obj_position;
         obj.velocity = obj_tangent_velocity;
         obj.distance_to_object = std::abs(dist_ego_to_object);
+        obj.is_target = true;
         object_data_vector.push_back(obj);
         collision_points_added = true;
       }

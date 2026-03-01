@@ -6,7 +6,7 @@ This package receives traffic signals from perception and external (e.g., V2X) c
 
 ## TrafficLightArbiter
 
-A node that merges traffic light/signal state from image recognition and external (e.g., V2X) systems to provide to a planning component.
+A node that merges traffic light/signal state from image recognition and external (e.g., V2X) systems to provide to a planning component. Merging is only applied to `elements` in the `TrafficLightGroup` msg, not to `predictions`.
 
 ### Signal Match Validator
 
@@ -20,6 +20,12 @@ The table below outlines how the matching process determines the output based on
 | GREEN                 | UNKNOWN | UNKNOWN | GREEN   | UNKNOWN | UNKNOWN      |
 | UNKNOWN               | UNKNOWN | UNKNOWN | UNKNOWN | UNKNOWN | UNKNOWN      |
 | Not Received          | UNKNOWN | UNKNOWN | UNKNOWN | UNKNOWN | UNKNOWN      |
+
+### Source priority
+
+As an alternative to the signal matching option, one of the sources can be prioritized. There are three priority modes for signal selection: 'external' prioritizes external signals, 'perception' prioritizes perception signals, 'confidence' uses confidence-based selection.
+
+Note, this option will not be effective if signal matching is enabled.
 
 ### Inputs / Outputs
 

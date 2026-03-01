@@ -1,4 +1,4 @@
-// Copyright 2025 Tier IV, Inc.
+// Copyright 2025 TIER IV, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,14 +20,13 @@
 
 #include <autoware/control_evaluator/control_evaluator_node.hpp>
 #include <autoware/planning_factor_interface/planning_factor_interface.hpp>
+#include <tf2/LinearMath/Quaternion.hpp>
 
 #include "autoware_planning_msgs/msg/trajectory.hpp"
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include <tier4_metric_msgs/msg/metric_array.hpp>
 
 #include "boost/lexical_cast.hpp"
-
-#include <tf2/LinearMath/Quaternion.h>
 
 #include <iostream>
 #include <memory>
@@ -221,6 +220,35 @@ protected:
   std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 };
 
+TEST_F(EvalTest, TestYawDeviationABS)
+{
+  auto setYaw = [](geometry_msgs::msg::Quaternion & msg, const double yaw_rad) {
+    tf2::Quaternion q;
+    q.setRPY(0.0, 0.0, yaw_rad);
+    msg.x = q.x();
+    msg.y = q.y();
+    msg.z = q.z();
+    msg.w = q.w();
+  };
+  setTargetMetric("yaw_deviation_abs");
+  Trajectory t = makeTrajectory({{0.0, 0.0}, {1.0, 0.0}});
+  for (auto & p : t.points) {
+    setYaw(p.pose.orientation, M_PI);
+  }
+
+  publishEgoPose(0.0, 0.0, M_PI);
+  EXPECT_NEAR(publishTrajectoryAndGetMetric(t), 0.0, epsilon);
+
+  publishEgoPose(0.0, 0.0, 0.0);
+  EXPECT_NEAR(publishTrajectoryAndGetMetric(t), M_PI, epsilon);
+
+  publishEgoPose(0.0, 0.0, 2 * M_PI);
+  EXPECT_NEAR(publishTrajectoryAndGetMetric(t), M_PI, epsilon);
+
+  publishEgoPose(0.0, 0.0, -M_PI);
+  EXPECT_NEAR(publishTrajectoryAndGetMetric(t), 0.0, epsilon);
+}
+
 TEST_F(EvalTest, TestYawDeviation)
 {
   auto setYaw = [](geometry_msgs::msg::Quaternion & msg, const double yaw_rad) {
@@ -237,19 +265,16 @@ TEST_F(EvalTest, TestYawDeviation)
     setYaw(p.pose.orientation, M_PI);
   }
 
-  publishEgoPose(0.0, 0.0, M_PI);
-  EXPECT_NEAR(publishTrajectoryAndGetMetric(t), 0.0, epsilon);
-
   publishEgoPose(0.0, 0.0, 0.0);
-  EXPECT_NEAR(publishTrajectoryAndGetMetric(t), M_PI, epsilon);
+  EXPECT_NEAR(publishTrajectoryAndGetMetric(t), -M_PI, epsilon);
 
-  publishEgoPose(0.0, 0.0, -M_PI);
-  EXPECT_NEAR(publishTrajectoryAndGetMetric(t), 0.0, epsilon);
+  publishEgoPose(0.0, 0.0, 2 * M_PI);
+  EXPECT_NEAR(publishTrajectoryAndGetMetric(t), M_PI, epsilon);
 }
 
-TEST_F(EvalTest, TestLateralDeviation)
+TEST_F(EvalTest, TestLateralDeviationABS)
 {
-  setTargetMetric("lateral_deviation");
+  setTargetMetric("lateral_deviation_abs");
   Trajectory t = makeTrajectory({{0.0, 0.0}, {1.0, 0.0}});
 
   publishEgoPose(0.0, 0.0, 0.0);
@@ -257,6 +282,21 @@ TEST_F(EvalTest, TestLateralDeviation)
 
   publishEgoPose(1.0, 1.0, 0.0);
   EXPECT_NEAR(publishTrajectoryAndGetMetric(t), 1.0, epsilon);
+
+  publishEgoPose(1.0, -1.0, 0.0);
+  EXPECT_NEAR(publishTrajectoryAndGetMetric(t), 1.0, epsilon);
+}
+
+TEST_F(EvalTest, TestLateralDeviation)
+{
+  setTargetMetric("lateral_deviation");
+  Trajectory t = makeTrajectory({{0.0, 0.0}, {1.0, 0.0}});
+
+  publishEgoPose(1.0, 1.0, 0.0);
+  EXPECT_NEAR(publishTrajectoryAndGetMetric(t), 1.0, epsilon);
+
+  publishEgoPose(1.0, -1.0, 0.0);
+  EXPECT_NEAR(publishTrajectoryAndGetMetric(t), -1.0, epsilon);
 }
 
 TEST_F(EvalTest, TestKinematicStateAcc)
@@ -282,5 +322,13 @@ TEST_F(EvalTest, TestKinematicStateJerk)
 TEST_F(EvalTest, TestStopDeviation)
 {
   setTargetMetric("stop_deviation/stop_line");
+  EXPECT_NEAR(publishPlanningFactorAndGetStopDeviationMetric(-5.0, 4.0, 3.0), -5.0, epsilon);
+}
+
+TEST_F(EvalTest, TestStopDeviationABS)
+{
+  setTargetMetric("stop_deviation_abs/stop_line");
+  EXPECT_NEAR(publishPlanningFactorAndGetStopDeviationMetric(-5.0, 4.0, 3.0), 5.0, epsilon);
+
   EXPECT_NEAR(publishPlanningFactorAndGetStopDeviationMetric(5.0, 4.0, 3.0), 5.0, epsilon);
 }

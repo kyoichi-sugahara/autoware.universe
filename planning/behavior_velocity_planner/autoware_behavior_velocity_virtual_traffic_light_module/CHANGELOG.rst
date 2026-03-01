@@ -2,6 +2,77 @@
 Changelog for package autoware_behavior_velocity_virtual_traffic_light_module
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat(behavior_velocity_virtual_traffic_light_module): use Trajectory instead of PathWithLaneId (`#11576 <https://github.com/autowarefoundation/autoware_universe/issues/11576>`_)
+  * use Trajectory instead of PathWithLaneId
+  * clarify null check
+  * include necessary header
+  * fix clang tidy
+  ---------
+  Co-authored-by: Mamoru Sobue <hilo.soblin@gmail.com>
+  Co-authored-by: Mamoru Sobue <mamoru.sobue@tier4.jp>
+* Contributors: Mitsuhiro Sakamoto, Ryohsuke Mitsudome
+
+0.49.0 (2025-12-30)
+-------------------
+* Merge remote-tracking branch 'origin/main' into prepare-0.49.0-changelog
+* chore(autoware_behavior_velocity_virtual_traffic_light_module): modify maintainers of path_generator (`#11791 <https://github.com/autowarefoundation/autoware_universe/issues/11791>`_)
+  * chore: add new maintainers to package.xml of path_generator
+  * chore: remove mantainers
+  ---------
+* refactor: fix leftover dependent autoware_utils from updating vehicle_info_utils (`#11734 <https://github.com/autowarefoundation/autoware_universe/issues/11734>`_)
+* Contributors: Masahiro Kubota, Mete Fatih Cırıt, Ryohsuke Mitsudome
+
+0.48.0 (2025-11-18)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat(behavior_velocity_rtc_interface, behavior_velocity\_*_module): replace PathWithLaneId with Trajectory<> class (`#11555 <https://github.com/autowarefoundation/autoware_universe/issues/11555>`_)
+* Contributors: Mitsuhiro Sakamoto, Ryohsuke Mitsudome
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+* style(pre-commit): update to clang-format-20 (`#11088 <https://github.com/autowarefoundation/autoware_universe/issues/11088>`_)
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+* Contributors: Mete Fatih Cırıt
+
+0.46.0 (2025-06-20)
+-------------------
+* Merge remote-tracking branch 'upstream/main' into tmp/TaikiYamada/bump_version_base
+* feat(virtual_traffic_light): improve log message (`#10814 <https://github.com/autowarefoundation/autoware_universe/issues/10814>`_)
+  * feat(virtual_traffic_light): improve log message
+  update
+  udpate
+  * Update planning/behavior_velocity_planner/autoware_behavior_velocity_virtual_traffic_light_module/src/scene.cpp
+  Co-authored-by: Taiki Yamada <129915538+TaikiYamada4@users.noreply.github.com>
+  * delete getState
+  * Update planning/behavior_velocity_planner/autoware_behavior_velocity_virtual_traffic_light_module/src/scene.cpp
+  Co-authored-by: Taiki Yamada <129915538+TaikiYamada4@users.noreply.github.com>
+  * delete comments
+  ---------
+  Co-authored-by: Taiki Yamada <129915538+TaikiYamada4@users.noreply.github.com>
+* Contributors: Kosuke Takeuchi, TaikiYamada4
+
+0.45.0 (2025-05-22)
+-------------------
+* Merge remote-tracking branch 'origin/main' into tmp/notbot/bump_version_base
+* fix(detection_area_module,virtual_traffic_light,no_stopping_area): support overlap lane (`#10623 <https://github.com/autowarefoundation/autoware_universe/issues/10623>`_)
+* fix(behavior_velocity_planner): add missing header (`#10561 <https://github.com/autowarefoundation/autoware_universe/issues/10561>`_)
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+* feat(behavior_velocity_planner): only wait for the required subscriptions (`#10546 <https://github.com/autowarefoundation/autoware_universe/issues/10546>`_)
+* refactor(virtual_traffic_light, QC): replace checkCollision with autoware_utils_geometry (`#10524 <https://github.com/autowarefoundation/autoware_universe/issues/10524>`_)
+* Contributors: Mamoru Sobue, Masaki Baba, TaikiYamada4, Takayuki Murooka, Yukinari Hisaki
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 

@@ -14,6 +14,8 @@
 
 #include "autoware/pointcloud_preprocessor/concatenate_data/combine_cloud_handler.hpp"
 
+#include "autoware/pointcloud_preprocessor/concatenate_data/concatenation_info_manager.hpp"
+
 #include <pcl_ros/transforms.hpp>
 
 #include <sensor_msgs/point_cloud2_iterator.hpp>
@@ -112,10 +114,12 @@ void CombineCloudHandler<PointCloud2Traits>::correct_pointcloud_motion(
     adjust_to_old_data_transform, *transformed_cloud_ptr, *transformed_delay_compensated_cloud_ptr);
 }
 
+// TODO(vividf): refactor this function for readability
 ConcatenatedCloudResult<PointCloud2Traits>
 CombineCloudHandler<PointCloud2Traits>::combine_pointclouds(
   std::unordered_map<std::string, PointCloud2Traits::PointCloudMessage::ConstSharedPtr> &
-    topic_to_cloud_map)
+    topic_to_cloud_map,
+  const std::shared_ptr<CollectorInfoBase> & collector_info)
 {
   ConcatenatedCloudResult<PointCloud2Traits> concatenate_cloud_result;
 
@@ -126,6 +130,8 @@ CombineCloudHandler<PointCloud2Traits>::combine_pointclouds(
 
   for (const auto & [topic, cloud] : topic_to_cloud_map) {
     pc_stamps.emplace_back(cloud->header.stamp);
+    concatenate_cloud_result.topic_to_original_stamp_map[topic] =
+      rclcpp::Time(cloud->header.stamp).seconds();
   }
   std::sort(pc_stamps.begin(), pc_stamps.end(), std::greater<rclcpp::Time>());
   const auto oldest_stamp = pc_stamps.back();
@@ -135,6 +141,22 @@ CombineCloudHandler<PointCloud2Traits>::combine_pointclouds(
   // Before combining the pointclouds, initialize and reserve space for the concatenated pointcloud
   concatenate_cloud_result.concatenate_cloud_ptr =
     std::make_unique<sensor_msgs::msg::PointCloud2>();
+  concatenate_cloud_result.concatenation_info_ptr =
+    std::make_unique<autoware_sensing_msgs::msg::ConcatenatedPointCloudInfo>(
+      concatenation_info_manager_.reset_and_get_base_info());
+  {
+    // Normally, pcl::concatenatePointCloud() copies the field layout (e.g., XYZIRC)
+    // from the non-empty point cloud when given one empty and one non-empty input.
+    //
+    // However, if all input clouds in topic_to_cloud_map are empty,
+    // the function receives two empty point clouds and does nothing,
+    // resulting in concatenate_cloud_ptr not being compatible with the XYZIRC format.
+    //
+    // To avoid this, we explicitly set the fields of concatenate_cloud_ptr to XYZIRC here.
+    PointCloud2Modifier<PointXYZIRC, autoware::point_types::PointXYZIRCGenerator>
+      concatenate_cloud_modifier{*concatenate_cloud_result.concatenate_cloud_ptr, output_frame_};
+  }
+  bool is_concatenated_cloud_dense = true;
 
   // Reserve space based on the total size of the pointcloud data to speed up the concatenation
   // process
@@ -154,9 +176,6 @@ CombineCloudHandler<PointCloud2Traits>::combine_pointclouds(
       output_frame_, *xyzirc_cloud, *transformed_cloud_ptr, xyzirc_cloud->header.stamp,
       rclcpp::Duration::from_seconds(1.0), node_.get_logger());
 
-    concatenate_cloud_result.topic_to_original_stamp_map[topic] =
-      rclcpp::Time(cloud->header.stamp).seconds();
-
     // compensate pointcloud
     std::unique_ptr<sensor_msgs::msg::PointCloud2> transformed_delay_compensated_cloud_ptr;
     if (is_motion_compensated_) {
@@ -174,7 +193,14 @@ CombineCloudHandler<PointCloud2Traits>::combine_pointclouds(
       pcl::concatenatePointCloud(
         *concatenate_cloud_result.concatenate_cloud_ptr, *transformed_delay_compensated_cloud_ptr,
         *concatenate_cloud_result.concatenate_cloud_ptr);
+      is_concatenated_cloud_dense = is_concatenated_cloud_dense && cloud->is_dense;
     }
+
+    // update concatenation info
+    concatenation_info_manager_.update_source_from_point_cloud(
+      *transformed_delay_compensated_cloud_ptr, topic,
+      autoware_sensing_msgs::msg::SourcePointCloudInfo::STATUS_OK,
+      *concatenate_cloud_result.concatenation_info_ptr);
 
     if (publish_synchronized_pointcloud_) {
       if (!concatenate_cloud_result.topic_to_transformed_cloud_map) {
@@ -206,6 +232,44 @@ CombineCloudHandler<PointCloud2Traits>::combine_pointclouds(
     }
   }
   concatenate_cloud_result.concatenate_cloud_ptr->header.stamp = oldest_stamp;
+  concatenate_cloud_result.concatenate_cloud_ptr->is_dense = is_concatenated_cloud_dense;
+
+  // concatenated cloud is no longer structured so recalculate the height, width, and row_step
+  concatenate_cloud_result.concatenate_cloud_ptr->height = 1;
+  {
+    const auto & data_size = concatenate_cloud_result.concatenate_cloud_ptr->data.size();
+    const auto & point_step = concatenate_cloud_result.concatenate_cloud_ptr->point_step;
+    if (data_size % point_step != 0) {
+      throw std::runtime_error("PointCloud2 data size is not divisible by point_step");
+    }
+    concatenate_cloud_result.concatenate_cloud_ptr->row_step = data_size;
+    concatenate_cloud_result.concatenate_cloud_ptr->width = data_size / point_step;
+  }
+
+  if (const auto advanced_info = std::dynamic_pointer_cast<AdvancedCollectorInfo>(collector_info)) {
+    const auto reference_timestamp_min = advanced_info->timestamp - advanced_info->noise_window;
+    const auto reference_timestamp_max = advanced_info->timestamp + advanced_info->noise_window;
+
+    builtin_interfaces::msg::Time reference_timestamp_min_msg;
+    reference_timestamp_min_msg.sec = static_cast<int32_t>(reference_timestamp_min);
+    reference_timestamp_min_msg.nanosec =
+      static_cast<uint32_t>((reference_timestamp_min - reference_timestamp_min_msg.sec) * 1e9);
+
+    builtin_interfaces::msg::Time reference_timestamp_max_msg;
+    reference_timestamp_max_msg.sec = static_cast<int32_t>(reference_timestamp_max);
+    reference_timestamp_max_msg.nanosec =
+      static_cast<uint32_t>((reference_timestamp_max - reference_timestamp_max_msg.sec) * 1e9);
+
+    StrategyAdvancedConfig strategy_config(
+      reference_timestamp_min_msg, reference_timestamp_max_msg);
+    auto serialized_config = strategy_config.serialize();
+    ConcatenationInfoManager::set_config(
+      serialized_config, *concatenate_cloud_result.concatenation_info_ptr);
+  }
+
+  concatenation_info_manager_.set_result(
+    *concatenate_cloud_result.concatenate_cloud_ptr,
+    *concatenate_cloud_result.concatenation_info_ptr);
 
   return concatenate_cloud_result;
 }

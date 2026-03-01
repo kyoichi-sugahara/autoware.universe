@@ -2,6 +2,52 @@
 Changelog for package yabloc_image_processing
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+
+0.49.0 (2025-12-30)
+-------------------
+* Merge remote-tracking branch 'origin/main' into prepare-0.49.0-changelog
+* chore(yabloc_image_processing, autoware_pose_estimator_arbiter): resolve cmake targets (`#11795 <https://github.com/autowarefoundation/autoware_universe/issues/11795>`_)
+  * resolve sophus
+  * resolve magic_enum
+  ---------
+* Contributors: Ryohsuke Mitsudome, Taeseung Sohn
+
+0.48.0 (2025-11-18)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* chore: update maintainer (`#11373 <https://github.com/autowarefoundation/autoware_universe/issues/11373>`_)
+  * chore: update maintainer
+  remove Ryu Yamamoto
+  * chore: update maintainer
+  remove Kento Yabuuchi
+  * chore: update maintainer
+  remove Shintaro Sakoda
+  ---------
+* Contributors: Motz, Ryohsuke Mitsudome
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+
+0.46.0 (2025-06-20)
+-------------------
+
+0.45.0 (2025-05-22)
+-------------------
+* Merge remote-tracking branch 'origin/main' into tmp/notbot/bump_version_base
+* fix(yabloc_image_processing): fix deprecated autoware_utils header (`#10495 <https://github.com/autowarefoundation/autoware_universe/issues/10495>`_)
+* Contributors: Masaki Baba, TaikiYamada4
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 

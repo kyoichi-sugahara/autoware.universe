@@ -2,6 +2,80 @@
 Changelog for package autoware_tensorrt_yolox
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* refactor(tensorrt_yolox): split utility functions (`#12042 <https://github.com/autowarefoundation/autoware_universe/issues/12042>`_)
+  * move util functions to utils
+  * style(pre-commit): autofix
+  * change name utils to label
+  * style(pre-commit): autofix
+  * move unnamed namespace under tensorrt_yolox namespace
+  * remove static
+  ---------
+  Co-authored-by: pre-commit-ci-lite[bot] <117423508+pre-commit-ci-lite[bot]@users.noreply.github.com>
+* feat(autoware_tensorrt_yolox): update nvcc flags (`#12057 <https://github.com/autowarefoundation/autoware_universe/issues/12057>`_)
+  Co-authored-by: Kotaro Uetake <60615504+ktro2828@users.noreply.github.com>
+* chore(autoware_tensorrt_yolox): remove cudnn dependency (`#11898 <https://github.com/autowarefoundation/autoware_universe/issues/11898>`_)
+* feat(autoware_tensorrt_yolox): add schema for autoware_tensorrt_yolox (`#10047 <https://github.com/autowarefoundation/autoware_universe/issues/10047>`_)
+  * feat(autoware_tensorrt_yolox):Add schema for autoware_tensorrt_yolox
+  * Update yolox_s_plus_opt.schema.json
+  * Update yolox_s_plus_opt.schema.json
+  * Update yolox_tiny.schema.json
+  update min and max value in read file for "score_threshold"
+  * Update yolox_tiny.schema.json
+  update min and max value in read file for "nms_threshold"
+  * fix: apply pre-commit
+  * fix: add required model_path, label_path, and color_map_path to YOLOX parameter files for schema compliance
+  * style(pre-commit): autofix
+  * feat(tensorrt_yolox): Update schemas to include new parameters
+  * style(pre-commit): autofix
+  * chore
+  ---------
+  Co-authored-by: mitsudome-r <ryohsuke.mitsudome@tier4.jp>
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+  Co-authored-by: MasatoSaeki <masato.saeki@tier4.jp>
+  Co-authored-by: Masato Saeki <78376491+MasatoSaeki@users.noreply.github.com>
+* Contributors: Amadeusz Szymko, Masaki Baba, Ryohsuke Mitsudome, Vishal Chauhan
+
+0.49.0 (2025-12-30)
+-------------------
+
+0.48.0 (2025-11-18)
+-------------------
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+
+0.46.0 (2025-06-20)
+-------------------
+
+0.45.0 (2025-05-22)
+-------------------
+* Merge remote-tracking branch 'origin/main' into tmp/notbot/bump_version_base
+* chore: perception code owner update (`#10645 <https://github.com/autowarefoundation/autoware_universe/issues/10645>`_)
+  * chore: update maintainers in multiple perception packages
+  * Revert "chore: update maintainers in multiple perception packages"
+  This reverts commit f2838c33d6cd82bd032039e2a12b9cb8ba6eb584.
+  * chore: update maintainers in multiple perception packages
+  * chore: add Kok Seang Tan as maintainer in multiple perception packages
+  ---------
+* feat(autoware_tensorrt_yolox): added target architectures for yolox (`#10611 <https://github.com/autowarefoundation/autoware_universe/issues/10611>`_)
+  * chore: added target architectures for yolox
+  * chore: mistook the compute capabilities of edge devices
+  * chore: cspell
+  ---------
+* Contributors: Kenzo Lobos Tsunekawa, Taekjin LEE, TaikiYamada4
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 * Merge remote-tracking branch 'origin/main' into humble

@@ -2,6 +2,64 @@
 Changelog for package autoware_pose_instability_detector
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+
+0.49.0 (2025-12-30)
+-------------------
+
+0.48.0 (2025-11-18)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* fix: tf2 uses hpp headers in rolling (and is backported) (`#11620 <https://github.com/autowarefoundation/autoware_universe/issues/11620>`_)
+* chore: relieve pose_estimator_lateral_tolerance to 0.5 (`#11461 <https://github.com/autowarefoundation/autoware_universe/issues/11461>`_)
+  * relieve pose_estimator_lateral_tolerance to 0.5
+  * fix style
+  ---------
+* chore: update maintainer (`#11373 <https://github.com/autowarefoundation/autoware_universe/issues/11373>`_)
+  * chore: update maintainer
+  remove Ryu Yamamoto
+  * chore: update maintainer
+  remove Kento Yabuuchi
+  * chore: update maintainer
+  remove Shintaro Sakoda
+  ---------
+* feat(pose_instability_detector): make pose_instability_detector filtered by dimensions (`#11298 <https://github.com/autowarefoundation/autoware_universe/issues/11298>`_)
+  * make pose_instability_detector filtered by dimensions
+  * fix for cppcheck
+  ---------
+* fix(autoware_pose_instability_detector): reduce the svg file size (`#11156 <https://github.com/autowarefoundation/autoware_universe/issues/11156>`_)
+* Contributors: Mete Fatih Cırıt, Motz, Ryohsuke Mitsudome, Taiki Yamada, Tim Clephas
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+* feat(pose instability detector): change diag level (`#11095 <https://github.com/autowarefoundation/autoware_universe/issues/11095>`_)
+  * change diag level
+  * fix readme
+  * fix test.cpp
+  ---------
+* Contributors: Yamato Ando
+
+0.46.0 (2025-06-20)
+-------------------
+
+0.45.0 (2025-05-22)
+-------------------
+* Merge remote-tracking branch 'origin/main' into tmp/notbot/bump_version_base
+* fix(autoware_pose_instability_detector ): fix deprecated autoware_utils header  (`#10518 <https://github.com/autowarefoundation/autoware_universe/issues/10518>`_)
+  fix autoware_utils header
+  Co-authored-by: RyuYamamoto <ryu.yamamoto@tier4.jp>
+* Contributors: Kazu, TaikiYamada4
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 

@@ -29,6 +29,7 @@
 #include <autoware_utils/system/lru_cache.hpp>
 #include <autoware_utils/system/time_keeper.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <tf2/LinearMath/Quaternion.hpp>
 
 #include <geometry_msgs/msg/pose.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
@@ -40,7 +41,6 @@
 #include <lanelet2_routing/Forward.h>
 #include <lanelet2_routing/LaneletPath.h>
 #include <lanelet2_traffic_rules/TrafficRules.h>
-#include <tf2/LinearMath/Quaternion.h>
 
 #include <algorithm>
 #include <deque>
@@ -95,7 +95,7 @@ private:
   std::unique_ptr<autoware_utils::DebugPublisher> processing_time_publisher_;
 
   // Object History
-  std::unordered_map<std::string, std::deque<ObjectData>> road_users_history_;
+  std::unordered_map<std::string, std::deque<RoadUser>> road_users_history_;
 
   // Lanelet Map Pointers
   std::shared_ptr<lanelet::LaneletMap> lanelet_map_ptr_;

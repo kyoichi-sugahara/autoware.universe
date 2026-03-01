@@ -24,10 +24,11 @@
 #include <autoware/behavior_path_planner_common/utils/parking_departure/utils.hpp>
 #include <autoware/behavior_path_planner_common/utils/path_safety_checker/safety_check.hpp>
 #include <autoware/behavior_path_planner_common/utils/path_utils.hpp>
+#include <autoware/lanelet2_utils/conversion.hpp>
+#include <autoware/lanelet2_utils/geometry.hpp>
 #include <autoware/route_handler/route_handler.hpp>
 #include <autoware_lanelet2_extension/io/autoware_osm_parser.hpp>
 #include <autoware_lanelet2_extension/projection/mgrs_projector.hpp>
-#include <autoware_lanelet2_extension/utility/message_conversion.hpp>
 #include <autoware_test_utils/mock_data_parser.hpp>
 #include <autoware_utils/geometry/boost_geometry.hpp>
 
@@ -219,9 +220,9 @@ std::shared_ptr<PlannerData> instantiate_planner_data(
     }
     return nullptr;
   }
-  autoware_map_msgs::msg::LaneletMapBin map_bin;
-  lanelet::utils::conversion::toBinMsg(
-    lanelet_map_ptr, &map_bin);  // TODO(soblin): pass lanelet_map_ptr to RouteHandler
+  autoware_map_msgs::msg::LaneletMapBin map_bin =
+    autoware::experimental::lanelet2_utils::to_autoware_map_msgs(
+      lanelet_map_ptr);  // TODO(soblin): pass lanelet_map_ptr to RouteHandler
 
   YAML::Node config = YAML::LoadFile(sample_planner_data_yaml_path);
 
@@ -321,7 +322,8 @@ std::vector<PullOverPath> selectPullOverPaths(
     // get road lanes which is at least backward_length[m] behind the goal
     const auto road_lanes = getExtendedCurrentLanesFromPath(
       upstream_module_output.path, planner_data, backward_length, 0.0, false);
-    const auto goal_pose_length = lanelet::utils::getArcCoordinates(road_lanes, goal_pose).length;
+    const auto goal_pose_length =
+      autoware::experimental::lanelet2_utils::get_arc_coordinates(road_lanes, goal_pose).length;
     return planner_data->route_handler->getCenterLinePath(
       road_lanes, std::max(0.0, goal_pose_length - backward_length),
       goal_pose_length + parameters.forward_goal_search_length);
@@ -470,7 +472,8 @@ std::optional<PathWithLaneId> calculate_centerline_path(
   const auto departure_check_lane =
     autoware::behavior_path_planner::goal_planner_utils::createDepartureCheckLanelet(
       pull_over_lanes, *route_handler, true);
-  const auto goal_arc_coords = lanelet::utils::getArcCoordinates(pull_over_lanes, refined_goal);
+  const auto goal_arc_coords =
+    autoware::experimental::lanelet2_utils::get_arc_coordinates(pull_over_lanes, refined_goal);
   const double s_start = std::max(0.0, goal_arc_coords.length - backward_length);
   const double s_end = goal_arc_coords.length + forward_length;
   const double longitudinal_interval = use_bus_stop_area
@@ -523,28 +526,29 @@ int main(int argc, char ** argv)
   auto node_options = rclcpp::NodeOptions{};
   node_options.parameter_overrides(
     std::vector<rclcpp::Parameter>{{"launch_modules", std::vector<std::string>{}}});
-  node_options.arguments(std::vector<std::string>{
-    "--ros-args", "--params-file",
-    ament_index_cpp::get_package_share_directory("autoware_behavior_path_planner") +
-      "/config/behavior_path_planner.param.yaml",
-    "--params-file",
-    ament_index_cpp::get_package_share_directory("autoware_behavior_path_planner") +
-      "/config/drivable_area_expansion.param.yaml",
-    "--params-file",
-    ament_index_cpp::get_package_share_directory("autoware_behavior_path_planner") +
-      "/config/scene_module_manager.param.yaml",
-    "--params-file",
-    ament_index_cpp::get_package_share_directory("autoware_test_utils") +
-      "/config/test_common.param.yaml",
-    "--params-file",
-    ament_index_cpp::get_package_share_directory("autoware_test_utils") +
-      "/config/test_nearest_search.param.yaml",
-    "--params-file",
-    ament_index_cpp::get_package_share_directory("autoware_test_utils") +
-      "/config/test_vehicle_info.param.yaml",
-    "--params-file",
-    ament_index_cpp::get_package_share_directory("autoware_behavior_path_goal_planner_module") +
-      "/config/goal_planner.param.yaml"});
+  node_options.arguments(
+    std::vector<std::string>{
+      "--ros-args", "--params-file",
+      ament_index_cpp::get_package_share_directory("autoware_behavior_path_planner") +
+        "/config/behavior_path_planner.param.yaml",
+      "--params-file",
+      ament_index_cpp::get_package_share_directory("autoware_behavior_path_planner") +
+        "/config/drivable_area_expansion.param.yaml",
+      "--params-file",
+      ament_index_cpp::get_package_share_directory("autoware_behavior_path_planner") +
+        "/config/scene_module_manager.param.yaml",
+      "--params-file",
+      ament_index_cpp::get_package_share_directory("autoware_test_utils") +
+        "/config/test_common.param.yaml",
+      "--params-file",
+      ament_index_cpp::get_package_share_directory("autoware_test_utils") +
+        "/config/test_nearest_search.param.yaml",
+      "--params-file",
+      ament_index_cpp::get_package_share_directory("autoware_test_utils") +
+        "/config/test_vehicle_info.param.yaml",
+      "--params-file",
+      ament_index_cpp::get_package_share_directory("autoware_behavior_path_goal_planner_module") +
+        "/config/goal_planner.param.yaml"});
   auto node = rclcpp::Node::make_shared("plot_map", node_options);
 
   auto planner_data = instantiate_planner_data(
@@ -563,11 +567,11 @@ int main(int argc, char ** argv)
       node.get(), "goal_planner.");
   goal_planner_parameter.bus_stop_area.use_bus_stop_area = true;
   goal_planner_parameter.lane_departure_check_expansion_margin = 0.2;
-  autoware::lane_departure_checker::Param lane_departure_checker_params;
-  lane_departure_checker_params.footprint_extra_margin =
+  autoware::boundary_departure_checker::Param boundary_departure_checker_params;
+  boundary_departure_checker_params.footprint_extra_margin =
     goal_planner_parameter.lane_departure_check_expansion_margin;
-  autoware::lane_departure_checker::LaneDepartureChecker lane_departure_checker(
-    lane_departure_checker_params, vehicle_info);
+  autoware::boundary_departure_checker::BoundaryDepartureChecker boundary_departure_checker(
+    boundary_departure_checker_params, vehicle_info);
 
   const auto footprint = vehicle_info.createFootprint();
   autoware::behavior_path_planner::GoalSearcher goal_searcher(goal_planner_parameter, footprint);

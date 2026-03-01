@@ -63,7 +63,7 @@ Lanelet2MapFilterComponent::Lanelet2MapFilterComponent(const rclcpp::NodeOptions
   // Set parameter reconfigure
   {
     set_param_res_ = this->add_on_set_parameters_callback(
-      std::bind(&Lanelet2MapFilterComponent::paramCallback, this, _1));
+      std::bind(&Lanelet2MapFilterComponent::param_callback, this, _1));
   }
 
   // Set tf
@@ -72,7 +72,7 @@ Lanelet2MapFilterComponent::Lanelet2MapFilterComponent(const rclcpp::NodeOptions
   }
 }
 
-rcl_interfaces::msg::SetParametersResult Lanelet2MapFilterComponent::paramCallback(
+rcl_interfaces::msg::SetParametersResult Lanelet2MapFilterComponent::param_callback(
   const std::vector<rclcpp::Parameter> & p)
 {
   if (get_param(p, "voxel_size_x", voxel_size_x_)) {
@@ -240,8 +240,8 @@ void Lanelet2MapFilterComponent::pointcloudCallback(const PointCloud2ConstPtr cl
 void Lanelet2MapFilterComponent::mapCallback(
   const autoware_map_msgs::msg::LaneletMapBin::ConstSharedPtr map_msg)
 {
-  lanelet_map_ptr_ = std::make_shared<lanelet::LaneletMap>();
-  lanelet::utils::conversion::fromBinMsg(*map_msg, lanelet_map_ptr_);
+  lanelet_map_ptr_ = autoware::experimental::lanelet2_utils::remove_const(
+    autoware::experimental::lanelet2_utils::from_autoware_map_msgs(*map_msg));
   const lanelet::ConstLanelets all_lanelets = lanelet::utils::query::laneletLayer(lanelet_map_ptr_);
   road_lanelets_ = lanelet::utils::query::roadLanelets(all_lanelets);
 }

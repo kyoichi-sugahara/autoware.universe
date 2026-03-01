@@ -249,7 +249,8 @@ TEST_F(ConcatenateCloudTest, TestComputeTransformToAdjustForOldTimestamp)
   oss << "Transformation matrix from cloud 2 to cloud 1:\n" << transform;
 
   if (debug_) {
-    RCLCPP_INFO(concatenate_node_->get_logger(), "%s", oss.str().c_str());
+    const std::string & str = oss.str();
+    RCLCPP_INFO(concatenate_node_->get_logger(), "%s", str.c_str());
   }
 
   // case 2: time difference smaller than 100 miliseconds
@@ -285,7 +286,8 @@ TEST_F(ConcatenateCloudTest, TestComputeTransformToAdjustForOldTimestamp)
   oss << "Transformation matrix from cloud 4 to cloud 3:\n" << transform;
 
   if (debug_) {
-    RCLCPP_INFO(concatenate_node_->get_logger(), "%s", oss.str().c_str());
+    const std::string & str = oss.str();
+    RCLCPP_INFO(concatenate_node_->get_logger(), "%s", str.c_str());
   }
 }
 
@@ -350,8 +352,9 @@ TEST_F(ConcatenateCloudTest, TestConcatenateClouds)
   topic_to_cloud_map["lidar_left"] = left_pointcloud_ptr;
   topic_to_cloud_map["lidar_right"] = right_pointcloud_ptr;
 
-  auto [concatenate_cloud_ptr, topic_to_transformed_cloud_map, topic_to_original_stamp_map] =
-    collector_->concatenate_pointclouds(topic_to_cloud_map);
+  auto
+    [concatenate_cloud_ptr, concatenation_info_ptr, topic_to_transformed_cloud_map,
+     topic_to_original_stamp_map] = collector_->concatenate_pointclouds(topic_to_cloud_map);
 
   // test output concatenate cloud
   // No input twist, so it will not do the motion compensation
@@ -379,7 +382,8 @@ TEST_F(ConcatenateCloudTest, TestConcatenateClouds)
   }
 
   if (debug_) {
-    RCLCPP_INFO(concatenate_node_->get_logger(), "%s", oss.str().c_str());
+    const std::string & str = oss.str();
+    RCLCPP_INFO(concatenate_node_->get_logger(), "%s", str.c_str());
   }
 
   // test concatenate cloud has the oldest pointcloud's timestamp
@@ -418,7 +422,8 @@ TEST_F(ConcatenateCloudTest, TestConcatenateClouds)
   }
 
   if (debug_) {
-    RCLCPP_INFO(concatenate_node_->get_logger(), "%s", oss.str().c_str());
+    const std::string & str = oss.str();
+    RCLCPP_INFO(concatenate_node_->get_logger(), "%s", str.c_str());
   }
 
   oss.clear();
@@ -441,7 +446,8 @@ TEST_F(ConcatenateCloudTest, TestConcatenateClouds)
   }
 
   if (debug_) {
-    RCLCPP_INFO(concatenate_node_->get_logger(), "%s", oss.str().c_str());
+    const std::string & str = oss.str();
+    RCLCPP_INFO(concatenate_node_->get_logger(), "%s", str.c_str());
   }
 
   oss.clear();
@@ -464,7 +470,8 @@ TEST_F(ConcatenateCloudTest, TestConcatenateClouds)
   }
 
   if (debug_) {
-    RCLCPP_INFO(concatenate_node_->get_logger(), "%s", oss.str().c_str());
+    const std::string & str = oss.str();
+    RCLCPP_INFO(concatenate_node_->get_logger(), "%s", str.c_str());
   }
 
   // test original cloud's timestamps

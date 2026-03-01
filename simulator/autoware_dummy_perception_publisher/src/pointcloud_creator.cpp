@@ -14,12 +14,13 @@
 
 #include "autoware/dummy_perception_publisher/node.hpp"
 #include "autoware/dummy_perception_publisher/signed_distance_function.hpp"
+#include "autoware/point_types/types.hpp"
 
 #include <pcl/impl/point_types.hpp>
+#include <tf2/LinearMath/Transform.hpp>
+#include <tf2/LinearMath/Vector3.hpp>
 
 #include <pcl/filters/voxel_grid_occlusion_estimation.h>
-#include <tf2/LinearMath/Transform.h>
-#include <tf2/LinearMath/Vector3.h>
 
 #include <functional>
 #include <limits>
@@ -244,9 +245,10 @@ std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> EgoCentricPointCloudCreator::cr
            vertical_theta <= vertical_max_theta + epsilon; vertical_theta += vertical_theta_step) {
         const double z = dist * std::tan(vertical_theta);
         if (min_z_here <= z && z <= max_z_here + epsilon) {
-          pointclouds.at(idx_hit)->push_back(pcl::PointXYZ(
-            x_hit + x_random(random_generator), y_hit + y_random(random_generator),
-            z + z_random(random_generator)));
+          pointclouds.at(idx_hit)->push_back(
+            pcl::PointXYZ(
+              x_hit + x_random(random_generator), y_hit + y_random(random_generator),
+              z + z_random(random_generator)));
         }
       }
     }

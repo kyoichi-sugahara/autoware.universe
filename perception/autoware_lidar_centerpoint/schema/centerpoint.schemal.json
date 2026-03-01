@@ -21,13 +21,6 @@
         "post_process_params": {
           "type": "object",
           "properties": {
-            "score_threshold": {
-              "type": "number",
-              "description": "A threshold value of existence probability score, all of objects with score less than this threshold are ignored.",
-              "default": 0.35,
-              "minimum": 0.0,
-              "maximum": 1.0
-            },
             "yaw_norm_thresholds": {
               "type": "array",
               "description": "An array of distance threshold values of norm of yaw [rad].",

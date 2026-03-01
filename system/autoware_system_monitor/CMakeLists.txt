@@ -49,6 +49,12 @@ else()
   set(CMAKE_CPU_PLATFORM "unknown")
 endif()
 
+# Enable temperature diagnostics only for Tegra platforms,
+# where thermal throttling can't be detected.
+if(CMAKE_CPU_PLATFORM STREQUAL "tegra")
+  add_definitions(-DENABLE_TEMPERATURE_DIAGNOSTICS)
+endif()
+
 if(NVML_FOUND)
   set(CMAKE_GPU_PLATFORM "nvml")
   add_definitions(-D_GPU_NVML_)
@@ -70,6 +76,7 @@ message(STATUS "GPU PLATFORM: " ${CMAKE_GPU_PLATFORM})
 set(CPU_MONITOR_SOURCE
   src/cpu_monitor/cpu_monitor_base.cpp
   src/cpu_monitor/${CMAKE_CPU_PLATFORM}_cpu_monitor.cpp
+  src/cpu_monitor/cpu_usage_statistics.cpp
 )
 
 ament_auto_add_library(cpu_monitor_lib SHARED
@@ -187,6 +194,7 @@ rclcpp_components_register_node(voltage_monitor_lib
 )
 
 if(BUILD_TESTING)
+  # Process Monitor Test
   ament_add_ros_isolated_gtest(test_process_monitor
     test/src/process_monitor/test_process_monitor.cpp
   )
@@ -203,26 +211,45 @@ if(BUILD_TESTING)
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/test/data/process_monitor $<TARGET_FILE_DIR:test_process_monitor>
     COMMENT "Copying test data files to the build directory after build"
   )
+
+  # CPU Monitor Test
+  ament_add_ros_isolated_gtest(test_cpu_monitor
+    test/src/cpu_monitor/test_${CMAKE_CPU_PLATFORM}_cpu_monitor.cpp
+    ${CPU_MONITOR_SOURCE}
+  )
+
+  target_include_directories(test_cpu_monitor
+    PRIVATE "include"
+  )
+
+  target_link_libraries(test_cpu_monitor cpu_monitor_lib ${Boost_LIBRARIES} ${LIBRARIES})
+
+  # Mem Monitor Test
+  ament_add_ros_isolated_gtest(test_mem_monitor
+    test/src/mem_monitor/test_mem_monitor.cpp
+    src/mem_monitor/mem_monitor.cpp
+  )
+
+  target_include_directories(test_mem_monitor
+    PRIVATE "include"
+  )
+
+  target_link_libraries(test_mem_monitor mem_monitor_lib  ${Boost_LIBRARIES} ${LIBRARIES})
+
+  # helper free command to failed free command.
+  add_executable(free1 test/src/mem_monitor/free1.cpp)
+
+  add_custom_command(
+    TARGET test_mem_monitor
+    POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:free1> $<TARGET_FILE_DIR:test_mem_monitor>
+    COMMENT "Copying free1 dummy executable to the test directory"
+  )
+
 endif()
 
 # TODO(yunus.caliskan): Port the tests to ROS 2, robustify the tests.
 if(BUILD_TESTING)
-  # ament_add_ros_isolated_gtest(test_cpu_monitor
-  #   test/src/cpu_monitor/test_${CMAKE_CPU_PLATFORM}_cpu_monitor.cpp
-  #   ${CPU_MONITOR_SOURCE}
-  # )
-
-  # ament_target_dependencies(test_cpu_monitor
-  #   "rclcpp"
-  #   "diagnostic_msgs"
-  # )
-
-  # target_include_directories(test_cpu_monitor
-  #   PRIVATE "include"
-  # )
-
-  # target_link_libraries(test_cpu_monitor ${Boost_LIBRARIES} ${LIBRARIES})
-
   # ament_add_ros_isolated_gtest(test_hdd_monitor
   #   test/src/hdd_monitor/test_hdd_monitor.cpp
   #   src/hdd_monitor/hdd_monitor.cpp

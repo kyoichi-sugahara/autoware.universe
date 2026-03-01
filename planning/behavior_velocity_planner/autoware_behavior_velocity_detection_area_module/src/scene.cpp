@@ -19,11 +19,18 @@
 #include <autoware/behavior_velocity_planner_common/utilization/arc_lane_util.hpp>
 #include <autoware/behavior_velocity_planner_common/utilization/util.hpp>
 #include <autoware/motion_utils/trajectory/trajectory.hpp>
+#include <autoware/object_recognition_utils/object_classification.hpp>
+#include <autoware_utils_uuid/uuid_helper.hpp>
 #include <tf2_eigen/tf2_eigen.hpp>
 
 #include <lanelet2_core/geometry/Polygon.h>
 
+#include <cstring>
+#include <iomanip>
 #include <memory>
+#include <optional>
+#include <sstream>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -49,6 +56,114 @@ DetectionAreaModule::DetectionAreaModule(
 {
 }
 
+void DetectionAreaModule::print_detected_obstacle(
+  const std::vector<geometry_msgs::msg::Point> & obstacle_points,
+  const geometry_msgs::msg::Pose & self_pose) const
+{
+  std::stringstream obstacles_ss;
+  if (last_obstacle_found_time_) {
+    rclcpp::Duration time_from_last_detection = clock_->now() - *last_obstacle_found_time_;
+    constexpr double obstacle_disappear_time_threshold = 0.1;
+    if (time_from_last_detection.seconds() > obstacle_disappear_time_threshold) {
+      obstacles_ss << std::fixed << std::setprecision(2) << time_from_last_detection.seconds()
+                   << "[s] since last obstacle cleared";
+    }
+  }
+
+  if (!obstacle_points.empty()) {
+    const auto p = obstacle_points[0];
+    const auto p_from_ego = autoware_utils::inverse_transform_point(p, self_pose);
+    obstacles_ss << "obstacle: map_coord(" << std::fixed << std::setprecision(2) << p.x << ", "
+                 << p.y << ", " << p.z << "), ego_coord(" << p_from_ego.x << ", " << p_from_ego.y
+                 << ", " << p_from_ego.z << ")";
+  }
+
+  logInfoThrottle(
+    1000, "ego: map_coord(%.2f, %.2f, %.2f), %s", self_pose.position.x, self_pose.position.y,
+    self_pose.position.z, obstacles_ss.str().c_str());
+}
+
+void DetectionAreaModule::finalizeStopPoint(
+  PathWithLaneId * path, const geometry_msgs::msg::Pose & stop_pose,
+  const geometry_msgs::msg::Pose & modified_stop_pose, const size_t modified_stop_line_seg_idx,
+  const geometry_msgs::msg::Pose & self_pose, const std::string & detection_source,
+  const std::string & policy_name, const State & prev_state)
+{
+  state_ = State::STOP;
+  if (prev_state != State::STOP) {
+    logInfo("state changed: GO -> STOP (%s)", policy_name.c_str());
+  }
+
+  if (planner_param_.enable_detected_obstacle_logging) {
+    print_detected_obstacle(debug_data_.obstacle_points, self_pose);
+  }
+
+  planning_utils::insertStopPoint(modified_stop_pose.position, modified_stop_line_seg_idx, *path);
+
+  // For virtual wall
+  debug_data_.stop_poses.push_back(stop_pose);
+
+  // Create StopReason
+  {
+    planning_factor_interface_->add(
+      path->points, planner_data_->current_odometry->pose, stop_pose,
+      autoware_internal_planning_msgs::msg::PlanningFactor::STOP,
+      autoware_internal_planning_msgs::msg::SafetyFactorArray{}, true /*is_driving_forward*/, 0.0,
+      0.0 /*shift distance*/, detection_source);
+  }
+}
+
+bool DetectionAreaModule::handleUnstoppableGoPolicy()
+{
+  logWarnThrottle(1000, "[detection_area] insufficient braking distance, policy: go");
+  setSafe(true);
+  return true;
+}
+
+bool DetectionAreaModule::handleUnstoppableForceStopPolicy(
+  PathWithLaneId * path, const geometry_msgs::msg::Pose & stop_pose,
+  const geometry_msgs::msg::Pose & modified_stop_pose, const size_t modified_stop_line_seg_idx,
+  const geometry_msgs::msg::Pose & self_pose, const std::string & detection_source)
+{
+  logWarnThrottle(
+    1000, "[detection_area] insufficient braking distance, policy: force_stop (emergency)");
+
+  finalizeStopPoint(
+    path, stop_pose, modified_stop_pose, modified_stop_line_seg_idx, self_pose, detection_source,
+    "force_stop", state_);
+
+  return true;
+}
+
+bool DetectionAreaModule::handleUnstoppableStopAfterLinePolicy(
+  PathWithLaneId * path, const PathWithLaneId & original_path,
+  const geometry_msgs::msg::Pose & stop_pose, geometry_msgs::msg::Pose & modified_stop_pose,
+  size_t & modified_stop_line_seg_idx, const geometry_msgs::msg::Pose & self_pose,
+  const double current_velocity, const double stop_dist, const std::string & detection_source)
+{
+  logWarnThrottle(
+    1000, "[detection_area] insufficient braking distance, policy: stop_after_stopline");
+
+  forward_offset_to_stop_line_ = std::max(
+    detection_area::feasible_stop_distance_by_max_acceleration(
+      current_velocity, planner_param_.max_deceleration) -
+      stop_dist,
+    0.0);
+
+  const auto offset_segment = arc_lane_utils::findOffsetSegment(
+    original_path, modified_stop_line_seg_idx, forward_offset_to_stop_line_);
+  if (offset_segment) {
+    modified_stop_pose = arc_lane_utils::calcTargetPose(original_path, *offset_segment);
+    modified_stop_line_seg_idx = offset_segment->first;
+  }
+
+  finalizeStopPoint(
+    path, stop_pose, modified_stop_pose, modified_stop_line_seg_idx, self_pose, detection_source,
+    "stop_after_stopline", state_);
+
+  return true;
+}
+
 bool DetectionAreaModule::modifyPathVelocity(PathWithLaneId * path)
 {
   // Store original path
@@ -59,10 +174,40 @@ bool DetectionAreaModule::modifyPathVelocity(PathWithLaneId * path)
   debug_data_.base_link2front = planner_data_->vehicle_info_.max_longitudinal_offset_m;
 
   // Find obstacles in detection area
-  const auto obstacle_points = detection_area::get_obstacle_points(
-    detection_area_reg_elem_.detectionAreas(), *planner_data_->no_ground_pointcloud);
-  debug_data_.obstacle_points = obstacle_points;
-  if (!obstacle_points.empty()) {
+  bool has_obstacle = false;
+  std::string detection_source;
+
+  // Check pointcloud
+  if (planner_param_.target_filtering.pointcloud) {
+    const auto obstacle_points = detection_area::get_obstacle_points(
+      detection_area_reg_elem_.detectionAreas(), *planner_data_->no_ground_pointcloud);
+    debug_data_.obstacle_points = obstacle_points;
+
+    if (!obstacle_points.empty()) {
+      has_obstacle = true;
+      detection_source = "pointcloud";
+    }
+  }
+
+  // Check predicted objects
+  if (!has_obstacle && planner_data_->predicted_objects) {
+    const auto detected_object = detection_area::get_detected_object(
+      detection_area_reg_elem_.detectionAreas(), *planner_data_->predicted_objects,
+      planner_param_.target_filtering);
+    if (detected_object.has_value()) {
+      has_obstacle = true;
+
+      // Get object type name
+      const auto label =
+        autoware::object_recognition_utils::getHighestProbLabel(detected_object->classification);
+      const auto object_type_name = detection_area::object_label_to_string(label);
+
+      detection_source = object_type_name;
+    }
+  }
+
+  // Update last obstacle found time
+  if (has_obstacle) {
     last_obstacle_found_time_ = std::make_shared<const rclcpp::Time>(clock_->now());
   }
 
@@ -74,10 +219,14 @@ bool DetectionAreaModule::modifyPathVelocity(PathWithLaneId * path)
   const auto & self_pose = planner_data_->current_odometry->pose;
   const size_t current_seg_idx = findEgoSegmentIndex(path->points);
 
+  // Get current lanelet and connected lanelets
+  const auto connected_lane_ids =
+    planning_utils::collectConnectedLaneIds(lane_id_, planner_data_->route_handler_);
   // Get stop point
   const auto stop_point = arc_lane_utils::createTargetPoint(
     original_path, stop_line, planner_param_.stop_margin,
-    planner_data_->vehicle_info_.max_longitudinal_offset_m);
+    planner_data_->vehicle_info_.max_longitudinal_offset_m - forward_offset_to_stop_line_,
+    connected_lane_ids);
   if (!stop_point) {
     return true;
   }
@@ -110,12 +259,18 @@ bool DetectionAreaModule::modifyPathVelocity(PathWithLaneId * path)
   setDistance(stop_dist);
 
   // Check state
-  setSafe(detection_area::can_clear_stop_state(
-    last_obstacle_found_time_, clock_->now(), planner_param_.state_clear_time));
+  const auto prev_state = state_;  // used to log the state change
+
+  setSafe(
+    detection_area::can_clear_stop_state(
+      last_obstacle_found_time_, clock_->now(), planner_param_.state_clear_time));
   if (isActivated()) {
     last_obstacle_found_time_ = {};
     if (!planner_param_.suppress_pass_judge_when_stopping || !is_stopped) {
       state_ = State::GO;
+      if (prev_state != State::GO) {
+        logInfo("state changed: STOP -> GO");
+      }
     }
     return true;
   }
@@ -125,7 +280,7 @@ bool DetectionAreaModule::modifyPathVelocity(PathWithLaneId * path)
     // Use '-' for margin because it's the backward distance from stop line
     const auto dead_line_point = arc_lane_utils::createTargetPoint(
       original_path, stop_line, -planner_param_.dead_line_margin,
-      planner_data_->vehicle_info_.max_longitudinal_offset_m);
+      planner_data_->vehicle_info_.max_longitudinal_offset_m, connected_lane_ids);
 
     if (dead_line_point) {
       const size_t dead_line_point_idx = dead_line_point->first;
@@ -140,7 +295,7 @@ bool DetectionAreaModule::modifyPathVelocity(PathWithLaneId * path)
         original_path.points, self_pose.position, current_seg_idx, dead_line_pose.position,
         dead_line_seg_idx);
       if (dist_from_ego_to_dead_line < 0.0) {
-        RCLCPP_WARN(logger_, "[detection_area] vehicle is over dead line");
+        logWarn("vehicle is over dead line");
         setSafe(true);
         return true;
       }
@@ -158,39 +313,37 @@ bool DetectionAreaModule::modifyPathVelocity(PathWithLaneId * path)
     return true;
   }
 
-  // Ignore objects if braking distance is not enough
-  if (planner_param_.use_pass_judge_line) {
-    const auto current_velocity = planner_data_->current_velocity->twist.linear.x;
-    const double pass_judge_line_distance = planning_utils::calcJudgeLineDistWithAccLimit(
-      current_velocity, planner_data_->current_acceleration->accel.accel.linear.x,
-      planner_data_->delay_response_time);
-    if (
-      state_ != State::STOP &&
-      !detection_area::has_enough_braking_distance(
-        self_pose, stop_point->second, pass_judge_line_distance, current_velocity)) {
-      RCLCPP_WARN_THROTTLE(
-        logger_, *clock_, std::chrono::milliseconds(1000).count(),
-        "[detection_area] vehicle is over stop border");
-      setSafe(true);
-      return true;
+  // Unified unstoppable situation handling
+  const auto current_velocity = planner_data_->current_velocity->twist.linear.x;
+  const double required_braking_distance = planning_utils::calcJudgeLineDistWithAccLimit(
+    current_velocity, -planner_param_.max_deceleration, planner_param_.delay_response_time);
+
+  const bool has_enough_distance = detection_area::has_enough_braking_distance(
+    self_pose, stop_point->second, required_braking_distance, current_velocity);
+
+  // Apply unstoppable policy when braking distance is insufficient (only on GO->STOP transition)
+  if (state_ != State::STOP && !has_enough_distance) {
+    if (planner_param_.unstoppable_policy == "go") {
+      return handleUnstoppableGoPolicy();
+    }
+
+    if (planner_param_.unstoppable_policy == "force_stop") {
+      return handleUnstoppableForceStopPolicy(
+        path, stop_pose, modified_stop_pose, modified_stop_line_seg_idx, self_pose,
+        detection_source);
+    }
+
+    if (planner_param_.unstoppable_policy == "stop_after_stopline") {
+      return handleUnstoppableStopAfterLinePolicy(
+        path, original_path, stop_pose, modified_stop_pose, modified_stop_line_seg_idx, self_pose,
+        current_velocity, stop_dist, detection_source);
     }
   }
 
-  // Insert stop point
-  state_ = State::STOP;
-  planning_utils::insertStopPoint(modified_stop_pose.position, modified_stop_line_seg_idx, *path);
-
-  // For virtual wall
-  debug_data_.stop_poses.push_back(stop_point->second);
-
-  // Create StopReason
-  {
-    planning_factor_interface_->add(
-      path->points, planner_data_->current_odometry->pose, stop_pose,
-      autoware_internal_planning_msgs::msg::PlanningFactor::STOP,
-      autoware_internal_planning_msgs::msg::SafetyFactorArray{}, true /*is_driving_forward*/, 0.0,
-      0.0 /*shift distance*/, "");
-  }
+  // Normal case: sufficient braking distance OR already in STOP state
+  finalizeStopPoint(
+    path, stop_pose, modified_stop_pose, modified_stop_line_seg_idx, self_pose, detection_source,
+    "normal", prev_state);
 
   return true;
 }

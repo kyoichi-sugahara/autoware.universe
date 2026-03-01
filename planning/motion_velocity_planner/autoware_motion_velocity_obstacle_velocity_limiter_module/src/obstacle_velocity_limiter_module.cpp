@@ -53,11 +53,10 @@ void ObstacleVelocityLimiterModule::init(rclcpp::Node & node, const std::string 
     node.create_publisher<visualization_msgs::msg::MarkerArray>("~/" + ns_ + "/debug_markers", 1);
   virtual_wall_publisher_ =
     node.create_publisher<visualization_msgs::msg::MarkerArray>("~/" + ns_ + "/virtual_walls", 1);
+  debug_trajectory_publisher_ = node.create_publisher<autoware_planning_msgs::msg::Trajectory>(
+    "~/debug/" + ns_ + "/trajectory", 1);
   processing_diag_publisher_ = std::make_shared<autoware_utils::ProcessingTimePublisher>(
     &node, "~/debug/" + ns_ + "/processing_time_ms_diag");
-  processing_time_publisher_ =
-    node.create_publisher<autoware_internal_debug_msgs::msg::Float64Stamped>(
-      "~/debug/" + ns_ + "/processing_time_ms", 1);
 
   const auto vehicle_info = vehicle_info_utils::VehicleInfoUtils(node).getVehicleInfo();
   vehicle_lateral_offset_ = static_cast<double>(vehicle_info.max_lateral_offset_m);
@@ -174,8 +173,9 @@ VelocityPlanningResult ObstacleVelocityLimiterModule::plan(
     planner_data->objects, obstacle_params_.dynamic_obstacles_buffer,
     obstacle_params_.dynamic_obstacles_min_vel);
   if (obstacle_params_.ignore_on_path)
-    obstacle_masks.negative_masks.push_back(obstacle_velocity_limiter::createTrajectoryFootprint(
-      original_traj_points, vehicle_lateral_offset_ + obstacle_params_.ignore_extra_distance));
+    obstacle_masks.negative_masks.push_back(
+      obstacle_velocity_limiter::createTrajectoryFootprint(
+        original_traj_points, vehicle_lateral_offset_ + obstacle_params_.ignore_extra_distance));
   const auto projected_linestrings =
     obstacle_velocity_limiter::createProjectedLines(downsampled_traj_points, projection_params_);
   const auto footprint_polygons = obstacle_velocity_limiter::createFootprintPolygons(
@@ -238,10 +238,6 @@ VelocityPlanningResult ObstacleVelocityLimiterModule::plan(
   processing_times["slowdowns"] = slowdowns_us / 1000;
   processing_times["Total"] = total_us / 1000;
   processing_diag_publisher_->publish(processing_times);
-  autoware_internal_debug_msgs::msg::Float64Stamped processing_time_msg;
-  processing_time_msg.stamp = clock_->now();
-  processing_time_msg.data = processing_times["Total"];
-  processing_time_publisher_->publish(processing_time_msg);
   return result;
 }
 }  // namespace autoware::motion_velocity_planner

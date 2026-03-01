@@ -2,6 +2,120 @@
 Changelog for package autoware_planning_evaluator
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* fix(autoware_planning_evaluator): sort predicted paths (`#12034 <https://github.com/autowarefoundation/autoware_universe/issues/12034>`_)
+  fix predicted path sorting bug
+* refactor(evaluator): migrate deprecated getClosestLanelet() (`#11987 <https://github.com/autowarefoundation/autoware_universe/issues/11987>`_)
+* fix(autoware_planning_evaluator): a pet bug (`#11950 <https://github.com/autowarefoundation/autoware_universe/issues/11950>`_)
+  fix pet bug
+* chore(planning_evaluator): on the worst only (`#11932 <https://github.com/autowarefoundation/autoware_universe/issues/11932>`_)
+  on the worst only
+* feat(autoware_planning_evaluator): new obstacle metrics (`#11761 <https://github.com/autowarefoundation/autoware_universe/issues/11761>`_)
+  * tmp save
+  * remove some draft code
+  * add new implements
+  * polish code, need to update readme
+  * pre-commit
+  * update readme
+  * fix cppcheck
+  * fix unit test bug, and add test cases for ttc, drac.
+  * cry to fix ci building error
+  * refactor code
+  ---------
+* docs(planning_evaluator): revise general terminology (`#11833 <https://github.com/autowarefoundation/autoware_universe/issues/11833>`_)
+* Contributors: Kem (TiankuiXian), Mamoru Sobue, Ryohsuke Mitsudome, Zulfaqar Azmi
+
+0.49.0 (2025-12-30)
+-------------------
+* Merge remote-tracking branch 'origin/main' into prepare-0.49.0-changelog
+* fix: resolve clock type mismatch in tf2 lookups with simulation time (`#11523 <https://github.com/autowarefoundation/autoware_universe/issues/11523>`_)
+  * fix: resolve clock type mismatch in tf2 transform lookups
+  Replace rclcpp::Time(0) with tf2::TimePointZero in lookupTransform calls
+  to fix clock type conflicts when using simulation time.
+  The issue:
+  - rclcpp::Time(0) creates a time with SYSTEM_TIME clock type
+  - When nodes run with use_sim_time:=true, transforms use ROS_TIME clock
+  - This causes clock type mismatch errors in tf2 lookups
+  - Error: "Lookup would require extrapolation into the past"
+  The fix:
+  - tf2::TimePointZero is clock-type agnostic
+  - Correctly represents "get latest available transform"
+  - Also replaced rclcpp::Duration::from_seconds() with tf2::durationFromSec()
+  This bug affects transform lookups in critical safety and planning
+  components, causing runtime errors when simulation time is enabled.
+  Affected packages:
+  - autoware_autonomous_emergency_braking
+  - autoware_planning_evaluator
+  - autoware_freespace_planner
+  * style(pre-commit): autofix
+  ---------
+  Co-authored-by: pre-commit-ci-lite[bot] <117423508+pre-commit-ci-lite[bot]@users.noreply.github.com>
+  Co-authored-by: Shumpei Wakabayashi <42209144+shmpwk@users.noreply.github.com>
+* Contributors: Ryohsuke Mitsudome, ralwing
+
+0.48.0 (2025-11-18)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat(planning_evaluator): refactor the obstacle_distance and obstacle_ttc metric (`#11478 <https://github.com/autowarefoundation/autoware_universe/issues/11478>`_)
+  * tmp save
+  * refactor and pre-commit
+  * tmp save
+  * fix start point bug and apply deceleration lower bound
+  * remove unused launch parm
+  * polish code
+  * fix unit tests
+  * update readme
+  ---------
+* fix(control_evaluator, planning_evaluator): fix goal-related metrics calculation (`#11337 <https://github.com/autowarefoundation/autoware_universe/issues/11337>`_)
+  * fix stop condition
+  * fix include
+  ---------
+* Contributors: Kem (TiankuiXian), Ryohsuke Mitsudome
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+* feat: change planning output topic name to /planning/trajectory (`#11135 <https://github.com/autowarefoundation/autoware_universe/issues/11135>`_)
+  * change planning output topic name to /planning/trajectory
+  * style(pre-commit): autofix
+  ---------
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+* fix(planning_evaluaotr): prevent abnormal value for ttc (`#11138 <https://github.com/autowarefoundation/autoware_universe/issues/11138>`_)
+* style(pre-commit): autofix (`#10982 <https://github.com/autowarefoundation/autoware_universe/issues/10982>`_)
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+* Contributors: Kosuke Takeuchi, Ryohsuke Mitsudome, Yukihiro Saito
+
+0.46.0 (2025-06-20)
+-------------------
+* Merge remote-tracking branch 'upstream/main' into tmp/TaikiYamada/bump_version_base
+* feat!: remove obstacle_stop_planner and obstacle_cruise_planner (`#10695 <https://github.com/autowarefoundation/autoware_universe/issues/10695>`_)
+  * feat: remove obstacle_stop_planner and obstacle_cruise_planner
+  * update
+  * fix
+  ---------
+* fix(planning_evaluator): fix bug of abnormal_stop metric, and turn its threshold (`#10628 <https://github.com/autowarefoundation/autoware_universe/issues/10628>`_)
+  * fix bug
+  * change threeshold
+  * update abnormal_deceleration_threshold_mps2
+  * change back threshold
+  * add takeuchi san as maintainer
+  * rename func
+  ---------
+* Contributors: Kem (TiankuiXian), TaikiYamada4, Takayuki Murooka
+
+0.45.0 (2025-05-22)
+-------------------
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 * Merge remote-tracking branch 'origin/main' into humble

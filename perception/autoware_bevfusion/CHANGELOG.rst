@@ -2,6 +2,110 @@
 Changelog for package autoware_bevfusion
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat(autoware_bevfusion): update nvcc flags (`#12045 <https://github.com/autowarefoundation/autoware_universe/issues/12045>`_)
+  Co-authored-by: Kotaro Uetake <60615504+ktro2828@users.noreply.github.com>
+* feat(BEVFusion): move cuda stream creation to the beginning of BEVFusionTRT initialization (`#11967 <https://github.com/autowarefoundation/autoware_universe/issues/11967>`_)
+  * move cuda stream init before init
+  * Remove empty lines
+  ---------
+* fix(bevfusion): suppress -Werror for precomputed_features.cpp (`#11959 <https://github.com/autowarefoundation/autoware_universe/issues/11959>`_)
+* fix(autoware_bevfusion): restore spconv in cmakelists (`#11953 <https://github.com/autowarefoundation/autoware_universe/issues/11953>`_)
+* chore(autoware_bevfusion): remove cudnn dependency (`#11887 <https://github.com/autowarefoundation/autoware_universe/issues/11887>`_)
+* Contributors: Amadeusz Szymko, Kok Seang Tan, Mete Fatih Cırıt, Ryohsuke Mitsudome
+
+0.49.0 (2025-12-30)
+-------------------
+* Merge remote-tracking branch 'origin/main' into prepare-0.49.0-changelog
+* feat(autoware_bevfusion): separate image backbone from fusion model and add lidar intensity option (`#11468 <https://github.com/autowarefoundation/autoware_universe/issues/11468>`_)
+  * image backbone building
+  * inference running without error
+  * working bevfusion-cl
+  * style(pre-commit): autofix
+  * removed unnecessary changes
+  * style(pre-commit): autofix
+  * made requested changes
+  * style(pre-commit): autofix
+  * updated memcopy for img_matrices
+  * fix parameter names and defaults
+  * style(pre-commit): autofix
+  * fixed complile time issues
+  * refactor pre-process method
+  * refactored node code
+  * style(pre-commit): autofix
+  * refactor init method
+  * style(pre-commit): autofix
+  * split node code
+  * style(pre-commit): autofix
+  * helper code complexity refactor
+  * fix lint error
+  * style(pre-commit): autofix
+  * update schema params
+  * suppress clang changes
+  ---------
+  Co-authored-by: pre-commit-ci-lite[bot] <117423508+pre-commit-ci-lite[bot]@users.noreply.github.com>
+* Contributors: Ryohsuke Mitsudome, Samrat Thapa
+
+0.48.0 (2025-11-18)
+-------------------
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+* style(pre-commit): update to clang-format-20 (`#11088 <https://github.com/autowarefoundation/autoware_universe/issues/11088>`_)
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+* Contributors: Mete Fatih Cırıt
+
+0.46.0 (2025-06-20)
+-------------------
+* Merge remote-tracking branch 'upstream/main' into tmp/TaikiYamada/bump_version_base
+* fix(autoware_bevfusion): fix clang-tidy errors by removing unused fields (`#10850 <https://github.com/autowarefoundation/autoware_universe/issues/10850>`_)
+  * fix clang-tidy errors by removing unused fields
+  * style(pre-commit): autofix
+  ---------
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+* fix(cmake): update spconv availability messages to use STATUS and WAR… (`#10690 <https://github.com/autowarefoundation/autoware_universe/issues/10690>`_)
+  fix(cmake): update spconv availability messages to use STATUS and WARNING
+* Contributors: Taiki Yamada, TaikiYamada4, Yukihiro Saito
+
+0.45.0 (2025-05-22)
+-------------------
+* fix(autoware_bevfusion): fix clang-tidy errors by removing unused fields (`#10850 <https://github.com/autowarefoundation/autoware_universe/issues/10850>`_)
+  * fix clang-tidy errors by removing unused fields
+  * style(pre-commit): autofix
+  ---------
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+* Merge remote-tracking branch 'origin/main' into tmp/notbot/bump_version_base
+* chore: perception code owner update (`#10645 <https://github.com/autowarefoundation/autoware_universe/issues/10645>`_)
+  * chore: update maintainers in multiple perception packages
+  * Revert "chore: update maintainers in multiple perception packages"
+  This reverts commit f2838c33d6cd82bd032039e2a12b9cb8ba6eb584.
+  * chore: update maintainers in multiple perception packages
+  * chore: add Kok Seang Tan as maintainer in multiple perception packages
+  ---------
+* feat(autoware_bevfusion): added target architectures for bevfusion (`#10613 <https://github.com/autowarefoundation/autoware_universe/issues/10613>`_)
+  * chore: added target architectures for bevfusion
+  * chore: mistook the architecture of edge devices
+  ---------
+* feat(bevfusion.schema): add default values for sensor_fusion and thresholds array (`#10608 <https://github.com/autowarefoundation/autoware_universe/issues/10608>`_)
+* fix(autoware_bevfusion): build error when using ninja-build tool (`#10551 <https://github.com/autowarefoundation/autoware_universe/issues/10551>`_)
+* feat(autoware_bevfusion): integrated the cuda blackboard to bevfusion (`#10540 <https://github.com/autowarefoundation/autoware_universe/issues/10540>`_)
+  * feat: integrated the cuda blackboard to bevfusion
+  * chore: typo
+  * chore: the wildcard matching of schemas is a pain
+  ---------
+* Contributors: Kenzo Lobos Tsunekawa, Taekjin LEE, TaikiYamada4, Zulfaqar Azmi
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 * chore: match all package versions

@@ -14,10 +14,10 @@
 
 #include "autoware/lane_departure_checker/lane_departure_checker_node.hpp"
 
-#include <autoware_lanelet2_extension/utility/message_conversion.hpp>
+#include <autoware/lanelet2_utils/conversion.hpp>
+#include <autoware/lanelet2_utils/topology.hpp>
 #include <autoware_lanelet2_extension/utility/query.hpp>
 #include <autoware_lanelet2_extension/utility/route_checker.hpp>
-#include <autoware_lanelet2_extension/utility/utilities.hpp>
 #include <autoware_lanelet2_extension/visualization/visualization.hpp>
 #include <autoware_utils/math/unit_conversion.hpp>
 #include <autoware_utils/ros/marker_helper.hpp>
@@ -72,8 +72,9 @@ std::map<lanelet::Id, lanelet::ConstLanelet> getRouteLanelets(
 
     for (const auto & primitive : route_ptr->segments.front().primitives) {
       const auto lane_id = primitive.id;
-      for (const auto & lanelet_sequence : lanelet::utils::query::getPrecedingLaneletSequences(
-             routing_graph, lanelet_map->laneletLayer.get(lane_id), extension_length)) {
+      for (const auto & lanelet_sequence :
+           autoware::experimental::lanelet2_utils::get_preceding_lanelet_sequences(
+             lanelet_map->laneletLayer.get(lane_id), routing_graph, extension_length)) {
         for (const auto & preceding_lanelet : lanelet_sequence) {
           route_lanelets[preceding_lanelet.id()] = preceding_lanelet;
         }
@@ -94,8 +95,9 @@ std::map<lanelet::Id, lanelet::ConstLanelet> getRouteLanelets(
 
     for (const auto & primitive : route_ptr->segments.back().primitives) {
       const auto lane_id = primitive.id;
-      for (const auto & lanelet_sequence : lanelet::utils::query::getSucceedingLaneletSequences(
-             routing_graph, lanelet_map->laneletLayer.get(lane_id), extension_length)) {
+      for (const auto & lanelet_sequence :
+           autoware::experimental::lanelet2_utils::get_succeeding_lanelet_sequences(
+             lanelet_map->laneletLayer.get(lane_id), routing_graph, extension_length)) {
         for (const auto & succeeding_lanelet : lanelet_sequence) {
           route_lanelets[succeeding_lanelet.id()] = succeeding_lanelet;
         }
@@ -127,7 +129,7 @@ LaneDepartureCheckerNode::LaneDepartureCheckerNode(const rclcpp::NodeOptions & o
 {
   using std::placeholders::_1;
   node_param_ = NodeParam::init(*this);
-  param_ = Param::init(*this);
+  param_ = init(*this);
 
   // Vehicle Info
   const auto vehicle_info = autoware::vehicle_info_utils::VehicleInfoUtils(*this).getVehicleInfo();
@@ -138,7 +140,7 @@ LaneDepartureCheckerNode::LaneDepartureCheckerNode(const rclcpp::NodeOptions & o
     add_on_set_parameters_callback(std::bind(&LaneDepartureCheckerNode::onParameter, this, _1));
 
   // Core
-  lane_departure_checker_ = std::make_unique<LaneDepartureChecker>(param_, vehicle_info);
+  boundary_departure_checker_ = std::make_unique<BoundaryDepartureChecker>(param_, vehicle_info);
 
   // Publisher
   processing_time_publisher_ =
@@ -150,8 +152,6 @@ LaneDepartureCheckerNode::LaneDepartureCheckerNode(const rclcpp::NodeOptions & o
   updater_.setHardwareID("lane_departure_checker");
 
   updater_.add("lane_departure", this, &LaneDepartureCheckerNode::checkLaneDeparture);
-
-  updater_.add("trajectory_deviation", this, &LaneDepartureCheckerNode::checkTrajectoryDeviation);
 
   // Timer
   const auto period_ns = rclcpp::Rate(node_param_.update_rate).period();
@@ -246,9 +246,15 @@ void LaneDepartureCheckerNode::onTimer()
 
   const auto lanelet_map_bin_msg = sub_lanelet_map_bin_.take_data();
   if (lanelet_map_bin_msg) {
-    lanelet_map_ = std::make_shared<lanelet::LaneletMap>();
-    lanelet::utils::conversion::fromBinMsg(
-      *lanelet_map_bin_msg, lanelet_map_, &traffic_rules_, &routing_graph_);
+    lanelet_map_ = autoware::experimental::lanelet2_utils::remove_const(
+      autoware::experimental::lanelet2_utils::from_autoware_map_msgs(*lanelet_map_bin_msg));
+
+    auto routing_graph_and_traffic_rules =
+      autoware::experimental::lanelet2_utils::instantiate_routing_graph_and_traffic_rules(
+        lanelet_map_);
+    routing_graph_ =
+      autoware::experimental::lanelet2_utils::remove_const(routing_graph_and_traffic_rules.first);
+    traffic_rules_ = routing_graph_and_traffic_rules.second;
 
     // get all shoulder lanes
     lanelet::ConstLanelets all_lanelets = lanelet::utils::query::laneletLayer(lanelet_map_);
@@ -306,22 +312,11 @@ void LaneDepartureCheckerNode::onTimer()
   input_.boundary_types_to_detect = node_param_.boundary_types_to_detect;
   processing_time_map["Node: setInputData"] = stop_watch.toc(true);
 
-  output_ = lane_departure_checker_->update(input_);
+  output_ = boundary_departure_checker_->update(input_);
   processing_time_map["Node: update"] = stop_watch.toc(true);
 
   updater_.force_update();
   processing_time_map["Node: updateDiagnostics"] = stop_watch.toc(true);
-
-  {
-    const auto & deviation = output_.trajectory_deviation;
-    debug_publisher_.publish<autoware_internal_debug_msgs::msg::Float64Stamped>(
-      "deviation/lateral", deviation.lateral);
-    debug_publisher_.publish<autoware_internal_debug_msgs::msg::Float64Stamped>(
-      "deviation/yaw", deviation.yaw);
-    debug_publisher_.publish<autoware_internal_debug_msgs::msg::Float64Stamped>(
-      "deviation/yaw_deg", rad2deg(deviation.yaw));
-  }
-  processing_time_map["Node: publishTrajectoryDeviation"] = stop_watch.toc(true);
 
   debug_publisher_.publish<visualization_msgs::msg::MarkerArray>(
     std::string("marker_array"), createMarkerArray());
@@ -370,8 +365,8 @@ rcl_interfaces::msg::SetParametersResult LaneDepartureCheckerNode::onParameter(
     update_param(parameters, "delay_time", param_.delay_time);
     update_param(parameters, "min_braking_distance", param_.min_braking_distance);
 
-    if (lane_departure_checker_) {
-      lane_departure_checker_->setParam(param_);
+    if (boundary_departure_checker_) {
+      boundary_departure_checker_->setParam(param_);
     }
   } catch (const rclcpp::exceptions::InvalidParameterTypeException & e) {
     result.successful = false;
@@ -402,48 +397,6 @@ void LaneDepartureCheckerNode::checkLaneDeparture(
     level = DiagStatus::ERROR;
     msg = "vehicle will cross boundary";
   }
-
-  stat.summary(level, msg);
-}
-
-void LaneDepartureCheckerNode::checkTrajectoryDeviation(
-  diagnostic_updater::DiagnosticStatusWrapper & stat)
-{
-  using DiagStatus = diagnostic_msgs::msg::DiagnosticStatus;
-  using ControlModeStatus = autoware_vehicle_msgs::msg::ControlModeReport;
-  using OperationModeStatus = autoware_adapi_v1_msgs::msg::OperationModeState;
-
-  int8_t level = DiagStatus::OK;
-
-  if (std::abs(output_.trajectory_deviation.lateral) >= param_.max_lateral_deviation) {
-    level = DiagStatus::ERROR;
-  }
-
-  if (std::abs(output_.trajectory_deviation.longitudinal) >= param_.max_longitudinal_deviation) {
-    level = DiagStatus::ERROR;
-  }
-
-  if (std::abs(rad2deg(output_.trajectory_deviation.yaw)) >= param_.max_yaw_deviation_deg) {
-    level = DiagStatus::ERROR;
-  }
-
-  std::string msg = "OK";
-  if (
-    level == DiagStatus::ERROR && operation_mode_->mode == OperationModeStatus::AUTONOMOUS &&
-    control_mode_->mode == ControlModeStatus::AUTONOMOUS) {
-    msg = "trajectory deviation is too large";
-  } else {
-    level = DiagStatus::OK;
-  }
-
-  stat.addf("max lateral deviation", "%.3f", param_.max_lateral_deviation);
-  stat.addf("lateral deviation", "%.3f", output_.trajectory_deviation.lateral);
-
-  stat.addf("max longitudinal deviation", "%.3f", param_.max_longitudinal_deviation);
-  stat.addf("longitudinal deviation", "%.3f", output_.trajectory_deviation.longitudinal);
-
-  stat.addf("max yaw deviation", "%.3f", param_.max_yaw_deviation_deg);
-  stat.addf("yaw deviation", "%.3f", rad2deg(output_.trajectory_deviation.yaw));
 
   stat.summary(level, msg);
 }
@@ -588,7 +541,8 @@ lanelet::ConstLanelets LaneDepartureCheckerNode::getAllSharedLineStringLanelets(
 
   if (is_conflicting) {
     const auto conflicting_lanelets =
-      lanelet::utils::getConflictingLanelets(routing_graph_, current_lane);
+      autoware::experimental::lanelet2_utils::get_conflicting_lanelets(
+        current_lane, routing_graph_);
     shared.insert(shared.end(), conflicting_lanelets.begin(), conflicting_lanelets.end());
   }
   return shared;

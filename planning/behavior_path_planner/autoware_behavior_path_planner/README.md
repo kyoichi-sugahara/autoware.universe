@@ -8,7 +8,7 @@ Moreover, the planner responds to the behavior of other traffic participants, pr
 
 !!! note
 
-    The [Planning Component Design](https://autowarefoundation.github.io/autoware-documentation/main/design/autoware-architecture/planning/) documentation outlines the foundational philosophy guiding the design and future development of the Behavior Path Planner module. We strongly encourage readers to consult this document to understand the rationale behind its current configuration and the direction of its ongoing development.
+    The [Planning Component Design](https://autowarefoundation.github.io/autoware-documentation/main/design/autoware-architecture-v1/components/planning/) documentation outlines the foundational philosophy guiding the design and future development of the Behavior Path Planner module. We strongly encourage readers to consult this document to understand the rationale behind its current configuration and the direction of its ongoing development.
 
 ## Purpose / Use Cases
 
@@ -29,7 +29,7 @@ Behavior Path Planner has the following scene modules
 | Lane Following             | This module generates a reference path from lanelet centerline.                                                                                                                                | LINK                                                                          |
 | Static Obstacle Avoidance  | This module generates an avoidance path when there are objects that should be avoided.                                                                                                         | [LINK](../autoware_behavior_path_static_obstacle_avoidance_module/README.md)  |
 | Dynamic Obstacle Avoidance | WIP                                                                                                                                                                                            | [LINK](../autoware_behavior_path_dynamic_obstacle_avoidance_module/README.md) |
-| Avoidance By Lane Change   | This module generates a lane change path when there are objects that should be avoided.                                                                                                        | [LINK](../behavior_path_avoidance_by_lane_change_module/README.md)            |
+| Avoidance By Lane Change   | This module generates a lane change path when there are objects that should be avoided.                                                                                                        | [LINK](../autoware_behavior_path_avoidance_by_lane_change_module/README.md)   |
 | Lane Change                | This module is performed when it is necessary and a collision check with other vehicles is cleared.                                                                                            | [LINK](../autoware_behavior_path_lane_change_module/README.md)                |
 | External Lane Change       | WIP                                                                                                                                                                                            | LINK                                                                          |
 | Goal Planner               | This module is performed when the ego vehicle is in a driving lane and the goal is in the shoulder lane. The ego vehicle will stop at the goal.                                                | [LINK](../autoware_behavior_path_goal_planner_module/README.md)               |
@@ -57,7 +57,7 @@ Behavior Path Planner has the following scene modules
 
 !!! Note
 
-    Users can refer to [Planning component design](https://autowarefoundation.github.io/autoware-documentation/main/design/autoware-architecture/planning/#supported-functions) for some additional behavior.
+    Users can refer to [Planning component design](https://autowarefoundation.github.io/autoware-documentation/main/design/autoware-architecture-v1/components/planning/#supported-functions) for some additional behavior.
 
 #### How to add or implement new module
 
@@ -89,18 +89,18 @@ The Planner Manager's responsibilities include:
 
 ### Input
 
-| Name                          | Required? | Type                                                    | Description                                                                                                                                                                                                                                |
-| :---------------------------- | :-------: | :------------------------------------------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ~/input/odometry              |     ○     | `nav_msgs::msg::Odometry`                               | For ego velocity                                                                                                                                                                                                                           |
-| ~/input/accel                 |     ○     | `geometry_msgs::msg::AccelWithCovarianceStamped`        | For ego acceleration                                                                                                                                                                                                                       |
-| ~/input/objects               |     ○     | `autoware_perception_msgs::msg::PredictedObjects`       | Dynamic objects from the perception module                                                                                                                                                                                                 |
-| ~/input/occupancy_grid_map    |     ○     | `nav_msgs::msg::OccupancyGrid`                          | Occupancy grid map from the perception module. This is used for only the Goal Planner module                                                                                                                                               |
-| ~/input/traffic_signals       |     ○     | `autoware_perception_msgs::msg::TrafficLightGroupArray` | Traffic signal information from the perception module                                                                                                                                                                                      |
-| ~/input/vector_map            |     ○     | `autoware_map_msgs::msg::LaneletMapBin`                 | Vector map information                                                                                                                                                                                                                     |
-| ~/input/route                 |     ○     | `autoware_planning_msgs::msg::LaneletRoute`             | Current route from start to goal                                                                                                                                                                                                           |
-| ~/input/scenario              |     ○     | `autoware_internal_planning_msgs::msg::Scenario`        | Launches Behavior Path Planner if current scenario == `Scenario:LaneDriving`                                                                                                                                                               |
-| ~/input/lateral_offset        |     △     | `tier4_planning_msgs::msg::LateralOffset`               | Lateral offset to trigger side shift                                                                                                                                                                                                       |
-| ~/system/operation_mode/state |     ○     | `autoware_adapi_v1_msgs::msg::OperationModeState`       | Allows the planning module to know if vehicle is in autonomous mode or if it can be controlled<sup>[ref](https://github.com/autowarefoundation/autoware_universe/blob/main/system/autoware_default_adapi/document/operation-mode.md)</sup> |
+| Name                          | Required? | Type                                                    | Description                                                                                                                                                                                                                                         |
+| :---------------------------- | :-------: | :------------------------------------------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ~/input/odometry              |     ○     | `nav_msgs::msg::Odometry`                               | For ego velocity                                                                                                                                                                                                                                    |
+| ~/input/accel                 |     ○     | `geometry_msgs::msg::AccelWithCovarianceStamped`        | For ego acceleration                                                                                                                                                                                                                                |
+| ~/input/objects               |     ○     | `autoware_perception_msgs::msg::PredictedObjects`       | Dynamic objects from the perception module                                                                                                                                                                                                          |
+| ~/input/occupancy_grid_map    |     ○     | `nav_msgs::msg::OccupancyGrid`                          | Occupancy grid map from the perception module. This is used for only the Goal Planner module                                                                                                                                                        |
+| ~/input/traffic_signals       |     ○     | `autoware_perception_msgs::msg::TrafficLightGroupArray` | Traffic signal information from the perception module                                                                                                                                                                                               |
+| ~/input/vector_map            |     ○     | `autoware_map_msgs::msg::LaneletMapBin`                 | Vector map information                                                                                                                                                                                                                              |
+| ~/input/route                 |     ○     | `autoware_planning_msgs::msg::LaneletRoute`             | Current route from start to goal                                                                                                                                                                                                                    |
+| ~/input/scenario              |     ○     | `autoware_internal_planning_msgs::msg::Scenario`        | Launches Behavior Path Planner if current scenario == `Scenario:LaneDriving`                                                                                                                                                                        |
+| ~/input/lateral_offset        |     △     | `tier4_planning_msgs::msg::LateralOffset`               | Lateral offset to trigger side shift                                                                                                                                                                                                                |
+| ~/system/operation_mode/state |     ○     | `autoware_adapi_v1_msgs::msg::OperationModeState`       | Allows the planning module to know if vehicle is in autonomous mode or if it can be controlled<sup>[ref](https://github.com/autowarefoundation/autoware_universe/blob/main/system/autoware_default_adapi_universe/document/operation-mode.md)</sup> |
 
 - ○ Mandatory: The planning module would not work if anyone of these were not present.
 - △ Optional: Some modules would not work, but the planning module can still be operated.
@@ -114,6 +114,7 @@ The Planner Manager's responsibilities include:
 | ~/output/hazard_lights_cmd    | `autoware_vehicle_msgs::msg::HazardLightsCommand`      | Hazard lights command                                                                         | `volatile`        |
 | ~/output/modified_goal        | `autoware_planning_msgs::msg::PoseWithUuidStamped`     | Output modified goal commands                                                                 | `transient_local` |
 | ~/output/reroute_availability | `tier4_planning_msgs::msg::RerouteAvailability`        | The path the module is about to take. To be executed as soon as external approval is obtained | `volatile`        |
+| /diagnostics                  | `diagnostic_msgs::msg::DiagnosticArray`                | Diagnostics information for input message timeout detection                                   | `volatile`        |
 
 ### Debug
 
@@ -130,6 +131,27 @@ The Planner Manager's responsibilities include:
 !!! note
 
     For specific information about which topics are being subscribed to and published, refer to [behavior_path_planner.xml](https://github.com/autowarefoundation/autoware_universe/blob/9000f430c937764c14e43109539302f1f878ed70/planning/behavior_path_planner/launch/behavior_path_planner.launch.xml#L36-L49).
+
+### Input Message Timeout Detection
+
+The node monitors the reception timestamps of mandatory input topics and reports their status via `/diagnostics`. Each topic is checked against a configurable timeout threshold every planning cycle.
+
+| Parameter                       | Default | Description                                                              |
+| :------------------------------ | :------ | :----------------------------------------------------------------------- |
+| `cyclic_timeout`                | 0.90 s  | Timeout for high-frequency topics (perception, odometry, occupancy_grid) |
+| `enable_traffic_signal_timeout` | false   | Enable timeout checking for the traffic signal topic                     |
+
+Each topic status is reported as one of:
+
+- **`not received`**: The topic has never been received since the node started.
+- **`timeout`**: The topic was received before, but the latest timestamp exceeds the threshold.
+- **`OK`**: The topic is received within the threshold.
+
+If any mandatory topic is not ready, planning is skipped and a diagnostic ERROR is published.
+
+!!! note
+
+    Since the node performs its own timeout detection internally, using [`topic_state_monitor`](../../../system/autoware_topic_state_monitor/README.md) for the input topics of this node is not recommended to avoid redundant monitoring.
 
 ## How to Enable or Disable Modules
 
@@ -169,16 +191,34 @@ The shifted path generation logic enables the Behavior Path Planner to dynamical
 
 ## Collision Assessment / Safety Check
 
-The purpose of the collision assessment function in the Behavior Path Planner is to evaluate the potential for collisions with target objects across all modules. It is utilized in two scenarios:
+The Collision Assessment function evaluates potential collisions with target objects across all software modules. The system uses this function in two scenarios:
 
-1. During candidate path generation, to ensure that the generated candidate path is collision-free.
-2. When the path is approved by the manager, and the ego vehicle is executing the current module. If the current situation is deemed unsafe, depending on each module's requirements, the planner will either cancel the execution or opt to execute another module.
+1. Path Generation: To ensure a new "candidate" path is safe before it is selected.
+2. Path Execution: While the ego vehicle is moving along an approved path. If the module determines the situation is unsafe, it will either cancel the current action or switch to a different module.
 
-The safety check process involves several steps. Initially, it obtains the pose of the target object at a specific time, typically through interpolation of the predicted path. It then checks for any overlap between the ego vehicle and the target object at this time. If an overlap is detected, the path is deemed unsafe. The function also identifies which vehicle is in front by using the arc length along the given path. The function operates under the assumption that accurate data on the position, velocity, and shape of both the ego vehicle (the autonomous vehicle) and any target objects are available. It also relies on the yaw angle of each point in the predicted paths of these objects, which is expected to point towards the next path point.
+### The Safety Check Process
 
-A critical part of the safety check is the calculation of the RSS (Responsibility-Sensitive Safety) distance-inspired algorithm. This algorithm considers factors such as reaction time, safety time margin, and the velocities and decelerations of both vehicles. Extended object polygons are created for both the ego and target vehicles. Notably, the rear object’s polygon is extended by the RSS distance longitudinally and by a lateral margin. The function finally checks for overlap between this extended rear object polygon and the front object polygon. Any overlap indicates a potential unsafe situation.
+Every module checks for potential collisions with all dynamic objects to ensure the generated path is safe.
 
-However, the module does have a limitation concerning the yaw angle of each point in the predicted paths of target objects, which may not always accurately point to the next point, leading to potential inaccuracies in some edge cases.
+For more information on the implementation, see the [safety check utils explanation](../autoware_behavior_path_planner_common/docs/behavior_path_planner_safety_check.md)
+
+### Minimum Safe Braking Distance Logic
+
+A critical part of the safety check uses a safe braking distance algorithm. This algorithm calculates the required space based on:
+
+- The velocities and decelerations of both vehicles.
+- Reaction time and a safety time margin.
+
+To perform the check, the module creates polygons (geometric shapes) for both vehicles. The module extends the polygon of the vehicle that is behind (the rear vehicle):
+
+- Longitudinally: It extends the shape forward by the calculated safe braking distance.
+- Laterally: It extends the shape sideways by a safety margin.
+
+If this extended rear polygon overlaps with the front vehicle's polygon, the module identifies the situation as unsafe.
+
+### Known Limitations
+
+The module has one specific limitation: the yaw angle (direction) of points in an object's predicted path may not always point exactly toward the next point. In some rare "edge cases," this can lead to slight inaccuracies in the safety check.
 
 !!! note
 

@@ -23,7 +23,7 @@
 #include <autoware/behavior_path_lane_change_module/utils/calculation.hpp>
 #include <autoware/behavior_path_lane_change_module/utils/utils.hpp>
 #include <autoware/behavior_path_static_obstacle_avoidance_module/data_structs.hpp>
-#include <autoware_lanelet2_extension/utility/utilities.hpp>
+#include <autoware/lanelet2_utils/geometry.hpp>
 #include <rclcpp/logging.hpp>
 
 #include <boost/geometry/algorithms/centroid.hpp>
@@ -153,8 +153,11 @@ void AvoidanceByLaneChange::updateSpecialData()
                    : Direction::RIGHT;
   }
 
+  auto current_target_objects = avoidance_data_.target_objects;
   utils::static_obstacle_avoidance::compensateLostTargetObjects(
-    registered_objects_, avoidance_data_, clock_.now(), planner_data_, p);
+    avoidance_data_, registered_objects_, planner_data_);
+  utils::static_obstacle_avoidance::updateStoredObjects(
+    registered_objects_, current_target_objects, clock_.now(), p);
 
   std::sort(
     avoidance_data_.target_objects.begin(), avoidance_data_.target_objects.end(),
@@ -249,7 +252,8 @@ std::optional<ObjectData> AvoidanceByLaneChange::createObjectData(
   ObjectData object_data{};
   // Calc lateral deviation from path to target object.
   object_data.to_centerline =
-    lanelet::utils::getArcCoordinates(data.current_lanelets, object_pose).distance;
+    autoware::experimental::lanelet2_utils::get_arc_coordinates(data.current_lanelets, object_pose)
+      .distance;
 
   if (
     std::abs(object_data.to_centerline) <
@@ -281,7 +285,10 @@ std::optional<ObjectData> AvoidanceByLaneChange::createObjectData(
 
   // Find the footprint point closest to the path, set to object_data.overhang_distance.
   object_data.overhang_points = utils::static_obstacle_avoidance::calcEnvelopeOverhangDistance(
-    object_data, data.reference_path);
+    object_data, data.reference_path,
+    planner_data_->parameters.vehicle_info.wheel_base_m +
+      planner_data_->parameters.vehicle_info.front_overhang_m,
+    planner_data_->parameters.vehicle_info.rear_overhang_m);
 
   // Check whether the the ego should avoid the object.
   const auto & vehicle_width = planner_data_->parameters.vehicle_width;

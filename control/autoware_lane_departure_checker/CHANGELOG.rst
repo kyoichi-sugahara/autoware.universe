@@ -2,6 +2,67 @@
 Changelog for package autoware_lane_departure_checker
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat(lanelet2_extension): deprecate some functions in query (2) (`#11998 <https://github.com/autowarefoundation/autoware_universe/issues/11998>`_)
+  Co-authored-by: Mamoru Sobue <hilo.soblin@gmail.com>
+* Contributors: Ryohsuke Mitsudome, Sarun MUKDAPITAK
+
+0.49.0 (2025-12-30)
+-------------------
+* Merge remote-tracking branch 'origin/main' into prepare-0.49.0-changelog
+* feat(autoware_lanelet2_utils): replace from/toBinMsg (Planning and Control Component) (`#11784 <https://github.com/autowarefoundation/autoware_universe/issues/11784>`_)
+  * planning component toBinMsg replacement
+  * control component fromBinMsg replacement
+  * planning component fromBinMsg replacement
+  ---------
+* Contributors: Ryohsuke Mitsudome, Sarun MUKDAPITAK
+
+0.48.0 (2025-11-18)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat(autoware_lanelet2_utils): replace ported functions from autoware_lanelet2_extension (`#11593 <https://github.com/autowarefoundation/autoware_universe/issues/11593>`_)
+  Co-authored-by: Mamoru Sobue <hilo.soblin@gmail.com>
+* Contributors: Ryohsuke Mitsudome, Sarun MUKDAPITAK
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+* feat: change planning output topic name to /planning/trajectory (`#11135 <https://github.com/autowarefoundation/autoware_universe/issues/11135>`_)
+  * change planning output topic name to /planning/trajectory
+  * style(pre-commit): autofix
+  ---------
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+* Contributors: Yukihiro Saito
+
+0.46.0 (2025-06-20)
+-------------------
+
+0.45.0 (2025-05-22)
+-------------------
+* Merge remote-tracking branch 'origin/main' into tmp/notbot/bump_version_base
+* refactor(departure_checker): move lane departure checker class to departure_checker  (`#10337 <https://github.com/autowarefoundation/autoware_universe/issues/10337>`_)
+  * RT1-9640: separate lane departure checker library
+  * move back parameter
+  * separating parameters
+  * renamed to boundary departure checker
+  * pre-commit
+  * remove trajectory deviation
+  * rename namespace
+  * move boundary departure checker to common folder
+  * rename class name
+  ---------
+* Contributors: TaikiYamada4, Zulfaqar Azmi
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 

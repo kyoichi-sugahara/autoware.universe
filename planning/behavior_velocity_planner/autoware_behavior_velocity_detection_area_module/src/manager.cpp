@@ -17,8 +17,7 @@
 #include <autoware/behavior_velocity_planner_common/utilization/util.hpp>
 #include <autoware_lanelet2_extension/utility/query.hpp>
 #include <autoware_utils/ros/parameter.hpp>
-
-#include <tf2/utils.h>
+#include <tf2/utils.hpp>
 
 #include <limits>
 #include <memory>
@@ -42,8 +41,6 @@ DetectionAreaModuleManager::DetectionAreaModuleManager(rclcpp::Node & node)
   planner_param_.use_dead_line = get_or_declare_parameter<bool>(node, ns + ".use_dead_line");
   planner_param_.dead_line_margin =
     get_or_declare_parameter<double>(node, ns + ".dead_line_margin");
-  planner_param_.use_pass_judge_line =
-    get_or_declare_parameter<bool>(node, ns + ".use_pass_judge_line");
   planner_param_.state_clear_time =
     get_or_declare_parameter<double>(node, ns + ".state_clear_time");
   planner_param_.hold_stop_margin_distance =
@@ -52,6 +49,44 @@ DetectionAreaModuleManager::DetectionAreaModuleManager(rclcpp::Node & node)
     get_or_declare_parameter<double>(node, ns + ".distance_to_judge_over_stop_line");
   planner_param_.suppress_pass_judge_when_stopping =
     get_or_declare_parameter<bool>(node, ns + ".suppress_pass_judge_when_stopping");
+  planner_param_.enable_detected_obstacle_logging =
+    get_or_declare_parameter<bool>(node, ns + ".enable_detected_obstacle_logging");
+
+  // Unified unstoppable situation handling parameters
+  planner_param_.unstoppable_policy =
+    get_or_declare_parameter<std::string>(node, ns + ".unstoppable_policy");
+  planner_param_.max_deceleration =
+    get_or_declare_parameter<double>(node, ns + ".max_deceleration");
+  planner_param_.delay_response_time =
+    get_or_declare_parameter<double>(node, ns + ".delay_response_time");
+
+  // Target filtering parameters
+  planner_param_.target_filtering.pointcloud =
+    get_or_declare_parameter<bool>(node, ns + ".target_filtering.pointcloud");
+  planner_param_.target_filtering.unknown =
+    get_or_declare_parameter<bool>(node, ns + ".target_filtering.unknown");
+  planner_param_.target_filtering.car =
+    get_or_declare_parameter<bool>(node, ns + ".target_filtering.car");
+  planner_param_.target_filtering.truck =
+    get_or_declare_parameter<bool>(node, ns + ".target_filtering.truck");
+  planner_param_.target_filtering.bus =
+    get_or_declare_parameter<bool>(node, ns + ".target_filtering.bus");
+  planner_param_.target_filtering.trailer =
+    get_or_declare_parameter<bool>(node, ns + ".target_filtering.trailer");
+  planner_param_.target_filtering.motorcycle =
+    get_or_declare_parameter<bool>(node, ns + ".target_filtering.motorcycle");
+  planner_param_.target_filtering.bicycle =
+    get_or_declare_parameter<bool>(node, ns + ".target_filtering.bicycle");
+  planner_param_.target_filtering.pedestrian =
+    get_or_declare_parameter<bool>(node, ns + ".target_filtering.pedestrian");
+  planner_param_.target_filtering.animal =
+    get_or_declare_parameter<bool>(node, ns + ".target_filtering.animal");
+  planner_param_.target_filtering.hazard =
+    get_or_declare_parameter<bool>(node, ns + ".target_filtering.hazard");
+  planner_param_.target_filtering.over_drivable =
+    get_or_declare_parameter<bool>(node, ns + ".target_filtering.over_drivable");
+  planner_param_.target_filtering.under_drivable =
+    get_or_declare_parameter<bool>(node, ns + ".target_filtering.under_drivable");
 }
 
 void DetectionAreaModuleManager::launchNewModules(
@@ -65,10 +100,11 @@ void DetectionAreaModuleManager::launchNewModules(
     const auto lane_id = detection_area_with_lane_id.second.id();
     const auto module_id = detection_area_with_lane_id.first->id();
     if (!isModuleRegistered(module_id)) {
-      registerModule(std::make_shared<DetectionAreaModule>(
-        module_id, lane_id, *detection_area_with_lane_id.first, planner_param_,
-        logger_.get_child("detection_area_module"), clock_, time_keeper_,
-        planning_factor_interface_));
+      registerModule(
+        std::make_shared<DetectionAreaModule>(
+          module_id, lane_id, *detection_area_with_lane_id.first, planner_param_,
+          logger_.get_child("detection_area_module"), clock_, time_keeper_,
+          planning_factor_interface_));
       generate_uuid(module_id);
       updateRTCStatus(
         getUUID(module_id), true, State::WAITING_FOR_EXECUTION,

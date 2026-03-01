@@ -2,6 +2,64 @@
 Changelog for package yabloc_pose_initializer
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* refactor(perception, localization): replace getClosestLanelet function (`#12033 <https://github.com/autowarefoundation/autoware_universe/issues/12033>`_)
+  * refactor(perception, localization): replace getClosestLanelet function
+  * replace toGeomMsg
+  ---------
+* Contributors: Mamoru Sobue, Ryohsuke Mitsudome
+
+0.49.0 (2025-12-30)
+-------------------
+* Merge remote-tracking branch 'origin/main' into prepare-0.49.0-changelog
+* feat(autoware_lanelet2_utils): replace from/toBinMsg (Map and Localization Component) (`#11787 <https://github.com/autowarefoundation/autoware_universe/issues/11787>`_)
+  * localization component toBinMsg replacement
+  * map component fromBinMsg replacement
+  * localization component fromBinMsg replacement
+  * remove unused dep from localization/autoware_pose_estimator_arbiter
+  ---------
+* Contributors: Ryohsuke Mitsudome, Sarun MUKDAPITAK
+
+0.48.0 (2025-11-18)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat(autoware_lanelet2_extension): remove redundant autoware_lanelet2_extension depend from packages (`#11492 <https://github.com/autowarefoundation/autoware_universe/issues/11492>`_)
+* feat(autoware_lanelet2_utils): porting functions from lanelet2_extension to autoware_lanelet2_utils package (replacing usage) in localization component (`#11388 <https://github.com/autowarefoundation/autoware_universe/issues/11388>`_)
+  Co-authored-by: Mamoru Sobue <hilo.soblin@gmail.com>
+* chore: update maintainer (`#11373 <https://github.com/autowarefoundation/autoware_universe/issues/11373>`_)
+  * chore: update maintainer
+  remove Ryu Yamamoto
+  * chore: update maintainer
+  remove Kento Yabuuchi
+  * chore: update maintainer
+  remove Shintaro Sakoda
+  ---------
+* Contributors: Motz, Ryohsuke Mitsudome, Sarun MUKDAPITAK
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+
+0.46.0 (2025-06-20)
+-------------------
+
+0.45.0 (2025-05-22)
+-------------------
+* Merge remote-tracking branch 'origin/main' into tmp/notbot/bump_version_base
+* feat(localization): replace tier4_localization_msgs used by ndt_align_srv with autoware_internal_localization_msgs (`#10567 <https://github.com/autowarefoundation/autoware_universe/issues/10567>`_)
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+* Contributors: TaikiYamada4, 心刚
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 

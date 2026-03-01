@@ -19,6 +19,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/time.hpp>
+#include <tf2/LinearMath/Transform.hpp>
 
 #include <autoware_perception_msgs/msg/detail/shape__struct.hpp>
 #include <geometry_msgs/msg/detail/point__struct.hpp>
@@ -26,7 +27,6 @@
 
 #include <gtest/gtest.h>
 #include <pcl/memory.h>
-#include <tf2/LinearMath/Transform.h>
 
 #include <limits>
 #include <memory>
@@ -284,7 +284,7 @@ TEST_F(TestAEB, checkEmptyPathAtZeroSpeed)
   const double velocity = 0.0;
   constexpr double yaw_rate = 0.0;
   const auto imu_path = aeb_node_->generateEgoPath(velocity, yaw_rate);
-  ASSERT_EQ(imu_path.size(), 1);
+  ASSERT_EQ(imu_path.size(), 0);
 }
 
 TEST_F(TestAEB, checkParamUpdate)

@@ -18,8 +18,7 @@
 #include <autoware_lanelet2_extension/regulatory_elements/speed_bump.hpp>
 #include <autoware_lanelet2_extension/utility/query.hpp>
 #include <autoware_utils/ros/parameter.hpp>
-
-#include <tf2/utils.h>
+#include <tf2/utils.hpp>
 
 #include <memory>
 #include <set>
@@ -63,9 +62,11 @@ void SpeedBumpModuleManager::launchNewModules(
     const auto lane_id = speed_bump_with_lane_id.second.id();
     const auto module_id = speed_bump_with_lane_id.first->id();
     if (!isModuleRegistered(module_id)) {
-      registerModule(std::make_shared<SpeedBumpModule>(
-        module_id, lane_id, *speed_bump_with_lane_id.first, planner_param_,
-        logger_.get_child("speed_bump_module"), clock_, time_keeper_, planning_factor_interface_));
+      registerModule(
+        std::make_shared<SpeedBumpModule>(
+          module_id, lane_id, *speed_bump_with_lane_id.first, planner_param_,
+          logger_.get_child("speed_bump_module"), clock_, time_keeper_,
+          planning_factor_interface_));
     }
   }
 }

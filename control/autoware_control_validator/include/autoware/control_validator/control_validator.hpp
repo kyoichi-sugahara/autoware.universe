@@ -26,28 +26,29 @@
 #include <autoware_utils/system/stop_watch.hpp>
 #include <rclcpp/rclcpp.hpp>
 
+#include <autoware_adapi_v1_msgs/msg/operation_mode_state.hpp>
 #include <autoware_control_msgs/msg/control.hpp>
 #include <autoware_internal_debug_msgs/msg/float64_stamped.hpp>
 #include <autoware_planning_msgs/msg/trajectory.hpp>
-#include <autoware_vehicle_msgs/msg/steering_report.hpp>
 #include <diagnostic_msgs/msg/diagnostic_array.hpp>
 #include <geometry_msgs/msg/accel_with_covariance_stamped.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <utility>
 
 namespace autoware::control_validator
 {
+using autoware_adapi_v1_msgs::msg::OperationModeState;
 using autoware_control_msgs::msg::Control;
 using autoware_control_validator::msg::ControlValidatorStatus;
 using autoware_planning_msgs::msg::Trajectory;
 using autoware_planning_msgs::msg::TrajectoryPoint;
 using autoware_utils::get_or_declare_parameter;
-using autoware_vehicle_msgs::msg::SteeringReport;
 using diagnostic_updater::DiagnosticStatusWrapper;
 using diagnostic_updater::Updater;
 using geometry_msgs::msg::AccelWithCovarianceStamped;
@@ -85,32 +86,34 @@ public:
 
   void validate(
     ControlValidatorStatus & res, const Trajectory & predicted_trajectory,
-    const Trajectory & reference_trajectory) const;
+    const Trajectory & reference_trajectory);
 
 private:
   const double max_distance_deviation_threshold;
+  std::optional<Trajectory> prev_reference_trajectory_;
 };
 
 /**
- * @class SteeringValidator
- * @brief Validates steering rate is not too high.
+ * @class LateralJerkValidator
+ * @brief Validates lateral jerk is not too high.
  */
-class SteeringRateValidator
+class LateralJerkValidator
 {
 public:
-  explicit SteeringRateValidator(rclcpp::Node & node)
+  explicit LateralJerkValidator(rclcpp::Node & node)
   : lateral_jerk_threshold_{get_or_declare_parameter<double>(node, "thresholds.lateral_jerk")},
-    logger_{node.get_logger()} {};
+    logger_{node.get_logger()},
+    measured_vel_lpf{get_or_declare_parameter<double>(node, "vel_lpf_gain")} {};
 
   void validate(
-    ControlValidatorStatus & res, const Control & control_cmd,
-    const SteeringReport & steering_status, const Odometry & kinematic_state,
-    const AccelWithCovarianceStamped & acceleration, const double wheel_base);
+    ControlValidatorStatus & res, const Odometry & kinematic_state, const Control & control_cmd,
+    const double wheel_base);
 
 private:
   double lateral_jerk_threshold_{};  // m/s^3
   rclcpp::Logger logger_;
   std::unique_ptr<Control> prev_control_cmd_{};
+  autoware::signal_processing::LowpassFilter1d measured_vel_lpf;
 };
 
 /**
@@ -156,7 +159,11 @@ public:
     hold_velocity_error_until_stop{
       get_or_declare_parameter<bool>(node, "hold_velocity_error_until_stop")},
     vehicle_vel_lpf{get_or_declare_parameter<double>(node, "vel_lpf_gain")},
-    target_vel_lpf{get_or_declare_parameter<double>(node, "vel_lpf_gain")} {};
+    target_vel_lpf{get_or_declare_parameter<double>(node, "vel_lpf_gain")},
+    over_velocity_vehicle_vel_lpf{
+      get_or_declare_parameter<double>(node, "over_velocity.vel_lpf_gain")},
+    over_velocity_target_vel_lpf{
+      get_or_declare_parameter<double>(node, "over_velocity.vel_lpf_gain")} {};
 
   void validate(
     ControlValidatorStatus & res, const Trajectory & reference_trajectory,
@@ -169,6 +176,8 @@ private:
   const bool hold_velocity_error_until_stop;
   autoware::signal_processing::LowpassFilter1d vehicle_vel_lpf;
   autoware::signal_processing::LowpassFilter1d target_vel_lpf;
+  autoware::signal_processing::LowpassFilter1d over_velocity_vehicle_vel_lpf;
+  autoware::signal_processing::LowpassFilter1d over_velocity_target_vel_lpf;
 };
 
 /**
@@ -197,6 +206,28 @@ private:
   const double assumed_limit_acc;
   const double assumed_delay_time;
   autoware::signal_processing::LowpassFilter1d vehicle_vel_lpf;
+};
+
+/**
+ * @class YawValidator
+ * @brief Calculate whether the vehicle orientation deviated from the trajectory
+ */
+class YawValidator
+{
+public:
+  explicit YawValidator(rclcpp::Node & node)
+  : yaw_deviation_error_th_{get_or_declare_parameter<double>(
+      node, "thresholds.yaw_deviation_error")},
+    yaw_deviation_warn_th_{
+      get_or_declare_parameter<double>(node, "thresholds.yaw_deviation_warn")} {};
+
+  void validate(
+    ControlValidatorStatus & res, const Trajectory & reference_trajectory,
+    const Odometry & kinematics) const;
+
+private:
+  const double yaw_deviation_error_th_;
+  const double yaw_deviation_warn_th_;
 };
 
 /**
@@ -236,6 +267,11 @@ private:
   void publish_debug_info(const geometry_msgs::msg::Pose & ego_pose);
 
   /**
+   * @brief Generate error message based on validation status
+   */
+  std::string generate_error_message(const ControlValidatorStatus & s);
+
+  /**
    * @brief Display validation status on terminal
    */
   void display_status();
@@ -249,10 +285,21 @@ private:
   void set_status(
     DiagnosticStatusWrapper & stat, const bool & is_ok, const std::string & msg) const;
 
+  /**
+   * @brief Infer autonomous control state
+   */
+  bool infer_autonomous_control_state(const OperationModeState::ConstSharedPtr);
+
+  /**
+   * @brief Postprocessing while keeping debug values
+   */
+  void validation_filtering(ControlValidatorStatus & res);
+
   // Subscribers and publishers
   rclcpp::Subscription<Control>::SharedPtr sub_control_cmd_;
+  autoware_utils::InterProcessPollingSubscriber<OperationModeState>::SharedPtr
+    sub_operational_state_;
   autoware_utils::InterProcessPollingSubscriber<Odometry>::SharedPtr sub_kinematics_;
-  autoware_utils::InterProcessPollingSubscriber<SteeringReport>::SharedPtr sub_steering_status_;
   autoware_utils::InterProcessPollingSubscriber<Trajectory>::SharedPtr sub_reference_traj_;
   autoware_utils::InterProcessPollingSubscriber<Trajectory>::SharedPtr sub_predicted_traj_;
   autoware_utils::InterProcessPollingSubscriber<AccelWithCovarianceStamped>::SharedPtr
@@ -268,6 +315,7 @@ private:
   Updater diag_updater_{this};
   ControlValidatorStatus validation_status_;
   vehicle_info_utils::VehicleInfo vehicle_info_;
+  bool flag_autonomous_control_enabled_ = false;
   /**
    * @brief Check if all validation criteria are met
    * @param status Validation status
@@ -281,11 +329,12 @@ private:
 
   // individual validators
   LatencyValidator latency_validator{*this};
-  SteeringRateValidator steering_rate_validator{*this};
+  LateralJerkValidator lateral_jerk_validator{*this};
   TrajectoryValidator trajectory_validator{*this};
   AccelerationValidator acceleration_validator{*this};
   VelocityValidator velocity_validator{*this};
   OverrunValidator overrun_validator{*this};
+  YawValidator yaw_validator{*this};
 };
 }  // namespace autoware::control_validator
 

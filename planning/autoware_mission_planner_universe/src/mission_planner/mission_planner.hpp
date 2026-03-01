@@ -30,12 +30,13 @@
 #include <autoware_adapi_v1_msgs/srv/set_route_points.hpp>
 #include <autoware_internal_debug_msgs/msg/float64_stamped.hpp>
 #include <autoware_planning_msgs/msg/lanelet_route.hpp>
+#include <autoware_planning_msgs/msg/route_state.hpp>
+#include <autoware_planning_msgs/srv/clear_route.hpp>
+#include <autoware_planning_msgs/srv/set_lanelet_route.hpp>
+#include <autoware_planning_msgs/srv/set_preferred_primitive.hpp>
+#include <autoware_planning_msgs/srv/set_waypoint_route.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <tier4_planning_msgs/msg/reroute_availability.hpp>
-#include <tier4_planning_msgs/msg/route_state.hpp>
-#include <tier4_planning_msgs/srv/clear_route.hpp>
-#include <tier4_planning_msgs/srv/set_lanelet_route.hpp>
-#include <tier4_planning_msgs/srv/set_waypoint_route.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
 #include <tf2_ros/buffer.h>
@@ -54,15 +55,16 @@ using autoware_planning_msgs::msg::LaneletPrimitive;
 using autoware_planning_msgs::msg::LaneletRoute;
 using autoware_planning_msgs::msg::LaneletSegment;
 using autoware_planning_msgs::msg::PoseWithUuidStamped;
+using autoware_planning_msgs::msg::RouteState;
+using autoware_planning_msgs::srv::ClearRoute;
+using autoware_planning_msgs::srv::SetLaneletRoute;
+using autoware_planning_msgs::srv::SetPreferredPrimitive;
+using autoware_planning_msgs::srv::SetWaypointRoute;
 using geometry_msgs::msg::Pose;
 using geometry_msgs::msg::PoseStamped;
 using nav_msgs::msg::Odometry;
 using std_msgs::msg::Header;
 using tier4_planning_msgs::msg::RerouteAvailability;
-using tier4_planning_msgs::msg::RouteState;
-using tier4_planning_msgs::srv::ClearRoute;
-using tier4_planning_msgs::srv::SetLaneletRoute;
-using tier4_planning_msgs::srv::SetWaypointRoute;
 using unique_identifier_msgs::msg::UUID;
 using visualization_msgs::msg::MarkerArray;
 
@@ -84,6 +86,7 @@ private:
 
   rclcpp::Service<ClearRoute>::SharedPtr srv_clear_route;
   rclcpp::Service<SetLaneletRoute>::SharedPtr srv_set_lanelet_route;
+  rclcpp::Service<SetPreferredPrimitive>::SharedPtr srv_set_preferred_primitive;
   rclcpp::Service<SetWaypointRoute>::SharedPtr srv_set_waypoint_route;
   rclcpp::Publisher<RouteState>::SharedPtr pub_state_;
   rclcpp::Publisher<LaneletRoute>::SharedPtr pub_route_;
@@ -100,6 +103,7 @@ private:
   OperationModeState::ConstSharedPtr operation_mode_state_;
   LaneletMapBin::ConstSharedPtr map_ptr_;
   RouteState state_;
+  std::optional<LaneletRoute::SharedPtr> original_route_;
   LaneletRoute::ConstSharedPtr current_route_;
   lanelet::LaneletMapPtr lanelet_map_ptr_{nullptr};
 
@@ -113,6 +117,9 @@ private:
     const ClearRoute::Request::SharedPtr req, const ClearRoute::Response::SharedPtr res);
   void on_set_lanelet_route(
     const SetLaneletRoute::Request::SharedPtr req, const SetLaneletRoute::Response::SharedPtr res);
+  void on_set_preferred_primitive(
+    const SetPreferredPrimitive::Request::SharedPtr req,
+    const SetPreferredPrimitive::Response::SharedPtr res);
   void on_set_waypoint_route(
     const SetWaypointRoute::Request::SharedPtr req,
     const SetWaypointRoute::Response::SharedPtr res);
@@ -131,7 +138,8 @@ private:
     const Header & header, const std::vector<Pose> & waypoints, const Pose & start_pose,
     const Pose & goal_pose, const UUID & uuid, const bool allow_goal_modification);
 
-  void publish_pose_log(const Pose & pose, const std::string & pose_type);
+  void print_pose_log(
+    const std::string & route_type, const Pose & initial_pose, const Pose & goal_pose);
 
   rclcpp::TimerBase::SharedPtr data_check_timer_;
   void check_initialization();
@@ -142,6 +150,7 @@ private:
   // flag to allow reroute in autonomous driving mode.
   // if false, reroute fails. if true, only safe reroute is allowed.
   bool allow_reroute_in_autonomous_mode_;
+  float goal_lanelet_transparency_;
   bool check_reroute_safety(const LaneletRoute & original_route, const LaneletRoute & target_route);
 
   std::unique_ptr<autoware_utils::LoggerLevelConfigure> logger_configure_;

@@ -2,6 +2,79 @@
 Changelog for package autoware_traffic_light_arbiter
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+
+0.49.0 (2025-12-30)
+-------------------
+* Merge remote-tracking branch 'origin/main' into prepare-0.49.0-changelog
+* feat(autoware_lanelet2_utils): replace from/toBinMsg (Sensing, Visualization and Perception Component) (`#11785 <https://github.com/autowarefoundation/autoware_universe/issues/11785>`_)
+  * perception component toBinMsg replacement
+  * visualization component fromBinMsg replacement
+  * sensing component fromBinMsg replacement
+  * perception component fromBinMsg replacement
+  ---------
+* Contributors: Ryohsuke Mitsudome, Sarun MUKDAPITAK
+
+0.48.0 (2025-11-18)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat(autoware_traffic_light_arbiter): properly (bilaterally) treat priority (`#11514 <https://github.com/autowarefoundation/autoware_universe/issues/11514>`_)
+* feat(autoware_traffic_light_arbiter): priority switch (`#11494 <https://github.com/autowarefoundation/autoware_universe/issues/11494>`_)
+* feat(autoware_traffic_light_arbiter): add test for multi regulatory element (`#11480 <https://github.com/autowarefoundation/autoware_universe/issues/11480>`_)
+  add test for multi regulatory element
+* fix(traffic_light_arbiter): fix duplicate prediction information (`#11470 <https://github.com/autowarefoundation/autoware_universe/issues/11470>`_)
+  * fix(traffic_light_arbiter): fix duplicate prediction information
+  * pre-commit
+  ---------
+  Co-authored-by: MasatoSaeki <masato.saeki@tier4.jp>
+  Co-authored-by: Masato Saeki <78376491+MasatoSaeki@users.noreply.github.com>
+* Contributors: Dmitrii Koldaev, Hiroki OTA, Masato Saeki, Ryohsuke Mitsudome
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+* feat(autoware_traffic_light_arbiter): handle multiple external sources (`#11100 <https://github.com/autowarefoundation/autoware_universe/issues/11100>`_)
+* style(pre-commit): update to clang-format-20 (`#11088 <https://github.com/autowarefoundation/autoware_universe/issues/11088>`_)
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+* Contributors: Dmitrii Koldaev, Mete Fatih Cırıt
+
+0.46.0 (2025-06-20)
+-------------------
+* Merge remote-tracking branch 'upstream/main' into tmp/TaikiYamada/bump_version_base
+* feat(autoware_traffic_light_arbiter): adopt new traffic light message (`#10652 <https://github.com/autowarefoundation/autoware_universe/issues/10652>`_)
+  * copy predicted_tl_state
+  * fundamental commit for test
+  * style(pre-commit): autofix
+  * fix
+  * refactor and add new test
+  * add eval condition
+  ---------
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+* Contributors: Masato Saeki, TaikiYamada4
+
+0.45.0 (2025-05-22)
+-------------------
+* Merge remote-tracking branch 'origin/main' into tmp/notbot/bump_version_base
+* feat(autoware_traffic_light_arbiter): add namespace `traffic_light` (`#10640 <https://github.com/autowarefoundation/autoware_universe/issues/10640>`_)
+  * add namespace traffic_light
+  * style(pre-commit): autofix
+  * chore
+  * change namespace in test
+  ---------
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+* chore: update traffic light packages code owner (`#10644 <https://github.com/autowarefoundation/autoware_universe/issues/10644>`_)
+  chore: add Taekjin Lee as maintainer to multiple perception packages
+* Contributors: Masato Saeki, Taekjin LEE, TaikiYamada4
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 

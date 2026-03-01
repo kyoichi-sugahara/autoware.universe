@@ -16,23 +16,31 @@
 
 #include "autoware/behavior_path_planner_common/utils/path_safety_checker/safety_check.hpp"
 #include "autoware/behavior_path_planner_common/utils/utils.hpp"
+#include "autoware/boundary_departure_checker/utils.hpp"
 #include "autoware_lanelet2_extension/regulatory_elements/bus_stop_area.hpp"
 
-#include <autoware_lanelet2_extension/utility/message_conversion.hpp>
+#include <Eigen/Core>
+#include <autoware/lanelet2_utils/conversion.hpp>
+#include <autoware/lanelet2_utils/geometry.hpp>
+#include <autoware/lanelet2_utils/nn_search.hpp>
 #include <autoware_lanelet2_extension/utility/query.hpp>
 #include <autoware_lanelet2_extension/utility/utilities.hpp>
 #include <autoware_utils/ros/marker_helper.hpp>
+#include <autoware_utils_geometry/geometry.hpp>
 #include <magic_enum.hpp>
+#include <range/v3/view/reverse.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <tf2/utils.hpp>
 
 #include <boost/geometry/algorithms/dispatch/distance.hpp>
 
 #include <lanelet2_core/LaneletMap.h>
 #include <lanelet2_core/primitives/Lanelet.h>
-#include <tf2/utils.h>
+#include <lanelet2_core/primitives/LineString.h>
 #include <tf2_ros/transform_listener.h>
 
 #include <algorithm>
+#include <limits>
 #include <map>
 #include <memory>
 #include <string>
@@ -49,6 +57,122 @@ using autoware_utils::create_default_marker;
 using autoware_utils::create_marker_color;
 using autoware_utils::create_marker_scale;
 using autoware_utils::create_point;
+
+lanelet::BoundingBox2d polygon_to_boundingbox(const Polygon2d & polygon)
+{
+  double min_x = std::numeric_limits<double>::max();
+  double min_y = std::numeric_limits<double>::max();
+  double max_x = std::numeric_limits<double>::lowest();
+  double max_y = std::numeric_limits<double>::lowest();
+
+  // Iterate through all points in the polygon to find min/max coordinates
+  for (const auto & point : polygon.outer()) {
+    min_x = std::min(min_x, point.x());
+    min_y = std::min(min_y, point.y());
+    max_x = std::max(max_x, point.x());
+    max_y = std::max(max_y, point.y());
+  }
+
+  // Create the bounding box
+  lanelet::BoundingBox2d bounding_box(
+    lanelet::BasicPoint2d(min_x, min_y), lanelet::BasicPoint2d(max_x, max_y));
+  return bounding_box;
+}
+
+SegmentRtree extract_uncrossable_segments(
+  const lanelet::LaneletMap & lanelet_map, const Polygon2d & extraction_polygon)
+{
+  SegmentRtree uncrossable_segments_in_range;
+  auto search_area = polygon_to_boundingbox(extraction_polygon);
+  const auto linestrings = lanelet_map.lineStringLayer.search(search_area);
+
+  for (const auto & ls : linestrings) {
+    if (!has_types(ls, {"road_border"})) {
+      continue;
+    }
+
+    add_intersecting_segments(ls, extraction_polygon, uncrossable_segments_in_range);
+  }
+
+  return uncrossable_segments_in_range;
+}
+
+void add_intersecting_segments(
+  const lanelet::ConstLineString3d & ls, const Polygon2d & extraction_polygon,
+  SegmentRtree & segments_rtree)
+{
+  LineString2d line;
+  for (const auto & p : ls) {
+    line.push_back(Point2d{p.x(), p.y()});
+  }
+
+  for (auto segment_idx = 0LU; segment_idx + 1 < line.size(); ++segment_idx) {
+    const Segment2d segment = {line[segment_idx], line[segment_idx + 1]};
+    if (boost::geometry::intersects(segment, extraction_polygon)) {
+      segments_rtree.insert(segment);
+    }
+  }
+}
+
+bool has_types(const lanelet::ConstLineString3d & ls, const std::vector<std::string> & types)
+{
+  constexpr auto no_type = "";
+  const auto type = ls.attributeOr(lanelet::AttributeName::Type, no_type);
+  return (type != no_type && std::find(types.begin(), types.end(), type) != types.end());
+}
+
+bool crosses_road_border(
+  const Point2d & ego_point, const Point2d & obj_point, const SegmentRtree & road_border_segments)
+{
+  // Create a line segment from ego to object
+  const Segment2d ego_to_obj = {ego_point, obj_point};
+
+  // Check if this line segment intersects with any road border segment
+  for (const auto & border_segment : road_border_segments) {
+    // Check for intersection
+    if (boost::geometry::intersects(ego_to_obj, border_segment)) {
+      return true;
+    }
+  }
+
+  return false;  // No crossing found
+}
+
+// Improved filter_objects_by_road_border function
+PredictedObjects filter_objects_by_road_border(
+  const PredictedObjects & objects, const SegmentRtree & road_border_segments,
+  const Pose & ego_pose, const bool filter_opposite_side)
+{
+  if (road_border_segments.empty() || !filter_opposite_side) {
+    return objects;  // No filtering if no road borders or filtering not requested
+  }
+
+  PredictedObjects filtered_objects;
+  filtered_objects.header = objects.header;
+
+  // Ego position as reference point
+  const Point2d ego_point{ego_pose.position.x, ego_pose.position.y};
+
+  for (const auto & object : objects.objects) {
+    // Get footprint
+    bool not_being_separated = false;
+
+    const auto obj_polygon = autoware_utils::to_polygon2d(object);
+
+    for (const auto & obj_point : obj_polygon.outer()) {
+      if (!crosses_road_border(ego_point, obj_point, road_border_segments)) {
+        not_being_separated = true;
+        break;
+      }
+    }
+
+    if (not_being_separated) {
+      filtered_objects.objects.push_back(object);
+    }
+  }
+
+  return filtered_objects;
+}
 
 lanelet::ConstLanelets getPullOverLanes(
   const RouteHandler & route_handler, const bool left_side, const double backward_distance,
@@ -87,15 +211,21 @@ static double getOffsetToLanesBoundary(
   const lanelet::ConstLanelets & lanelet_sequence, const geometry_msgs::msg::Pose target_pose,
   const bool left_side)
 {
-  lanelet::ConstLanelet closest_lanelet;
-  lanelet::utils::query::getClosestLanelet(lanelet_sequence, target_pose, &closest_lanelet);
+  const auto closest_lanelet_opt =
+    autoware::experimental::lanelet2_utils::get_closest_lanelet(lanelet_sequence, target_pose);
+  if (!closest_lanelet_opt) {
+    throw std::runtime_error(
+      "erroneous implementation in getOffsetToLanesBoundary, closest_lanelet_opt is "
+      "not handled");
+  }
+  const auto & closest_lanelet = closest_lanelet_opt.value();
 
   // the boundary closer to ego. if left_side, take right boundary
   const auto & boundary3d = left_side ? closest_lanelet.rightBound() : closest_lanelet.leftBound();
   const auto boundary = lanelet::utils::to2D(boundary3d);
-  using lanelet::utils::conversion::toLaneletPoint;
+  using experimental::lanelet2_utils::from_ros;
   const auto arc_coords = lanelet::geometry::toArcCoordinates(
-    boundary, lanelet::utils::to2D(toLaneletPoint(target_pose.position)).basicPoint());
+    boundary, lanelet::utils::to2D(from_ros(target_pose.position)).basicPoint());
   return arc_coords.distance;
 }
 
@@ -121,16 +251,26 @@ lanelet::ConstLanelets generateBetweenEgoAndExpandedPullOverLanes(
 
   // ==========================================================================================
   // NOTE: the point which is on the right side of a directed line has negative distance
-  // getExpandedLanelet(1.0, -2.0) expands a lanelet by 1.0 to the left and by 2.0 to the right
+  // get_dirty_expanded_lanelet(1.0, -2.0) expands a lanelet by 1.0 to the left and by 2.0 to the
+  // right
   // ==========================================================================================
   const double ego_offset_to_closer_boundary =
     getOffsetToLanesBoundary(pull_over_lanes, ego_front_pose, left_side);
-  return left_side ? lanelet::utils::getExpandedLanelets(
-                       pull_over_lanes, outer_road_offset,
-                       ego_offset_to_closer_boundary - inner_road_offset)
-                   : lanelet::utils::getExpandedLanelets(
-                       pull_over_lanes, ego_offset_to_closer_boundary + inner_road_offset,
-                       -outer_road_offset);
+
+  std::optional<lanelet::ConstLanelets> expand_lanelets_opt;
+  if (left_side) {
+    expand_lanelets_opt = autoware::experimental::lanelet2_utils::get_dirty_expanded_lanelets(
+      pull_over_lanes, outer_road_offset, ego_offset_to_closer_boundary - inner_road_offset);
+  } else {
+    expand_lanelets_opt = autoware::experimental::lanelet2_utils::get_dirty_expanded_lanelets(
+      pull_over_lanes, ego_offset_to_closer_boundary + inner_road_offset, -outer_road_offset);
+  }
+
+  if (expand_lanelets_opt.has_value()) {
+    return expand_lanelets_opt.value();
+  } else {
+    return pull_over_lanes;
+  }
 }
 
 std::optional<Polygon2d> generateObjectExtractionPolygon(
@@ -164,7 +304,7 @@ std::optional<Polygon2d> generateObjectExtractionPolygon(
     it->orientation = autoware_utils::create_quaternion_from_yaw(yaw);
   }
   base_boundary_poses.back().orientation =
-    base_boundary_poses[base_boundary_poses.size() - 2].orientation;
+    base_boundary_poses.at(base_boundary_poses.size() - 2).orientation;
 
   // generate outer and inner boundary poses
   std::vector<Point> outer_boundary_points{};
@@ -184,6 +324,10 @@ std::optional<Polygon2d> generateObjectExtractionPolygon(
   const auto remove_self_intersection = [](const std::vector<Point> & bound) {
     constexpr double INTERSECTION_CHECK_DISTANCE = 10.0;
     std::vector<Point> modified_bound{};
+    // Need at least 2 points to form a segment
+    if (bound.size() < 2) {
+      return bound;
+    }
     size_t i = 0;
     while (i < bound.size() - 1) {
       BoostPoint p1(bound.at(i).x, bound.at(i).y);
@@ -443,7 +587,7 @@ MarkerArray createNumObjectsToAvoidTextsMarkerArray(
   return msg;
 }
 
-MarkerArray createGoalCandidatesMarkerArray(
+std::pair<MarkerArray, MarkerArray> createGoalCandidatesMarkerArray(
   const GoalCandidates & goal_candidates, const std_msgs::msg::ColorRGBA & color)
 {
   GoalCandidates safe_goal_candidates{};
@@ -456,21 +600,17 @@ MarkerArray createGoalCandidatesMarkerArray(
     safe_goal_candidates.begin(), safe_goal_candidates.end(), std::back_inserter(pose_vector),
     [](const auto & goal_candidate) { return goal_candidate.goal_pose; });
 
-  auto marker_array = createPosesMarkerArray(pose_vector, "goal_candidates", color);
-  for (const auto & text_marker :
-       createGoalPriorityTextsMarkerArray(
-         pose_vector, "goal_candidates_priority", create_marker_color(1.0, 1.0, 1.0, 0.999))
-         .markers) {
-    marker_array.markers.push_back(text_marker);
-  }
+  const auto info_marker_array = createPosesMarkerArray(pose_vector, "goal_candidates", color);
+  auto debug_marker_array = createGoalPriorityTextsMarkerArray(
+    pose_vector, "goal_candidates_priority", create_marker_color(1.0, 1.0, 1.0, 0.999));
   for (const auto & text_marker : createNumObjectsToAvoidTextsMarkerArray(
                                     safe_goal_candidates, "goal_candidates_num_objects_to_avoid",
                                     create_marker_color(0.5, 0.5, 0.5, 0.999))
                                     .markers) {
-    marker_array.markers.push_back(text_marker);
+    debug_marker_array.markers.push_back(text_marker);
   }
 
-  return marker_array;
+  return std::make_pair(info_marker_array, debug_marker_array);
 }
 
 MarkerArray createLaneletPolygonMarkerArray(
@@ -491,14 +631,18 @@ MarkerArray createLaneletPolygonMarkerArray(
 double calcLateralDeviationBetweenPaths(
   const PathWithLaneId & reference_path, const PathWithLaneId & target_path)
 {
+  if (reference_path.points.empty()) {
+    return 0.0;
+  }
   double lateral_deviation = 0.0;
   for (const auto & target_point : target_path.points) {
     const size_t nearest_index = autoware::motion_utils::findNearestIndex(
       reference_path.points, target_point.point.pose.position);
     lateral_deviation = std::max(
       lateral_deviation,
-      std::abs(autoware_utils::calc_lateral_deviation(
-        reference_path.points[nearest_index].point.pose, target_point.point.pose.position)));
+      std::abs(
+        autoware_utils::calc_lateral_deviation(
+          reference_path.points.at(nearest_index).point.pose, target_point.point.pose.position)));
   }
   return lateral_deviation;
 }
@@ -538,6 +682,11 @@ PathWithLaneId cropForwardPoints(
   const PathWithLaneId & path, const size_t target_seg_idx, const double forward_length)
 {
   const auto & points = path.points;
+
+  // Safety check: ensure target_seg_idx + 1 is valid and there are points to iterate
+  if (target_seg_idx + 1 >= points.size()) {
+    return path;
+  }
 
   double sum_length = 0;
   for (size_t i = target_seg_idx + 1; i < points.size(); ++i) {
@@ -755,16 +904,22 @@ std::optional<Pose> calcRefinedGoal(
     return {};
   }
 
-  lanelet::Lanelet closest_pull_over_lanelet{};
-  lanelet::utils::query::getClosestLanelet(pull_over_lanes, goal_pose, &closest_pull_over_lanelet);
+  const auto closest_pull_over_lanelet_opt =
+    autoware::experimental::lanelet2_utils::get_closest_lanelet(pull_over_lanes, goal_pose);
+  if (!closest_pull_over_lanelet_opt) {
+    throw std::runtime_error(
+      "erroneous implementation in calcRefinedGoal, closest_lanelet_opt is "
+      "not handled");
+  }
+  const auto & closest_pull_over_lanelet = closest_pull_over_lanelet_opt.value();
 
   // calc closest center line pose
   Pose center_pose{};
   {
     // find position
-    const auto lanelet_point = lanelet::utils::conversion::toLaneletPoint(goal_pose.position);
-    const auto segment = lanelet::utils::getClosestSegment(
-      lanelet::utils::to2D(lanelet_point), closest_pull_over_lanelet.centerline());
+    const auto lanelet_point = experimental::lanelet2_utils::from_ros(goal_pose.position);
+    const auto segment = autoware::experimental::lanelet2_utils::get_closest_segment(
+      closest_pull_over_lanelet.centerline(), lanelet_point.basicPoint());
     const auto p1 = segment.front().basicPoint();
     const auto p2 = segment.back().basicPoint();
     const auto direction_vector = (p2 - p1).normalized();
@@ -799,39 +954,18 @@ std::optional<Pose> calcRefinedGoal(
   return refined_goal_pose;
 }
 
-std::optional<Pose> calcClosestPose(
-  const lanelet::ConstLineString3d line, const Point & query_point)
+std::optional<double> calcSignedLateralDistanceToBoundary(
+  const lanelet::ConstLineString3d boundary, const Pose & reference_pose)
 {
-  const auto segment =
-    lanelet::utils::getClosestSegment(lanelet::BasicPoint2d{query_point.x, query_point.y}, line);
-  if (segment.empty()) {
-    return std::nullopt;
-  }
-
-  const Eigen::Vector2d direction(
-    (segment.back().basicPoint2d() - segment.front().basicPoint2d()).normalized());
-  const Eigen::Vector2d xf(segment.front().basicPoint2d());
-  const Eigen::Vector2d x(query_point.x, query_point.y);
-  const Eigen::Vector2d p = xf + (x - xf).dot(direction) * direction;
-
-  geometry_msgs::msg::Pose closest_pose;
-  closest_pose.position.x = p.x();
-  closest_pose.position.y = p.y();
-  closest_pose.position.z = query_point.z;
-
-  const double lane_yaw =
-    std::atan2(segment.back().y() - segment.front().y(), segment.back().x() - segment.front().x());
-  tf2::Quaternion q;
-  q.setRPY(0, 0, lane_yaw);
-  closest_pose.orientation = tf2::toMsg(q);
-
-  return closest_pose;
+  return boundary_departure_checker::utils::calc_signed_lateral_distance_to_boundary(
+    boundary, reference_pose);
 }
 
 autoware_perception_msgs::msg::PredictedObjects extract_dynamic_objects(
   const autoware_perception_msgs::msg::PredictedObjects & original_objects,
   const route_handler::RouteHandler & route_handler, const GoalPlannerParameters & parameters,
-  const double vehicle_width)
+  const double vehicle_width, const Pose & ego_pose,
+  std::optional<std::reference_wrapper<Polygon2d>> debug_objects_extraction_polygon)
 {
   const bool left_side_parking = parameters.parking_policy == ParkingPolicy::LEFT_SIDE;
   const auto pull_over_lanes = goal_planner_utils::getPullOverLanes(
@@ -841,6 +975,12 @@ autoware_perception_msgs::msg::PredictedObjects extract_dynamic_objects(
     pull_over_lanes, left_side_parking, parameters.detection_bound_offset,
     parameters.margin_from_boundary + parameters.max_lateral_offset + vehicle_width);
 
+  // Store extraction polygon for debugging if the optional parameter is provided
+  if (debug_objects_extraction_polygon && objects_extraction_polygon.has_value()) {
+    debug_objects_extraction_polygon->get() = objects_extraction_polygon.value();
+  }
+
+  // Extract objects within the extraction polygon
   PredictedObjects dynamic_target_objects{};
   for (const auto & object : original_objects.objects) {
     const auto object_polygon = autoware_utils::to_polygon2d(object);
@@ -850,7 +990,16 @@ autoware_perception_msgs::msg::PredictedObjects extract_dynamic_objects(
       dynamic_target_objects.objects.push_back(object);
     }
   }
-  return dynamic_target_objects;
+  // Extract road border segments
+  if (objects_extraction_polygon.has_value()) {
+    const auto road_border_segments = extract_uncrossable_segments(
+      *(route_handler.getLaneletMapPtr()), objects_extraction_polygon.value());
+    const auto filtered_objects =
+      filter_objects_by_road_border(dynamic_target_objects, road_border_segments, ego_pose, true);
+    return filtered_objects;
+  } else {
+    return dynamic_target_objects;
+  }
 }
 
 bool is_goal_reachable_on_path(
@@ -893,4 +1042,258 @@ bool is_goal_reachable_on_path(
   return goal_is_in_current_segment_lanes || goal_is_in_current_shoulder_lanes;
 }
 
+bool hasPreviousModulePathShapeChanged(
+  const BehaviorModuleOutput & upstream_module_output,
+  const BehaviorModuleOutput & last_upstream_module_output)
+{
+  if (last_upstream_module_output.path.points.size() < 2) {
+    return false;
+  }
+
+  // Calculate the lateral distance between each point of the current path and the nearest point of
+  // the last path
+  constexpr double LATERAL_DEVIATION_THRESH = 0.1;
+  for (const auto & p : upstream_module_output.path.points) {
+    const size_t nearest_seg_idx = autoware::motion_utils::findNearestSegmentIndex(
+      last_upstream_module_output.path.points, p.point.pose.position);
+
+    if (nearest_seg_idx + 1 >= last_upstream_module_output.path.points.size()) {
+      // In case the path is curved, nearest_seg_idx may not be monotonically increasing,
+      // so use continue instead of break here.
+      continue;
+    }
+
+    const auto seg_front = last_upstream_module_output.path.points.at(nearest_seg_idx);
+    const auto seg_back = last_upstream_module_output.path.points.at(nearest_seg_idx + 1);
+    // Check if the target point is within the segment
+    const Eigen::Vector3d segment_vec{
+      seg_back.point.pose.position.x - seg_front.point.pose.position.x,
+      seg_back.point.pose.position.y - seg_front.point.pose.position.y, 0.0};
+    const Eigen::Vector3d target_vec{
+      p.point.pose.position.x - seg_front.point.pose.position.x,
+      p.point.pose.position.y - seg_front.point.pose.position.y, 0.0};
+    const double dot_product = segment_vec.x() * target_vec.x() + segment_vec.y() * target_vec.y();
+    const double segment_length_squared =
+      segment_vec.x() * segment_vec.x() + segment_vec.y() * segment_vec.y();
+    if (dot_product < 0 || dot_product > segment_length_squared) {
+      // p.point.pose.position is not within the segment, skip lateral distance check
+      continue;
+    }
+    const double lateral_distance = std::abs(
+      autoware::motion_utils::calcLateralOffset(
+        last_upstream_module_output.path.points, p.point.pose.position, nearest_seg_idx));
+    if (lateral_distance > LATERAL_DEVIATION_THRESH) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool is_on_modified_goal(
+  const Pose & current_pose, const GoalCandidate & modified_goal,
+  const GoalPlannerParameters & parameters)
+{
+  return calc_distance2d(current_pose, modified_goal.goal_pose) < parameters.th_arrived_distance;
+}
+
+bool is_on_modified_goal(
+  const Pose & current_pose, const std::optional<GoalCandidate> & modified_goal_opt,
+  const GoalPlannerParameters & parameters)
+{
+  if (!modified_goal_opt) {
+    return false;
+  }
+  return is_on_modified_goal(current_pose, modified_goal_opt.value(), parameters);
+}
+
+RegenerationCheckResult should_regenerate_path_candidates(
+  const Pose & ego_pose, const BehaviorModuleOutput & current_upstream,
+  const BehaviorModuleOutput & original_upstream, const bool lane_change_detected)
+{
+  if (lane_change_detected) {
+    return {true, "lane change detected"};
+  }
+
+  if (hasDeviatedFromPath(ego_pose.position, current_upstream)) {
+    return {false, "deviated from current previous module path"};
+  }
+
+  if (hasPreviousModulePathShapeChanged(current_upstream, original_upstream)) {
+    return {true, "previous module path shape changed"};
+  }
+
+  if (hasDeviatedFromPath(ego_pose.position, original_upstream)) {
+    return {true, "deviated from original previous module path"};
+  }
+
+  if (has_stopline_except_terminal(current_upstream.path)) {
+    return {true, "stopline detected in upstream module"};
+  }
+
+  return {false, ""};
+}
+
+bool hasDeviatedFromPath(
+  const Point & ego_position, const BehaviorModuleOutput & upstream_module_output)
+{
+  constexpr double LATERAL_DEVIATION_THRESH = 0.1;
+  return std::abs(
+           autoware::motion_utils::calcLateralOffset(
+             upstream_module_output.path.points, ego_position)) > LATERAL_DEVIATION_THRESH;
+}
+
+bool has_stopline_except_terminal(const PathWithLaneId & path)
+{
+  const auto stopline_it = std::find_if(
+    path.points.begin(), path.points.end(),
+    [](const auto & point) { return std::fabs(point.point.longitudinal_velocity_mps) == 0.0; });
+  return static_cast<unsigned>(std::distance(path.points.begin(), stopline_it)) + 1 <
+         path.points.size();
+}
+
+std::optional<lanelet::ConstLanelet> find_last_lane_change_completed_lanelet(
+  const PathWithLaneId & path, const lanelet::LaneletMapConstPtr lanelet_map,
+  const lanelet::routing::RoutingGraphConstPtr routing_graph)
+{
+  std::vector<lanelet::Id> reverse_path_lane_ids;
+  for (const auto & point : path.points | ranges::views::reverse) {
+    const auto & lane_ids = point.lane_ids;
+    for (const auto & lane_id : lane_ids | ranges::views::reverse) {
+      if (
+        std::find(reverse_path_lane_ids.begin(), reverse_path_lane_ids.end(), lane_id) ==
+        reverse_path_lane_ids.end()) {
+        reverse_path_lane_ids.push_back(lane_id);
+      }
+    }
+  }
+
+  if (reverse_path_lane_ids.size() < 2) {
+    return std::nullopt;
+  }
+  for (unsigned i = 0, j = 1; i < reverse_path_lane_ids.size() && j < reverse_path_lane_ids.size();
+       i++, j++) {
+    const auto & lane_to = lanelet_map->laneletLayer.get(reverse_path_lane_ids.at(i));
+    const auto & lane_from = lanelet_map->laneletLayer.get(reverse_path_lane_ids.at(j));
+    const auto & previous = routing_graph->previous(lane_to);
+    if (std::any_of(previous.begin(), previous.end(), [&](const auto & prev_lane) {
+          return prev_lane.id() == lane_from.id();
+        })) {
+      // not lane changing
+      continue;
+    }
+    return lane_to;
+  }
+  return std::nullopt;
+}
+
+lanelet::ConstLanelets get_reference_lanelets_for_pullover(
+  const PathWithLaneId & path, const std::shared_ptr<const PlannerData> & planner_data,
+  const double backward_length, const double forward_length)
+{
+  const auto & routing_graph = planner_data->route_handler->getRoutingGraphPtr();
+  const auto & lanelet_map = planner_data->route_handler->getLaneletMapPtr();
+  const auto & route_handler = planner_data->route_handler;
+
+  const auto goal_lane_id = planner_data->route_handler->getGoalLaneId();
+
+  const auto lane_change_complete_lane =
+    find_last_lane_change_completed_lanelet(path, lanelet_map, routing_graph);
+
+  if (!lane_change_complete_lane) {
+    return utils::getExtendedCurrentLanesFromPath(
+      path, planner_data, backward_length, forward_length,
+      /*forward_only_in_route*/ false);
+  }
+
+  const auto extend_forward = [&](
+                                const lanelet::ConstLanelet & start_lane, const double distance,
+                                lanelet::ConstLanelets & result) {
+    double acc_dist = 0.0;
+    auto current_lane = start_lane;
+    while (acc_dist < distance) {
+      const auto nexts = routing_graph->following(current_lane);
+      if (nexts.empty()) {
+        break;
+      }
+      current_lane = nexts.front();
+      if (lanelet::utils::contains(result, current_lane)) {
+        // loop detected
+        break;
+      }
+      result.push_back(current_lane);
+      acc_dist += lanelet::geometry::length3d(current_lane);
+    }
+  };
+
+  lanelet::ConstLanelets route_lanes;
+
+  // Add backward lanes from lane_change_complete_lane
+  const auto backward_lanes = route_handler->getPrecedingLaneletSequence(
+    *lane_change_complete_lane, backward_length, {*lane_change_complete_lane});
+  for (auto it = backward_lanes.rbegin(); it != backward_lanes.rend(); ++it) {
+    route_lanes.insert(route_lanes.end(), it->begin(), it->end());
+  }
+
+  route_lanes.push_back(*lane_change_complete_lane);
+
+  // Extend forward from lane_change_complete_lane
+  auto current_lane = *lane_change_complete_lane;
+  while (true) {
+    const auto nexts = routing_graph->following(current_lane);
+    if (nexts.empty()) {
+      break;
+    }
+    current_lane = nexts.front();
+    if (lanelet::utils::contains(route_lanes, current_lane)) {
+      // loop detected
+      break;
+    }
+    route_lanes.push_back(current_lane);
+
+    if (current_lane.id() == goal_lane_id) {
+      extend_forward(current_lane, forward_length, route_lanes);
+      break;
+    }
+  }
+
+  return route_lanes;
+}
+
+bool is_lateral_acceleration_acceptable_near_start(
+  const std::vector<PathPointWithLaneId> & path_points, const geometry_msgs::msg::Pose & start_pose,
+  const double velocity, const double duration, const double lateral_acceleration_threshold)
+{
+  using autoware::motion_utils::calcLongitudinalOffsetPose;
+
+  constexpr double epsilon = 1e-3;
+  if (velocity < epsilon) return true;
+
+  const double arc_length = velocity * duration;
+  const auto check_pose_opt =
+    calcLongitudinalOffsetPose(path_points, start_pose.position, arc_length);
+  if (!check_pose_opt) return false;
+
+  // Calculate geometric deviations in start_pose frame
+  const auto relative_pose =
+    autoware_utils::inverse_transform_pose(check_pose_opt.value(), start_pose);
+  const double lateral_distance = std::abs(relative_pose.position.y);
+  const double yaw_difference = std::abs(autoware_utils::get_rpy(relative_pose).z);
+
+  // Calculate dynamic thresholds based on lateral acceleration limit
+  // From: lateral_accel = v^2 / R
+  //       R = arc_length / yaw_difference,
+  // => yaw_difference_max = lateral_accel x arc_length / v^2
+  const double velocity_squared = velocity * velocity;
+  const double maximum_yaw_difference =
+    lateral_acceleration_threshold * arc_length / velocity_squared;
+
+  // Calculate lateral distance threshold from maximum_yaw_difference
+  const double radius = velocity_squared / lateral_acceleration_threshold;
+  const double maximum_lateral_distance = radius * (1.0 - std::cos(maximum_yaw_difference));
+
+  if (yaw_difference > maximum_yaw_difference) return false;
+  if (lateral_distance > maximum_lateral_distance) return false;
+
+  return true;
+}
 }  // namespace autoware::behavior_path_planner::goal_planner_utils

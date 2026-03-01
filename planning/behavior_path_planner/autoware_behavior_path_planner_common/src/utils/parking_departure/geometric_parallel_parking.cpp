@@ -17,8 +17,9 @@
 #include <autoware/behavior_path_planner_common/utils/path_utils.hpp>
 #include <autoware/behavior_path_planner_common/utils/utils.hpp>
 #include <autoware/interpolation/spline_interpolation.hpp>
+#include <autoware/lanelet2_utils/geometry.hpp>
+#include <autoware/lanelet2_utils/nn_search.hpp>
 #include <autoware/motion_utils/trajectory/trajectory.hpp>
-#include <autoware_lanelet2_extension/utility/query.hpp>
 #include <autoware_lanelet2_extension/utility/utilities.hpp>
 #include <autoware_utils/geometry/geometry.hpp>
 #include <autoware_utils/math/unit_conversion.hpp>
@@ -34,6 +35,7 @@
 #include <utility>
 #include <vector>
 
+using autoware::experimental::lanelet2_utils::get_arc_coordinates;
 using autoware_internal_planning_msgs::msg::PathWithLaneId;
 using autoware_utils::calc_distance2d;
 using autoware_utils::calc_offset_pose;
@@ -42,7 +44,6 @@ using autoware_utils::normalize_radian;
 using autoware_utils::transform_pose;
 using geometry_msgs::msg::Point;
 using geometry_msgs::msg::Pose;
-using lanelet::utils::getArcCoordinates;
 
 namespace autoware::behavior_path_planner
 {
@@ -135,8 +136,9 @@ std::vector<PathWithLaneId> GeometricParallelParking::generatePullOverPaths(
   // check the continuity of straight path and arc path
   const Pose & road_path_last_pose = straight_path.points.back().point.pose;
   const Pose & arc_path_first_pose = arc_paths.front().points.front().point.pose;
-  const double yaw_diff = std::abs(autoware_utils::normalize_radian(
-    tf2::getYaw(road_path_last_pose.orientation) - tf2::getYaw(arc_path_first_pose.orientation)));
+  const double yaw_diff = std::abs(
+    autoware_utils::normalize_radian(
+      tf2::getYaw(road_path_last_pose.orientation) - tf2::getYaw(arc_path_first_pose.orientation)));
   const double distance = calc_distance2d(road_path_last_pose, arc_path_first_pose);
   if (yaw_diff > autoware_utils::deg2rad(5.0) || distance > 0.1) {
     return std::vector<PathWithLaneId>{};
@@ -224,7 +226,7 @@ bool GeometricParallelParking::planPullOver(
 bool GeometricParallelParking::planPullOut(
   const Pose & start_pose, const Pose & goal_pose, const lanelet::ConstLanelets & road_lanes,
   const lanelet::ConstLanelets & pull_over_lanes, const bool left_side_start,
-  const std::shared_ptr<autoware::lane_departure_checker::LaneDepartureChecker>
+  const std::shared_ptr<autoware::boundary_departure_checker::BoundaryDepartureChecker>
     lane_departure_checker)
 {
   constexpr bool is_forward = false;         // parking backward means pull_out forward
@@ -267,7 +269,7 @@ bool GeometricParallelParking::planPullOut(
     }
 
     // get road center line path from pull_out end to goal, and combine after the second arc path
-    const double s_start = getArcCoordinates(road_lanes, *end_pose).length;
+    const double s_start = get_arc_coordinates(road_lanes, *end_pose).length;
     const auto path_end_info = utils::parking_departure::calcEndArcLength(
       s_start, planner_data_->parameters.forward_path_length, road_lanes, goal_pose);
     const double s_end = path_end_info.first;
@@ -283,8 +285,10 @@ bool GeometricParallelParking::planPullOut(
     // check the continuity of straight path and arc path
     const Pose & road_path_first_pose = road_center_line_path.points.front().point.pose;
     const Pose & arc_path_last_pose = arc_paths.back().points.back().point.pose;
-    const double yaw_diff = std::abs(autoware_utils::normalize_radian(
-      tf2::getYaw(road_path_first_pose.orientation) - tf2::getYaw(arc_path_last_pose.orientation)));
+    const double yaw_diff = std::abs(
+      autoware_utils::normalize_radian(
+        tf2::getYaw(road_path_first_pose.orientation) -
+        tf2::getYaw(arc_path_last_pose.orientation)));
     const double distance = calc_distance2d(road_path_first_pose, arc_path_last_pose);
     if (yaw_diff > autoware_utils::deg2rad(5.0) || distance > 0.1) {
       continue;
@@ -319,7 +323,8 @@ std::optional<Pose> GeometricParallelParking::calcStartPose(
   const Pose & goal_pose, const lanelet::ConstLanelets & road_lanes, const double start_pose_offset,
   const double R_E_far, const bool is_forward, const bool left_side_parking)
 {
-  const auto arc_coordinates = lanelet::utils::getArcCoordinates(road_lanes, goal_pose);
+  const auto arc_coordinates =
+    autoware::experimental::lanelet2_utils::get_arc_coordinates(road_lanes, goal_pose);
 
   // todo
   // When forwarding, the turning radius of the right and left will be the same.
@@ -338,12 +343,17 @@ std::optional<Pose> GeometricParallelParking::calcStartPose(
   // Assuming parallel poses, calculate the approximate start pose on the centerline from the goal
   // pose
   const Pose approximate_start_pose = calc_offset_pose(goal_pose, dx, -arc_coordinates.distance, 0);
-  lanelet::ConstLanelet closest_road_lane{};
 
   // Calculate start pose on the centerline, then offset it.
-  lanelet::utils::query::getClosestLanelet(road_lanes, approximate_start_pose, &closest_road_lane);
-  const Pose start_pose_no_offset =
-    lanelet::utils::getClosestCenterPose(closest_road_lane, approximate_start_pose.position);
+  const auto closest_road_lane_opt =
+    autoware::experimental::lanelet2_utils::get_closest_lanelet(road_lanes, approximate_start_pose);
+  if (!closest_road_lane_opt) {
+    return std::nullopt;
+  }
+  const auto & closest_road_lane = closest_road_lane_opt.value();
+
+  const Pose start_pose_no_offset = autoware::experimental::lanelet2_utils::get_closest_center_pose(
+    closest_road_lane, autoware::experimental::lanelet2_utils::from_ros(approximate_start_pose));
   const auto road_lane_path = planner_data_->route_handler->getCenterLinePath(
     road_lanes, 0.0, std::numeric_limits<double>::max());
   const auto start_pose = autoware::motion_utils::calcLongitudinalOffsetPose(
@@ -356,10 +366,12 @@ PathWithLaneId GeometricParallelParking::generateStraightPath(
   const Pose & start_pose, const lanelet::ConstLanelets & road_lanes)
 {
   // get straight path before parking.
-  const auto start_arc_position = lanelet::utils::getArcCoordinates(road_lanes, start_pose);
+  const auto start_arc_position =
+    autoware::experimental::lanelet2_utils::get_arc_coordinates(road_lanes, start_pose);
 
   const Pose current_pose = planner_data_->self_odometry->pose.pose;
-  const auto current_arc_position = lanelet::utils::getArcCoordinates(road_lanes, current_pose);
+  const auto current_arc_position =
+    autoware::experimental::lanelet2_utils::get_arc_coordinates(road_lanes, current_pose);
 
   auto path = utils::resamplePathWithSpline(
     planner_data_->route_handler->getCenterLinePath(
@@ -378,7 +390,7 @@ std::vector<PathWithLaneId> GeometricParallelParking::planOneTrial(
   const lanelet::ConstLanelets & road_lanes, const lanelet::ConstLanelets & pull_over_lanes,
   const bool is_forward, const bool left_side_parking, const double end_pose_offset,
   const double lane_departure_margin, const double arc_path_interval,
-  const std::shared_ptr<autoware::lane_departure_checker::LaneDepartureChecker>
+  const std::shared_ptr<autoware::boundary_departure_checker::BoundaryDepartureChecker>
     lane_departure_checker)
 {
   clearPaths();
@@ -398,10 +410,10 @@ std::vector<PathWithLaneId> GeometricParallelParking::planOneTrial(
   const Point C_far_goal_coords = inverse_transform_point(C_far.position, arc_end_pose);
   const Point self_point_goal_coords = inverse_transform_point(start_pose.position, arc_end_pose);
 
-  const double alpha =
-    left_side_parking
-      ? M_PI_2 - psi + std::asin((self_point_goal_coords.y - C_far_goal_coords.y) / d_C_far_Einit)
-      : M_PI_2 + psi - std::asin((self_point_goal_coords.y - C_far_goal_coords.y) / d_C_far_Einit);
+  const double angle_offset =
+    std::asin((self_point_goal_coords.y - C_far_goal_coords.y) / d_C_far_Einit);
+  const double alpha = M_PI_2 + (left_side_parking ? 1.0 : -1.0) *
+                                  (is_forward ? psi + angle_offset : -psi + angle_offset);
 
   const double R_E_near = (std::pow(d_C_far_Einit, 2) - std::pow(R_E_far, 2)) /
                           (2 * (R_E_far + d_C_far_Einit * std::cos(alpha)));
@@ -424,26 +436,27 @@ std::vector<PathWithLaneId> GeometricParallelParking::planOneTrial(
 
   // If start_pose is parallel to goal_pose, we can know lateral deviation of edges of vehicle,
   // and detect lane departure.
-  if (is_forward) {  // Check near bound
-    const double R_front_near =
-      std::hypot(R_E_far + common_params.vehicle_width / 2, common_params.base_link2front);
-    const double distance_to_near_bound =
-      utils::getSignedDistanceFromBoundary(pull_over_lanes, arc_end_pose, left_side_parking);
-    const double near_deviation = R_front_near - R_E_far;
-    if (std::abs(distance_to_near_bound) - near_deviation < lane_departure_margin) {
-      return std::vector<PathWithLaneId>{};
-    }
-  } else {  // Check far bound
-    const double R_front_far =
-      std::hypot(R_E_near + common_params.vehicle_width / 2, common_params.base_link2front);
-    const double far_deviation = R_front_far - R_E_near;
-    const double distance_to_far_bound =
-      utils::getSignedDistanceFromBoundary(lanes, start_pose, !left_side_parking);
-    if (std::abs(distance_to_far_bound) - far_deviation < lane_departure_margin) {
-      return std::vector<PathWithLaneId>{};
-    }
-  }
 
+  // Check pull over lane bound
+  const double R_near_corner = std::hypot(
+    R_E_far + common_params.vehicle_width / 2,
+    is_forward ? common_params.base_link2front : common_params.base_link2rear);
+  const double near_deviation = R_near_corner - R_E_far;
+  const double distance_to_near_bound =
+    utils::getSignedDistanceFromBoundary(pull_over_lanes, arc_end_pose, left_side_parking);
+  if (std::abs(distance_to_near_bound) - near_deviation < lane_departure_margin) {
+    return std::vector<PathWithLaneId>{};
+  }
+  // Check road lane bound
+  const double R_far_corner = std::hypot(
+    R_E_near + common_params.vehicle_width / 2,
+    is_forward ? common_params.base_link2rear : common_params.base_link2front);
+  const double far_deviation = R_far_corner - R_E_near;
+  const double distance_to_far_bound =
+    utils::getSignedDistanceFromBoundary(lanes, start_pose, !left_side_parking);
+  if (std::abs(distance_to_far_bound) - far_deviation < lane_departure_margin) {
+    return std::vector<PathWithLaneId>{};
+  }
   // Generate arc path(first turn -> second turn)
   const Pose C_near = left_side_parking ? calc_offset_pose(start_pose, 0, R_E_near, 0)
                                         : calc_offset_pose(start_pose, 0, -R_E_near, 0);

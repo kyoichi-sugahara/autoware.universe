@@ -2,6 +2,41 @@
 Changelog for package autoware_component_interface_utils
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat!: remove ROS 2 Galactic codes (`#11905 <https://github.com/autowarefoundation/autoware_universe/issues/11905>`_)
+* Contributors: Ryohsuke Mitsudome
+
+0.49.0 (2025-12-30)
+-------------------
+
+0.48.0 (2025-11-18)
+-------------------
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+* feat(default_ad_api): use polling subscription (`#7588 <https://github.com/autowarefoundation/autoware_universe/issues/7588>`_)
+* Contributors: Takagi, Isamu
+
+0.46.0 (2025-06-20)
+-------------------
+* Merge remote-tracking branch 'upstream/main' into tmp/TaikiYamada/bump_version_base
+* feat(default_adapi): add vehicle command api (`#10764 <https://github.com/autowarefoundation/autoware_universe/issues/10764>`_)
+* Contributors: TaikiYamada4, Takagi, Isamu
+
+0.45.0 (2025-05-22)
+-------------------
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 

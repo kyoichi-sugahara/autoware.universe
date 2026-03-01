@@ -1,6 +1,62 @@
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Changelog for package autoware_simple_planning_simulator
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat!: remove ROS 2 Galactic codes (`#11905 <https://github.com/autowarefoundation/autoware_universe/issues/11905>`_)
+* chore: reflect the move of the description packages (`#11969 <https://github.com/autowarefoundation/autoware_universe/issues/11969>`_)
+* feat: simulation related packages support jazzy (`#11424 <https://github.com/autowarefoundation/autoware_universe/issues/11424>`_)
+* Contributors: Ryohsuke Mitsudome, Takagi, Isamu, 心刚
+
+0.49.0 (2025-12-30)
+-------------------
+* Merge remote-tracking branch 'origin/main' into prepare-0.49.0-changelog
+* feat(autoware_lanelet2_utils): replace from/toBinMsg (Common and Simulator Component) (`#11786 <https://github.com/autowarefoundation/autoware_universe/issues/11786>`_)
+  * common component fromBinMsg replacement
+  * simulator component fromBinMsg replacement
+  ---------
+* feat(autoware_lanelet2_utils): replace the usage of remove_const (`#11727 <https://github.com/autowarefoundation/autoware_universe/issues/11727>`_)
+  replace the usage of remove_const
+  Co-authored-by: Junya Sasaki <junya.sasaki@tier4.jp>
+* fix(autoware_simple_planning_simulator): fix dimension for DELAY_STEER_ACC_GEARED_WO_FALL_GUARD when set_initial_state() (`#11725 <https://github.com/autowarefoundation/autoware_universe/issues/11725>`_)
+* Contributors: Hiroki OTA, Ryohsuke Mitsudome, Sarun MUKDAPITAK
+
+0.48.0 (2025-11-18)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat(autoware_lanelet2_utils): replace ported functions from autoware_lanelet2_extension (`#11593 <https://github.com/autowarefoundation/autoware_universe/issues/11593>`_)
+  Co-authored-by: Mamoru Sobue <hilo.soblin@gmail.com>
+* fix: tf2 uses hpp headers in rolling (and is backported) (`#11620 <https://github.com/autowarefoundation/autoware_universe/issues/11620>`_)
+* Contributors: Ryohsuke Mitsudome, Sarun MUKDAPITAK, Tim Clephas
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+* feat: change planning output topic name to /planning/trajectory (`#11135 <https://github.com/autowarefoundation/autoware_universe/issues/11135>`_)
+  * change planning output topic name to /planning/trajectory
+  * style(pre-commit): autofix
+  ---------
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+* Contributors: Yukihiro Saito
+
+0.46.0 (2025-06-20)
+-------------------
+* Merge remote-tracking branch 'upstream/main' into tmp/TaikiYamada/bump_version_base
+* fix(autoware_simple_planning_simulator ): fix deprecated autoware_utils header (`#10520 <https://github.com/autowarefoundation/autoware_universe/issues/10520>`_)
+* Contributors: Kazusa Hashimoto, TaikiYamada4
+
+0.45.0 (2025-05-22)
+-------------------
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
 
 0.44.0 (2025-04-18)
 -------------------

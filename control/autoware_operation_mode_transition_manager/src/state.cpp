@@ -80,9 +80,13 @@ void AutonomousMode::update(bool transition)
   }
 }
 
-bool AutonomousMode::isModeChangeCompleted(
-  const Odometry & kinematics, const Trajectory & trajectory)
+bool AutonomousMode::isModeChangeCompleted(const InputData & input_data)
 {
+  if (!input_data.kinematics) return false;
+  if (!input_data.trajectory) return false;
+  const auto & kinematics = input_data.kinematics.value();
+  const auto & trajectory = input_data.trajectory.value();
+
   if (!check_engage_condition_) {
     return true;
   }
@@ -170,10 +174,9 @@ bool AutonomousMode::isModeChangeCompleted(
   return is_system_stable;
 }
 
-bool AutonomousMode::hasDangerAcceleration(const Odometry & kinematics, const Control & control_cmd)
+bool AutonomousMode::hasDangerAcceleration(
+  const Odometry & kinematics, const Control & control_cmd) const
 {
-  debug_info_.target_control_acceleration = control_cmd.longitudinal.acceleration;
-
   const bool is_stopping = std::abs(kinematics.twist.twist.linear.x) < 0.01;
   if (is_stopping) {
     return false;  // any acceleration is ok when stopped
@@ -209,15 +212,16 @@ std::pair<bool, bool> AutonomousMode::hasDangerLateralAcceleration(
   return {has_large_lat_acc, has_large_lat_acc_diff};
 }
 
-bool AutonomousMode::isModeChangeAvailable(
-  const Odometry & kinematics, const Trajectory & trajectory,
-  const Control & trajectory_follower_control_cmd, const Control & control_cmd)
+bool AutonomousMode::isModeChangeAvailable(const InputData & input_data)
 {
-  if (!check_engage_condition_) {
-    setAllOk(debug_info_);
-    return true;
-  }
-
+  if (!input_data.kinematics) return false;
+  if (!input_data.trajectory) return false;
+  if (!input_data.trajectory_follower_control_cmd) return false;
+  if (!input_data.control_cmd) return false;
+  const auto & kinematics = input_data.kinematics.value();
+  const auto & trajectory = input_data.trajectory.value();
+  const auto & trajectory_follower_control_cmd = input_data.trajectory_follower_control_cmd.value();
+  const auto & control_cmd = input_data.control_cmd.value();
   const auto current_speed = kinematics.twist.twist.linear.x;
   const auto target_control_speed = control_cmd.longitudinal.velocity;
   const auto & param = engage_acceptable_param_;
@@ -229,6 +233,11 @@ bool AutonomousMode::isModeChangeAvailable(
       "stationary.");
     debug_info_ = DebugInfo{};  // all false
     return false;
+  }
+
+  if (!check_engage_condition_) {
+    setAllOk(debug_info_);
+    return true;
   }
 
   if (trajectory.points.size() < 2) {
@@ -248,7 +257,6 @@ bool AutonomousMode::isModeChangeAvailable(
   }
   const auto closest_point = trajectory.points.at(*closest_idx);
   const auto target_planning_speed = closest_point.longitudinal_velocity_mps;
-  debug_info_.trajectory_available_ok = true;
 
   // No engagement is lateral control error is large
   const auto lateral_deviation = calc_distance2d(closest_point.pose, kinematics.pose.pose);
@@ -289,6 +297,8 @@ bool AutonomousMode::isModeChangeAvailable(
   // set for debug info
   {
     debug_info_.is_all_ok = is_all_ok;
+    debug_info_.engage_allowed_for_stopped_vehicle = false;
+    debug_info_.trajectory_available_ok = true;
     debug_info_.lateral_deviation_ok = lateral_deviation_ok;
     debug_info_.yaw_deviation_ok = yaw_deviation_ok;
     debug_info_.speed_upper_deviation_ok = speed_upper_deviation_ok;
@@ -301,6 +311,11 @@ bool AutonomousMode::isModeChangeAvailable(
     debug_info_.current_speed = current_speed;
     debug_info_.target_control_speed = target_control_speed;
     debug_info_.target_planning_speed = target_planning_speed;
+    debug_info_.target_control_acceleration = control_cmd.longitudinal.acceleration;
+
+    // Following values are set by the hasDangerLateralAcceleration function.
+    // lateral_acceleration
+    // lateral_acceleration_deviation
 
     debug_info_.lateral_deviation = lateral_deviation;
     debug_info_.yaw_deviation = yaw_deviation;

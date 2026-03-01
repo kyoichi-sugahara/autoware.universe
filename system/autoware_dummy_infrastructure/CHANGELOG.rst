@@ -2,6 +2,38 @@
 Changelog for package autoware_dummy_infrastructure
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+
+0.49.0 (2025-12-30)
+-------------------
+* Merge remote-tracking branch 'origin/main' into prepare-0.49.0-changelog
+* chore(autoware_dummy_infrastructure): remove unused boost/optional (`#11713 <https://github.com/autowarefoundation/autoware_universe/issues/11713>`_)
+  Remove boost/optional
+  Co-authored-by: Junya Sasaki <junya.sasaki@tier4.jp>
+* Contributors: Felix F Xu, Ryohsuke Mitsudome
+
+0.48.0 (2025-11-18)
+-------------------
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+
+0.46.0 (2025-06-20)
+-------------------
+
+0.45.0 (2025-05-22)
+-------------------
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 

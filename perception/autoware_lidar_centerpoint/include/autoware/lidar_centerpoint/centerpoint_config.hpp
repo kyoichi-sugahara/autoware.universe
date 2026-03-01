@@ -15,7 +15,10 @@
 #ifndef AUTOWARE__LIDAR_CENTERPOINT__CENTERPOINT_CONFIG_HPP_
 #define AUTOWARE__LIDAR_CENTERPOINT__CENTERPOINT_CONFIG_HPP_
 
+#include <algorithm>
 #include <cstddef>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
 namespace autoware::lidar_centerpoint
@@ -27,9 +30,10 @@ public:
     const std::size_t class_size, const float point_feature_size, const std::size_t cloud_capacity,
     const std::size_t max_voxel_size, const std::vector<double> & point_cloud_range,
     const std::vector<double> & voxel_size, const std::size_t downsample_factor,
-    const std::size_t encoder_in_feature_size, const float score_threshold,
-    const float circle_nms_dist_threshold, const std::vector<double> yaw_norm_thresholds,
-    const bool has_variance)
+    const std::size_t encoder_in_feature_size, const std::vector<float> & distance_bin_upper_limits,
+    const std::vector<float> & score_thresholds, const float circle_nms_dist_threshold,
+    const std::vector<double> yaw_norm_thresholds, const bool has_variance,
+    const std::string logger_name = "lidar_centerpoint")
   {
     class_size_ = class_size;
     point_feature_size_ = point_feature_size;
@@ -60,8 +64,20 @@ public:
       head_out_vel_size_ = 4;
     }
 
-    if (score_threshold > 0 && score_threshold < 1) {
-      score_threshold_ = score_threshold;
+    // score_upper_bounds must be sorted in ascending order, raise an error if not
+    if (!std::is_sorted(distance_bin_upper_limits.begin(), distance_bin_upper_limits.end())) {
+      throw std::invalid_argument("score_upper_bounds must be sorted in ascending order");
+    }
+    distance_bin_upper_limits_ = distance_bin_upper_limits;
+
+    // score_thresholds must have the size of score_upper_bounds * class_size
+    if (score_thresholds.size() != distance_bin_upper_limits_.size() * class_size_) {
+      throw std::invalid_argument(
+        "score_thresholds must have the size of distance_bin_upper_limits * class_size");
+    }
+    score_thresholds_ = score_thresholds;
+    for (auto & score_threshold : score_thresholds_) {
+      score_threshold = (score_threshold >= 0.f && score_threshold < 1.f) ? score_threshold : 0.f;
     }
 
     if (circle_nms_dist_threshold > 0) {
@@ -84,6 +100,7 @@ public:
     offset_z_ = range_min_z_ + voxel_size_z_ / 2;
     down_grid_size_x_ = grid_size_x_ / downsample_factor_;
     down_grid_size_y_ = grid_size_y_ / downsample_factor_;
+    logger_name_ = logger_name;
   };
 
   // input params
@@ -117,7 +134,8 @@ public:
   std::size_t head_out_vel_size_{2};
 
   // post-process params
-  float score_threshold_{0.35f};
+  std::vector<float> distance_bin_upper_limits_{};
+  std::vector<float> score_thresholds_{};
   float circle_nms_dist_threshold_{1.5f};
   std::vector<float> yaw_norm_thresholds_{};
 
@@ -130,6 +148,9 @@ public:
   float offset_z_ = range_min_z_ + voxel_size_z_ / 2;
   std::size_t down_grid_size_x_ = grid_size_x_ / downsample_factor_;
   std::size_t down_grid_size_y_ = grid_size_y_ / downsample_factor_;
+
+  // logger_name
+  std::string logger_name_{"lidar_centerpoint"};
 };
 
 }  // namespace autoware::lidar_centerpoint

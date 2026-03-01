@@ -2,6 +2,72 @@
 Changelog for package autoware_bytetrack
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* chore(autoware_bytetrack): remove cudnn dependency (`#11889 <https://github.com/autowarefoundation/autoware_universe/issues/11889>`_)
+* fix: add missing ament_index_cpp dependency (`#11875 <https://github.com/autowarefoundation/autoware_universe/issues/11875>`_)
+* Contributors: Amadeusz Szymko, Mete Fatih Cırıt, Ryohsuke Mitsudome
+
+0.49.0 (2025-12-30)
+-------------------
+* Merge remote-tracking branch 'origin/main' into prepare-0.49.0-changelog
+* docs: fix broken links (`#11815 <https://github.com/autowarefoundation/autoware_universe/issues/11815>`_)
+* Contributors: Mete Fatih Cırıt, Ryohsuke Mitsudome
+
+0.48.0 (2025-11-18)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* fix(tier4_perception_launch): add yolox 2d detection launch with bytetrack (`#11104 <https://github.com/autowarefoundation/autoware_universe/issues/11104>`_)
+  * fix(tensorrt_yolox): add bytetrack option for launch
+  * style(pre-commit): autofix
+  * fix: update multi_yolox
+  * fix: bytetrack topics
+  * fix: disable when build only
+  * style(pre-commit): autofix
+  * revert all
+  * fix: add 2d detection launch
+  * style(pre-commit): autofix
+  * fix typo
+  * fix: string to int
+  * fix: adding bytetrack node name
+  ---------
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+* Contributors: Ryohsuke Mitsudome, badai nguyen
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+* feat: enhance bytracker classification management (`#10898 <https://github.com/autowarefoundation/autoware_universe/issues/10898>`_)
+  * feat: enhance bytracker classification management
+  * fix a bug in score reset after switching label
+  * feat: update the score rule for same label
+  ---------
+* Contributors: Yuxuan Liu
+
+0.46.0 (2025-06-20)
+-------------------
+
+0.45.0 (2025-05-22)
+-------------------
+* Merge remote-tracking branch 'origin/main' into tmp/notbot/bump_version_base
+* chore: perception code owner update (`#10645 <https://github.com/autowarefoundation/autoware_universe/issues/10645>`_)
+  * chore: update maintainers in multiple perception packages
+  * Revert "chore: update maintainers in multiple perception packages"
+  This reverts commit f2838c33d6cd82bd032039e2a12b9cb8ba6eb584.
+  * chore: update maintainers in multiple perception packages
+  * chore: add Kok Seang Tan as maintainer in multiple perception packages
+  ---------
+* Contributors: Taekjin LEE, TaikiYamada4
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 

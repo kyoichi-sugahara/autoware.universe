@@ -41,11 +41,6 @@
           "description": "The first grid size [m], applied only for elevation_grid_mode. A large value enhances the prediction stability for ground surface. suitable for rough surface or multiple lidar configuration.",
           "default": 0.1
         },
-        "grid_mode_switch_radius": {
-          "type": "number",
-          "description": "The distance where grid division mode change from by distance to by vertical angle [m], applied only for elevation_grid_mode",
-          "default": 20.0
-        },
         "gnd_grid_buffer_size": {
           "type": "integer",
           "description": "Number of grids using to estimate local ground slope, applied only for elevation_grid_mode",
@@ -81,6 +76,12 @@
           "description": "Enable recheck ground cluster",
           "default": "true"
         },
+        "recheck_start_distance": {
+          "type": "number",
+          "description": "The distance to start rechecking ground cluster [m]",
+          "default": 20.0,
+          "minimum": 0.0
+        },
         "use_lowest_point": {
           "type": "boolean",
           "description": "To select lowest point for reference in recheck ground cluster, otherwise select middle point",
@@ -100,7 +101,6 @@
         "split_height_distance",
         "non_ground_height_threshold",
         "grid_size_m",
-        "grid_mode_switch_radius",
         "gnd_grid_buffer_size",
         "detection_range_z_max",
         "elevation_grid_mode",
@@ -108,6 +108,7 @@
         "center_pcl_shift",
         "radial_divider_angle_deg",
         "use_recheck_ground_cluster",
+        "recheck_start_distance",
         "use_lowest_point",
         "publish_processing_time_detail"
       ],

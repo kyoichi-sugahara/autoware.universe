@@ -23,6 +23,7 @@
 #include <fmt/format.h>
 #include <gtest/gtest.h>
 
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -232,15 +233,6 @@ protected:
     }
     return false;
   }
-
-  void modifyPath()
-  {
-    // Modify PATH temporarily
-    auto env = boost::this_process::environment();
-    std::string new_path = env["PATH"].to_string();
-    new_path.insert(0, fmt::format("{}:", exe_dir_));
-    env["PATH"] = new_path;
-  }
 };
 
 struct DummyProcFile
@@ -269,6 +261,8 @@ DummyProcFile dummy_proc_files[] = {
   {"dummy_proc_unreadable.tar.bz2"},          // Test data with unreadable /proc file system.
   {"dummy_proc_not_mounted.tar.bz2"},         // Test data with /proc not mounted.
   {"dummy_proc_no_uptime.tar.bz2"},           // Test data with no /proc/uptime.
+  {"dummy_proc_negative_priority.tar.bz2"},   // Test data with negative priority and real-time
+                                              // priority.
 };
 
 struct DummyProcFilePair

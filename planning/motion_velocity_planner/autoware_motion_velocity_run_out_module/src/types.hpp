@@ -20,6 +20,7 @@
 #include <autoware/universe_utils/geometry/boost_geometry.hpp>
 #include <rclcpp/time.hpp>
 
+#include <autoware_internal_planning_msgs/msg/safety_factor_array.hpp>
 #include <autoware_planning_msgs/msg/trajectory_point.hpp>
 
 #include <boost/geometry.hpp>
@@ -258,7 +259,6 @@ struct DecisionHistory
 {
   std::deque<Decision> decisions;
   std::deque<double> times;
-  std::optional<geometry_msgs::msg::Point> latest_stop;
 
   /// @brief remove outdated history, keeping at most one item above the max_history_duration
   void remove_outdated(const rclcpp::Time & now, const double max_history_duration)
@@ -302,6 +302,7 @@ struct Object
   uint8_t label;
   bool has_target_label = false;
   std::vector<Collision> collisions;  // collisions with the ego trajectory
+  bool ignore_but_preserve_predicted_paths = false;
 };
 /// @brief data to filter predicted paths and collisions
 struct FilteringData
@@ -312,8 +313,18 @@ struct FilteringData
   PolygonRtree ignore_collisions_rtree;
   std::vector<universe_utils::Segment2d> cut_predicted_paths_segments;
   SegmentRtree cut_predicted_paths_rtree;
+  std::vector<universe_utils::Segment2d> strict_cut_predicted_paths_segments;
+  SegmentRtree strict_cut_predicted_paths_rtree;
 };
 using FilteringDataPerLabel = std::vector<FilteringData>;
+
+/// @brief run out results including the factors for the stops and slowdowns
+struct RunOutResult
+{
+  VelocityPlanningResult velocity_planning_result;
+  std::vector<std::string> stop_objects;      // target object uuid for each stop result
+  std::vector<std::string> slowdown_objects;  // target object uuid for each slowdown result
+};
 
 }  // namespace autoware::motion_velocity_planner::run_out
 

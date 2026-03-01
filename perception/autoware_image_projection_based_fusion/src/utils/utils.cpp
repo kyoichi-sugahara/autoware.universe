@@ -14,6 +14,7 @@
 
 #include "autoware/image_projection_based_fusion/utils/utils.hpp"
 
+#include <autoware_perception_msgs/msg/object_classification.hpp>
 #include <sensor_msgs/distortion_models.hpp>
 
 #include <algorithm>
@@ -22,6 +23,32 @@
 
 namespace autoware::image_projection_based_fusion
 {
+
+using Label = autoware_perception_msgs::msg::ObjectClassification;
+
+float ObjClassIoUThresh::get_class_iou_thresh(const uint8_t label)
+{
+  switch (label) {
+    case Label::UNKNOWN:
+      return UNKNOWN;
+    case Label::CAR:
+      return CAR;
+    case Label::TRUCK:
+      return TRUCK;
+    case Label::BUS:
+      return BUS;
+    case Label::TRAILER:
+      return TRAILER;
+    case Label::MOTORCYCLE:
+      return MOTORCYCLE;
+    case Label::BICYCLE:
+      return BICYCLE;
+    case Label::PEDESTRIAN:
+      return PEDESTRIAN;
+    default:
+      return UNKNOWN;
+  }
+}
 bool check_camera_info(const sensor_msgs::msg::CameraInfo & camera_info)
 {
   const bool is_supported_model =
@@ -68,7 +95,7 @@ Eigen::Affine3d transformToEigen(const geometry_msgs::msg::Transform & t)
 
 void closest_cluster(
   const PointCloudMsgType & cluster, const double cluster_2d_tolerance, const int min_cluster_size,
-  const pcl::PointXYZ & center, PointCloudMsgType & out_cluster)
+  const double max_object_size, const pcl::PointXYZ & center, PointCloudMsgType & out_cluster)
 {
   // sort point by distance to camera origin
 
@@ -88,6 +115,9 @@ void closest_cluster(
 
     point_data.distance = autoware_utils::calc_distance2d(center, point);
     point_data.orig_index = i;
+    point_data.orig_point.x = point.x;
+    point_data.orig_point.y = point.y;
+    point_data.orig_point.z = point.z;
     points_data.push_back(point_data);
   }
   std::sort(points_data.begin(), points_data.end(), func);
@@ -104,7 +134,11 @@ void closest_cluster(
       out_cluster_size += point_step;
       continue;
     }
-    if (points_data.at(i).distance - points_data.at(i - 1).distance < cluster_2d_tolerance) {
+    double dist_to_closest =
+      autoware_utils::calc_distance3d(points_data.at(i).orig_point, points_data.at(0).orig_point);
+    if (
+      points_data.at(i).distance - points_data.at(i - 1).distance < cluster_2d_tolerance &&
+      dist_to_closest < max_object_size) {
       std::memcpy(
         &out_cluster.data[out_cluster_size],
         &cluster.data[points_data.at(i).orig_index * point_step], point_step);
@@ -124,9 +158,9 @@ void closest_cluster(
 
 void updateOutputFusedObjects(
   std::vector<DetectedObjectWithFeature> & output_objs, std::vector<PointCloudMsgType> & clusters,
-  const std::vector<size_t> & clusters_data_size, const PointCloudMsgType & in_cloud,
-  const std_msgs::msg::Header & in_roi_header, const tf2_ros::Buffer & tf_buffer,
-  const int min_cluster_size, const int max_cluster_size, const float cluster_2d_tolerance,
+  const PointCloudMsgType & in_cloud, const std_msgs::msg::Header & in_roi_header,
+  const tf2_ros::Buffer & tf_buffer, const int min_cluster_size, const int max_cluster_size,
+  const float cluster_2d_tolerance, const double max_object_size,
   std::vector<DetectedObjectWithFeature> & output_fused_objects)
 {
   if (output_objs.size() != clusters.size()) {
@@ -150,13 +184,10 @@ void updateOutputFusedObjects(
 
   for (std::size_t i = 0; i < output_objs.size(); ++i) {
     auto & cluster = clusters.at(i);
-    cluster.data.resize(clusters_data_size.at(i));
     auto & feature_obj = output_objs.at(i);
     if (
       cluster.data.size() <
-        static_cast<std::size_t>(min_cluster_size) * static_cast<std::size_t>(cluster.point_step) ||
-      cluster.data.size() >=
-        static_cast<std::size_t>(max_cluster_size) * static_cast<std::size_t>(cluster.point_step)) {
+      static_cast<std::size_t>(min_cluster_size) * static_cast<std::size_t>(cluster.point_step)) {
       continue;
     }
 
@@ -164,10 +195,16 @@ void updateOutputFusedObjects(
     //  to output refine cluster and centroid
     PointCloudMsgType refine_cluster;
     closest_cluster(
-      cluster, cluster_2d_tolerance, min_cluster_size, camera_orig_point_frame, refine_cluster);
+      cluster, cluster_2d_tolerance, min_cluster_size, max_object_size, camera_orig_point_frame,
+      refine_cluster);
     if (
       refine_cluster.data.size() <
       static_cast<std::size_t>(min_cluster_size) * static_cast<std::size_t>(cluster.point_step)) {
+      continue;
+    }
+    if (
+      refine_cluster.data.size() >
+      static_cast<std::size_t>(max_cluster_size) * static_cast<std::size_t>(cluster.point_step)) {
       continue;
     }
 

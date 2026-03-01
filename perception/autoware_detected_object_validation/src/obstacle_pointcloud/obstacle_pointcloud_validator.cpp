@@ -16,24 +16,18 @@
 
 #include "obstacle_pointcloud_validator.hpp"
 
+#include <Eigen/Core>
+#include <Eigen/Geometry>
 #include <autoware/object_recognition_utils/object_recognition_utils.hpp>
 #include <autoware_utils/geometry/boost_polygon_utils.hpp>
 
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+
 #include <boost/geometry.hpp>
 
+#include <cmath>
 #include <memory>
 #include <vector>
-
-#ifdef ROS_DISTRO_GALACTIC
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-#else
-#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
-#endif
-
-#include <Eigen/Core>
-#include <Eigen/Geometry>
-
-#include <cmath>
 
 namespace autoware::detected_object_validation
 {
@@ -324,6 +318,7 @@ void ObstaclePointCloudBasedValidator::onObjectsAndObstaclePointCloud(
   const autoware_perception_msgs::msg::DetectedObjects::ConstSharedPtr & input_objects,
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr & input_obstacle_pointcloud)
 {
+  autoware_utils::StopWatch<std::chrono::milliseconds> stopwatch;
   autoware_perception_msgs::msg::DetectedObjects output, removed_objects;
   output.header = input_objects->header;
   removed_objects.header = input_objects->header;
@@ -387,6 +382,9 @@ void ObstaclePointCloudBasedValidator::onObjectsAndObstaclePointCloud(
       .count();
   debug_publisher_->publish<autoware_internal_debug_msgs::msg::Float64Stamped>(
     "debug/pipeline_latency_ms", pipeline_latency);
+  const double processing_time_ms = stopwatch.toc();
+  debug_publisher_->publish<autoware_internal_debug_msgs::msg::Float64Stamped>(
+    "debug/processing_time_ms", processing_time_ms);
 }
 
 }  // namespace obstacle_pointcloud

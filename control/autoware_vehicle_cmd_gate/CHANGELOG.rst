@@ -2,6 +2,69 @@
 Changelog for package autoware_vehicle_cmd_gate
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* fix(vehicle_cmd_gate): fix funcArgNamesDifferent (`#11977 <https://github.com/autowarefoundation/autoware_universe/issues/11977>`_)
+  fix(vehicle_cmd_gate):
+* feat: control : fix contol packages compile error when using ros2 jazzy (`#11556 <https://github.com/autowarefoundation/autoware_universe/issues/11556>`_)
+* Contributors: Ryohsuke Mitsudome, Ryuta Kambe, 心刚
+
+0.49.0 (2025-12-30)
+-------------------
+
+0.48.0 (2025-11-18)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat(vehicle_cmd_gate): use throttle log (`#10424 <https://github.com/autowarefoundation/autoware_universe/issues/10424>`_)
+  * feat(vehicle_cmd_gate): use throttle log
+  * feat(vehicle_cmd_gate): use throttle log
+  ---------
+* fix(autoware_control_command_gate, autoware_vehicle_cmd_gate): remove unused function  (`#11207 <https://github.com/autowarefoundation/autoware_universe/issues/11207>`_)
+  * fix(autoware_control_command_gate): remove unused function
+  * remove unused function
+  ---------
+* Contributors: Ryohsuke Mitsudome, Ryuta Kambe, Takagi, Isamu
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+* feat(autoware_vehicle_cmd_gate): steer rate limit with lateral jerk constraint (`#11057 <https://github.com/autowarefoundation/autoware_universe/issues/11057>`_)
+  * feat(vehicle_cmd_gate): add lateral jerk limit for steering rate in parameters and implementation
+  * feat(vehicle_cmd_gate): add lateral jerk limit for steering rate in test cases and implementation
+  ---------
+* refactor(vehicle_cmd_gate): rename variable naming consistency in vehicle command filter (`#10781 <https://github.com/autowarefoundation/autoware_universe/issues/10781>`_)
+  * feat(vehicle_cmd_gate): update parameter naming convention for clarity and consistency
+  ---------
+* feat(vehicle_cmd_gate): update maintainer and readme (`#10915 <https://github.com/autowarefoundation/autoware_universe/issues/10915>`_)
+  * feat(vehicle_cmd_gate): update maintainer and readme
+  * fix
+  * style(pre-commit): autofix
+  * Update control/autoware_vehicle_cmd_gate/README.md
+  * Update control/autoware_vehicle_cmd_gate/README.md
+  ---------
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+  Co-authored-by: Takamasa Horibe <horibe.takamasa@gmail.com>
+* Contributors: Kyoichi Sugahara, Yukinari Hisaki
+
+0.46.0 (2025-06-20)
+-------------------
+
+0.45.0 (2025-05-22)
+-------------------
+* Merge remote-tracking branch 'origin/main' into tmp/notbot/bump_version_base
+* chore(vehicle_cmd_gate): suppress frequent log (`#10630 <https://github.com/autowarefoundation/autoware_universe/issues/10630>`_)
+* fix(vehicle_cmd_gate): fix bug in limitLateralSteer (`#10532 <https://github.com/autowarefoundation/autoware_universe/issues/10532>`_)
+* Contributors: Ryuta Kambe, TaikiYamada4, Takayuki Murooka
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 * Merge remote-tracking branch 'origin/main' into humble

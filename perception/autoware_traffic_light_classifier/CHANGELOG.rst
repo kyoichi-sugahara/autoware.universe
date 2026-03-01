@@ -2,6 +2,72 @@
 Changelog for package autoware_traffic_light_classifier
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat(traffic_light_classifier): add under exposure detection (`#11818 <https://github.com/autowarefoundation/autoware_universe/issues/11818>`_)
+  * add under exposure detection
+  * update parameter
+  * add test for under exposure
+  * style(pre-commit): autofix
+  * change diagnostics to distinguish over and under exposure
+  * change parameter
+  * style(pre-commit): autofix
+  * change default value
+  * fix required
+  ---------
+  Co-authored-by: pre-commit-ci-lite[bot] <117423508+pre-commit-ci-lite[bot]@users.noreply.github.com>
+* chore(autoware_traffic_light_classifier): remove cudnn dependency (`#11899 <https://github.com/autowarefoundation/autoware_universe/issues/11899>`_)
+  * chore(autoware_traffic_light_classifier): remove cudnn dependency
+  * style(pre-commit): autofix
+  ---------
+  Co-authored-by: pre-commit-ci-lite[bot] <117423508+pre-commit-ci-lite[bot]@users.noreply.github.com>
+* fix: add missing ament_index_cpp dependency (`#11875 <https://github.com/autowarefoundation/autoware_universe/issues/11875>`_)
+* Contributors: Amadeusz Szymko, Masaki Baba, Mete Fatih Cırıt, Ryohsuke Mitsudome
+
+0.49.0 (2025-12-30)
+-------------------
+
+0.48.0 (2025-11-18)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* refactor(autoware_traffic_light_classifier): split utils and add test (`#10633 <https://github.com/autowarefoundation/autoware_universe/issues/10633>`_)
+  * first commit
+  * split data convert
+  * chore
+  * style(pre-commit): autofix
+  * move function
+  * add const
+  * add const
+  ---------
+  Co-authored-by: pre-commit-ci-lite[bot] <117423508+pre-commit-ci-lite[bot]@users.noreply.github.com>
+* Contributors: Masato Saeki, Ryohsuke Mitsudome
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+* feat(autoware_traffic_light_classifier): move `rclcpp::shutdown();` from child to parent to avoid `rclcpp::exceptions::RCLError` (`#11048 <https://github.com/autowarefoundation/autoware_universe/issues/11048>`_)
+  move child to parent
+* Contributors: Masato Saeki
+
+0.46.0 (2025-06-20)
+-------------------
+
+0.45.0 (2025-05-22)
+-------------------
+* Merge remote-tracking branch 'origin/main' into tmp/notbot/bump_version_base
+* chore: update traffic light packages code owner (`#10644 <https://github.com/autowarefoundation/autoware_universe/issues/10644>`_)
+  chore: add Taekjin Lee as maintainer to multiple perception packages
+* Contributors: Taekjin LEE, TaikiYamada4
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 

@@ -2,6 +2,223 @@
 Changelog for package autoware_image_projection_based_fusion
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat(autoware_lidar_centerpoint): add distance-based confidence thresholds to CenterPoint (`#12026 <https://github.com/autowarefoundation/autoware_universe/issues/12026>`_)
+  * Add temp
+  * Add score_threshold_upper and score_thresholds to CenterPoint postprocessing
+  * Fix naming errors
+  * Revert changes in roi_cluster_fusion_pipeline
+  * Revert changes in roi_cluster_fusion markdown
+  * Revert changes in image_projection_based_fusion
+  * Update score_threshold configs in pointpainting_fusion
+  * Remove unnecessary comments
+  * Update float class_score_threshold to const float
+  * Update autoware_lidar_centerpoint readme
+  * Remove param_version from configs
+  * Return postprocessing of boxes if label == -1
+  * Add the checking of score_upper_bounds greater than 0
+  * Update score_threshold values to class-wise distance
+  * Fix pointpainting class-wise distance thresholds
+  * Update centerpoint params in README by json_to_markdown
+  * Update docstring comment in centerpoint postprocess
+  * style(pre-commit): autofix
+  * Rename configs to detection_score_thresholds with distance_bin_upper_limits and min_confidence_scores
+  * Update schema docstring
+  * Resolve missing distance_bin_upper_limits\_ in CenterPointConfig
+  * Update pointpainting ml package schema
+  ---------
+  Co-authored-by: pre-commit-ci-lite[bot] <117423508+pre-commit-ci-lite[bot]@users.noreply.github.com>
+* feat(autoware_image_projection_based_fusion): update nvcc flags (`#12048 <https://github.com/autowarefoundation/autoware_universe/issues/12048>`_)
+  Co-authored-by: Kotaro Uetake <60615504+ktro2828@users.noreply.github.com>
+* feat!: remove ROS 2 Galactic codes (`#11905 <https://github.com/autowarefoundation/autoware_universe/issues/11905>`_)
+* chore: use local default config files instead of autoware_launch and fix arg propagation chain (`#12031 <https://github.com/autowarefoundation/autoware_universe/issues/12031>`_)
+  * use local default config files instead of autoware_launch
+  * update tier4_perception_launch to drill down the param path
+  * add propagation chains for sync_param_path, irregular_object_detector_param_path and change default for sync_param_path, ogm_outlier_filter_param_path
+  * append ogm_outlier_filter.param.yaml propagation chain
+  * style(pre-commit): autofix
+  * Revert "style(pre-commit): autofix"
+  This reverts commit b34af00301c6c292c0068951552f6630042afac3.
+  * Revert "append ogm_outlier_filter.param.yaml propagation chain"
+  This reverts commit 0e44926d6b51a46868a0a8ff280565c643f3e515.
+  ---------
+  Co-authored-by: pre-commit-ci-lite[bot] <117423508+pre-commit-ci-lite[bot]@users.noreply.github.com>
+* fix(image_projection_based_fusion): add conditional include for jazzy (`#11921 <https://github.com/autowarefoundation/autoware_universe/issues/11921>`_)
+* chore(autoware_image_projection_based_fusion): remove cudnn dependency (`#11891 <https://github.com/autowarefoundation/autoware_universe/issues/11891>`_)
+* fix(roi_cluster_fusion): separate IoU threashold for each class (`#11828 <https://github.com/autowarefoundation/autoware_universe/issues/11828>`_)
+  * fix(roi_cluster_fusion): separate iou_threshold for each class
+  * fix: remove unknown_iou_threshold
+  * fix build error
+  * refactor
+  * docs
+  * style(pre-commit): autofix
+  * docs
+  * fix: change to highest prob label
+  ---------
+  Co-authored-by: pre-commit-ci-lite[bot] <117423508+pre-commit-ci-lite[bot]@users.noreply.github.com>
+* Contributors: Amadeusz Szymko, Kok Seang Tan, Mete Fatih Cırıt, Ryohsuke Mitsudome, Taeseung Sohn, badai nguyen
+
+0.49.0 (2025-12-30)
+-------------------
+* Merge remote-tracking branch 'origin/main' into prepare-0.49.0-changelog
+* fix: prevent possible dangling pointer from .str().c_str() pattern (`#11609 <https://github.com/autowarefoundation/autoware_universe/issues/11609>`_)
+  * Fix dangling pointer caused by the .str().c_str() pattern.
+  std::stringstream::str() returns a temporary std::string,
+  and taking its c_str() leads to a dangling pointer when the temporary is destroyed.
+  This patch replaces such usage with a const reference of std::string variable to ensure pointer validity.
+  * Revert the changes made to the functions. They should only be applied to the macros.
+  ---------
+  Co-authored-by: Shumpei Wakabayashi <42209144+shmpwk@users.noreply.github.com>
+  Co-authored-by: Junya Sasaki <junya.sasaki@tier4.jp>
+* Contributors: Ryohsuke Mitsudome, Takatoshi Kondo
+
+0.48.0 (2025-11-18)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* chore(perception): add maintainer (`#11458 <https://github.com/autowarefoundation/autoware_universe/issues/11458>`_)
+  add maintainer
+* fix(fusion node): subscribe from concatenation info (`#11258 <https://github.com/autowarefoundation/autoware_universe/issues/11258>`_)
+  * chore: rename concatenate info to manager for clearity
+  * feat: add reference min max in the concatenated info
+  * chore: replace reading from diagnositc to concatenate info
+  * fix: qos settting
+  * chore: update for cuda pointcloud preprocessor
+  * chore: move info to matching strategy
+  * chore: clean code
+  * feat: move concat info in launcher
+  * chore: fix readme
+  * feat: sub to concat info in launcher
+  * chore: add concat info in irregular launch
+  ---------
+* Contributors: Masaki Baba, Ryohsuke Mitsudome, Yi-Hsiang Fang (Vivid)
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+* chore(image_projection_based_fusion): add initializing status log (`#11112 <https://github.com/autowarefoundation/autoware_universe/issues/11112>`_)
+  * chore(image_projection_based_fusion): add initializing status log
+  * chore: change to warning
+  ---------
+* style(pre-commit): update to clang-format-20 (`#11088 <https://github.com/autowarefoundation/autoware_universe/issues/11088>`_)
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+* fix(roi_cluster_fusion): fix bug in debug mode (`#11054 <https://github.com/autowarefoundation/autoware_universe/issues/11054>`_)
+  * fix(roi_cluster_fusion): fix bug in debug mode
+  * chore: refactor
+  * chore: docs
+  * fix debug iou
+  ---------
+* fix(tier4_perception_launch): add one more camera fusion (`#10973 <https://github.com/autowarefoundation/autoware_universe/issues/10973>`_)
+  * fix(tier4_perception_launch): add one more camera fusion
+  * fix: missing launch
+  * feat(detection.launch): add support for additional camera inputs (camera8)
+  * fix: missing launch param
+  ---------
+  Co-authored-by: Taekjin LEE <taekjin.lee@tier4.jp>
+* fix(image_projection_based_fusion): loosen rois_number check (`#10924 <https://github.com/autowarefoundation/autoware_universe/issues/10924>`_)
+* feat(autoware_lidar_centerpoint): add class-wise confidence thresholds to CenterPoint (`#10881 <https://github.com/autowarefoundation/autoware_universe/issues/10881>`_)
+  * Add PreprocessCuda to CenterPoint
+  * style(pre-commit): autofix
+  * style(pre-commit): autofix
+  * Add intensity preprocessing
+  * style(pre-commit): autofix
+  * Fix config\_.point_feature_size\_ typo
+  * style(pre-commit): autofix
+  * Fix point typo
+  * style(pre-commit): autofix
+  * Change score_threshold to score_thresholds
+  * Use <autoware/cuda_utils/cuda_utils.hpp> for clear_async
+  * Rename pre_ptr\_ to pre_proc_ptr\_
+  * Remove unused getCacheSize() and getIdx
+  * Use template in generateVoxels_random_kernel instead
+  * style(pre-commit): autofix
+  * Remove references in generateVoxels_random_kernel
+  * Remove references in generateVoxels_random_kernel
+  * style(pre-commit): autofix
+  * Remove generateIntensityFeatures_kernel and add the case of 11 to ENCODER_IN_FEATURE_SIZE for generateFeatures_kernel
+  * style(pre-commit): autofix
+  * Add class-wise confidence thresholds to CenterPoint
+  * style(pre-commit): autofix
+  * Remov empty line changes
+  * Update score_threshold to score_thresholds in REAMME
+  * style(pre-commit): autofix
+  * Change score_thresholds from pass by value to pass by reference
+  * style(pre-commit): autofix
+  * Add information about class names in scehema
+  * Change vector<double> to vector<float>
+  * Remove thrust and add stream\_ to PostProcessCUDA
+  * style(pre-commit): autofix
+  * Fix incorrect initialization of score_thresholds\_ vector
+  * Fix postprocess CudaMemCpy error
+  * Fix postprocess score_thresholds_d_ptr\_ typing error
+  * Fix score_thresholds typing in node.cpp
+  * Static casting params.score_thresholds vector
+  * style(pre-commit): autofix
+  * Update perception/autoware_lidar_centerpoint/src/node.cpp
+  * Update perception/autoware_lidar_centerpoint/include/autoware/lidar_centerpoint/centerpoint_config.hpp
+  * Update centerpoint_config.hpp
+  * Update node.cpp
+  * Update score_thresholds\_ to double since ros2 supports only double instead of float
+  * style(pre-commit): autofix
+  * Fix cuda memory and revert double score_thresholds\_ to float score_thresholds\_
+  * style(pre-commit): autofix
+  ---------
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+  Co-authored-by: Taekjin LEE <technolojin@gmail.com>
+* Contributors: Kok Seang Tan, Mete Fatih Cırıt, badai nguyen
+
+0.46.0 (2025-06-20)
+-------------------
+* Merge remote-tracking branch 'upstream/main' into tmp/TaikiYamada/bump_version_base
+* fix(roi_cluster_fusion): fix typo (`#10833 <https://github.com/autowarefoundation/autoware_universe/issues/10833>`_)
+  * fix(roi_cluster_fusion): fix typo
+  * rename variable
+  * refactor: rename parameter
+  ---------
+* fix(roi_cluster_fusion): fix target frame's timestamp (`#10831 <https://github.com/autowarefoundation/autoware_universe/issues/10831>`_)
+  * chore: fix target frame timestamp
+  * chore: fix timestamp
+  ---------
+  Co-authored-by: Taekjin LEE <taekjin.lee@tier4.jp>
+* fix(segmentation_pointcloud_fusion): add missing context  (`#10823 <https://github.com/autowarefoundation/autoware_universe/issues/10823>`_)
+  add perform(context)
+* fix(autoware_image_projection_based_fusion): fix parsing value of concatenate diagnostic (`#10792 <https://github.com/autowarefoundation/autoware_universe/issues/10792>`_)
+  fix: fix key value
+* fix(roi_pointcloud_fusion): add remap output option (`#10655 <https://github.com/autowarefoundation/autoware_universe/issues/10655>`_)
+  * fix(roi_pointcloud_fusion): add remap output option
+  * chore: docs update
+  * fix: update refine cluster func
+  * chore: fix schema
+  * fix: test utils
+  ---------
+* Contributors: Kento Yabuuchi, TaikiYamada4, Yi-Hsiang Fang (Vivid), badai nguyen
+
+0.45.0 (2025-05-22)
+-------------------
+* Merge remote-tracking branch 'origin/main' into tmp/notbot/bump_version_base
+* chore: perception code owner update (`#10645 <https://github.com/autowarefoundation/autoware_universe/issues/10645>`_)
+  * chore: update maintainers in multiple perception packages
+  * Revert "chore: update maintainers in multiple perception packages"
+  This reverts commit f2838c33d6cd82bd032039e2a12b9cb8ba6eb584.
+  * chore: update maintainers in multiple perception packages
+  * chore: add Kok Seang Tan as maintainer in multiple perception packages
+  ---------
+* fix(segmentation pointcloud fusion): fix launch for selectable camera IDs (`#10609 <https://github.com/autowarefoundation/autoware_universe/issues/10609>`_)
+  * fix(tier4_perception_launch): fix segmentation_pointcloud_fusion launch
+  * chore: remove duplicated line
+  ---------
+* fix(image_projection_based_fusion): fix redundantAssignment warning (`#10531 <https://github.com/autowarefoundation/autoware_universe/issues/10531>`_)
+* Contributors: Ryuta Kambe, Taekjin LEE, TaikiYamada4, badai nguyen
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 * Merge remote-tracking branch 'origin/main' into humble

@@ -21,6 +21,8 @@
 
 #include <cuda_runtime.h>
 
+#include <cstdint>
+
 class CudaPointCloud2 : public sensor_msgs::msg::PointCloud2
 {
 public:
@@ -40,7 +42,7 @@ public:
     row_step = msg_ptr->row_step;
     is_dense = msg_ptr->is_dense;
 
-    if (!data || capacity_ < msg_ptr->data.size()) {
+    if ((!data || capacity_ < msg_ptr->data.size()) && point_step > 0) {
       const int factor = 4096 * point_step;
       capacity_ = factor * (msg_ptr->data.size() / factor + 1);
       data = autoware::cuda_utils::make_unique<std::uint8_t[]>(capacity_);

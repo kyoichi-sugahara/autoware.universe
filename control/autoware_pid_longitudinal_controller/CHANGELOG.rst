@@ -2,6 +2,51 @@
 Changelog for package autoware_pid_longitudinal_controller
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat!: remove ROS 2 Galactic codes (`#11905 <https://github.com/autowarefoundation/autoware_universe/issues/11905>`_)
+* refactor(autoware_trajectory_follower_node): remove redundant diagnostic updates from lateral and longitudinal controllers (`#11934 <https://github.com/autowarefoundation/autoware_universe/issues/11934>`_)
+* Contributors: Kyoichi Sugahara, Ryohsuke Mitsudome
+
+0.49.0 (2025-12-30)
+-------------------
+
+0.48.0 (2025-11-18)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* fix: tf2 uses hpp headers in rolling (and is backported) (`#11620 <https://github.com/autowarefoundation/autoware_universe/issues/11620>`_)
+* feat(pid_longitudinal_controller): don't switch to DRIVE if the state conditions are not met (`#11369 <https://github.com/autowarefoundation/autoware_universe/issues/11369>`_)
+  * feat(pid_longitudinal_controller): don't switch to DRIVE if the state conditions are not met
+  * add is_autoware_control_enabled field for tests
+  ---------
+* Contributors: Mert Çolak, Ryohsuke Mitsudome, Tim Clephas
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+
+0.46.0 (2025-06-20)
+-------------------
+* Merge remote-tracking branch 'upstream/main' into tmp/TaikiYamada/bump_version_base
+* fix(pid): fix a bug that acceleration feedback does not go in the correct direction when reverse (`#10822 <https://github.com/autowarefoundation/autoware_universe/issues/10822>`_)
+  * fix(pid): fix a bug that acceleration feedback does not go in the correct direction when reverse
+  * fix CI
+  ---------
+* fix(pid_longitudinal_controller): fix reseting the prev value (`#10684 <https://github.com/autowarefoundation/autoware_universe/issues/10684>`_)
+* Contributors: TaikiYamada4, Yuki TAKAGI, Yuxuan Liu
+
+0.45.0 (2025-05-22)
+-------------------
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 

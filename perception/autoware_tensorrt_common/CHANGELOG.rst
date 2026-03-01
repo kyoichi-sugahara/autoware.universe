@@ -2,6 +2,74 @@
 Changelog for package autoware_tensorrt_common
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* chore(autoware_tensorrt_common): remove cudnn dependency (`#11896 <https://github.com/autowarefoundation/autoware_universe/issues/11896>`_)
+* Contributors: Amadeusz Szymko, Ryohsuke Mitsudome
+
+0.49.0 (2025-12-30)
+-------------------
+
+0.48.0 (2025-11-18)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* fix(tensorrt_common): resolve error message of clang (`#11434 <https://github.com/autowarefoundation/autoware_universe/issues/11434>`_)
+  fix: resolve error message by clang
+* feat(autoware_camera_streampetr): implementation of StreamPETR using tensorrt (`#11139 <https://github.com/autowarefoundation/autoware_universe/issues/11139>`_)
+  * added streampetr
+  * use trt_common for build and forward pass
+  * style(pre-commit): autofix
+  * use optional parameters
+  * remove unused methods
+  * style(pre-commit): autofix
+  * fix lint errors
+  * ament
+  * style(pre-commit): autofix
+  * refactor complex code
+  * simplified functions
+  * style(pre-commit): autofix
+  * removed uncrustify
+  * fix clang errors
+  ---------
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+  Co-authored-by: pre-commit-ci-lite[bot] <117423508+pre-commit-ci-lite[bot]@users.noreply.github.com>
+* Contributors: Kotaro Uetake, Ryohsuke Mitsudome, Samrat Thapa
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+* chore(autoware_tensorrt_common): improved logging when loading plugins (`#10605 <https://github.com/autowarefoundation/autoware_universe/issues/10605>`_)
+  chore: added a print with the cause of the error in case loading the plugins fails
+* Contributors: Kenzo Lobos Tsunekawa
+
+0.46.0 (2025-06-20)
+-------------------
+
+0.45.0 (2025-05-22)
+-------------------
+* Merge remote-tracking branch 'origin/main' into tmp/notbot/bump_version_base
+* chore: perception code owner update (`#10645 <https://github.com/autowarefoundation/autoware_universe/issues/10645>`_)
+  * chore: update maintainers in multiple perception packages
+  * Revert "chore: update maintainers in multiple perception packages"
+  This reverts commit f2838c33d6cd82bd032039e2a12b9cb8ba6eb584.
+  * chore: update maintainers in multiple perception packages
+  * chore: add Kok Seang Tan as maintainer in multiple perception packages
+  ---------
+* perf(autoware_tensorrt_common): set cudaSetDeviceFlags explicitly (`#10523 <https://github.com/autowarefoundation/autoware_universe/issues/10523>`_)
+  * Synchronize CUDA stream by blocking instead of spin
+  * Use blocking-sync in BEVFusion
+  * Call cudaSetDeviceFlags in tensorrt_common
+* Contributors: Taekjin LEE, TaikiYamada4, prime number
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 * Merge remote-tracking branch 'origin/main' into humble

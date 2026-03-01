@@ -2,6 +2,116 @@
 Changelog for package autoware_ground_segmentation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat!: remove ROS 2 Galactic codes (`#11905 <https://github.com/autowarefoundation/autoware_universe/issues/11905>`_)
+* Contributors: Ryohsuke Mitsudome
+
+0.49.0 (2025-12-30)
+-------------------
+* Merge remote-tracking branch 'origin/main' into prepare-0.49.0-changelog
+* refactor(ground_segmentation): remove grid_mode_switch_radius param (`#11773 <https://github.com/autowarefoundation/autoware_universe/issues/11773>`_)
+  * remove grid mode switch radius
+  * fix: spelling check
+  * chore: typo
+  * style(pre-commit): autofix
+  * fix c-style
+  * chore: remove unused variable
+  * remove unused origin_z
+  * remove virtual_lidar_z
+  * style(pre-commit): autofix
+  ---------
+  Co-authored-by: pre-commit-ci-lite[bot] <117423508+pre-commit-ci-lite[bot]@users.noreply.github.com>
+* fix(autoware_ground_segmentation): add empty point cloud guards (`#11749 <https://github.com/autowarefoundation/autoware_universe/issues/11749>`_)
+  Add validation to check for empty point clouds before processing to prevent
+  undefined behavior in PCL functions and potential crashes.
+  - Add guard in ray_ground_filter
+  - Add guard in ransac_ground_filter
+* Contributors: Ryohsuke Mitsudome, Yutaka Kondo, badai nguyen
+
+0.48.0 (2025-11-18)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* fix: tf2 uses hpp headers in rolling (and is backported) (`#11620 <https://github.com/autowarefoundation/autoware_universe/issues/11620>`_)
+* Contributors: Ryohsuke Mitsudome, Tim Clephas
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+* feat(autoware_ground_segmentation): change point follow logic (`#294 <https://github.com/autowarefoundation/autoware_universe/issues/294>`_) (`#10879 <https://github.com/autowarefoundation/autoware_universe/issues/10879>`_)
+* Contributors: Kaan Çolak
+
+0.46.0 (2025-06-20)
+-------------------
+* Merge remote-tracking branch 'upstream/main' into tmp/TaikiYamada/bump_version_base
+* feat(autoware_pointcloud_preprocessor): add diagnostic message (`#10579 <https://github.com/autowarefoundation/autoware_universe/issues/10579>`_)
+  * feat: add diag msg
+  * chore: fix code
+  * chore: remove outlier count in ring
+  * chore: move format timestamp to utility
+  * chore: add paramter to schema
+  * chore: add parameter for cluster
+  * chore: clean code
+  * chore: fix schema
+  * chore: move diagnostic updater to filter base class
+  * chore: fix schema
+  * chore: fix spell error
+  * chore: set up diagnostic updater
+  * refactor: utilize autoware_utils diagnostic message
+  * chore: add publish
+  * chore: add detail message
+  * chore: const for time difference
+  * refactor: structure diagnostics to class
+  * chore: const reference
+  * chore: clean logic
+  * chore: modify function name
+  * chore: update parameter
+  * chore: move evaluate status into diagnostic
+  * chore: fix description for concatenated pointcloud
+  * chore: timestamp mismatch threshold
+  * chore: fix diagnostic key
+  * chore: change function naming
+  ---------
+* fix(scan_ground_segmentation): separate parameter for recheck ignore distance (`#10686 <https://github.com/autowarefoundation/autoware_universe/issues/10686>`_)
+  * fix(scan_ground_segmentation): fix recheck effective range
+  * feat: separate param for recheck region
+  * chore: docs and test update
+  * chore: docs
+  * chore: rename param
+  * chore: fix schema
+  ---------
+* Contributors: TaikiYamada4, Yi-Hsiang Fang (Vivid), badai nguyen
+
+0.45.0 (2025-05-22)
+-------------------
+* Merge remote-tracking branch 'origin/main' into tmp/notbot/bump_version_base
+* fix(autoware_ground_segmentation): correct slope threshold global to local (`#10666 <https://github.com/autowarefoundation/autoware_universe/issues/10666>`_)
+  * fix(grid_ground_filter): correct slope threshold global to local
+  * Update perception/autoware_ground_segmentation/src/scan_ground_filter/grid_ground_filter.cpp
+  Co-authored-by: badai nguyen  <94814556+badai-nguyen@users.noreply.github.com>
+  * Update grid_ground_filter.cpp
+  * fix(grid_ground_filter): update slope threshold from global to local
+  ---------
+  Co-authored-by: badai nguyen <94814556+badai-nguyen@users.noreply.github.com>
+* chore: perception code owner update (`#10645 <https://github.com/autowarefoundation/autoware_universe/issues/10645>`_)
+  * chore: update maintainers in multiple perception packages
+  * Revert "chore: update maintainers in multiple perception packages"
+  This reverts commit f2838c33d6cd82bd032039e2a12b9cb8ba6eb584.
+  * chore: update maintainers in multiple perception packages
+  * chore: add Kok Seang Tan as maintainer in multiple perception packages
+  ---------
+* docs(autoware_ground_segmentation): move parameter table to respective README (`#10500 <https://github.com/autowarefoundation/autoware_universe/issues/10500>`_)
+* Contributors: Ryohsuke Mitsudome, Taekjin LEE, TaikiYamada4
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 * Merge remote-tracking branch 'origin/main' into humble

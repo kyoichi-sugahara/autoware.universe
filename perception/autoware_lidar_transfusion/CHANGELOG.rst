@@ -2,6 +2,65 @@
 Changelog for package autoware_lidar_transfusion
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat(autoware_lidar_transfusion): update nvcc flags (`#12051 <https://github.com/autowarefoundation/autoware_universe/issues/12051>`_)
+  Co-authored-by: Kotaro Uetake <60615504+ktro2828@users.noreply.github.com>
+* feat!: remove ROS 2 Galactic codes (`#11905 <https://github.com/autowarefoundation/autoware_universe/issues/11905>`_)
+* feat(TransFusion): move cuda stream init before init and cleaning point_d buffer (`#11968 <https://github.com/autowarefoundation/autoware_universe/issues/11968>`_)
+  * move cuda stream init before init and add point_d cleaning
+  * Update memory buffer changes
+  ---------
+* chore(autoware_lidar_transfusion): remove cudnn dependency (`#11886 <https://github.com/autowarefoundation/autoware_universe/issues/11886>`_)
+* Contributors: Amadeusz Szymko, Kok Seang Tan, Ryohsuke Mitsudome
+
+0.49.0 (2025-12-30)
+-------------------
+
+0.48.0 (2025-11-18)
+-------------------
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+
+0.46.0 (2025-06-20)
+-------------------
+* Merge remote-tracking branch 'upstream/main' into tmp/TaikiYamada/bump_version_base
+* chore(perception): delete maintainer name (`#10816 <https://github.com/autowarefoundation/autoware_universe/issues/10816>`_)
+* Contributors: Satoshi Tanaka, TaikiYamada4
+
+0.45.0 (2025-05-22)
+-------------------
+* Merge remote-tracking branch 'origin/main' into tmp/notbot/bump_version_base
+* chore: perception code owner update (`#10645 <https://github.com/autowarefoundation/autoware_universe/issues/10645>`_)
+  * chore: update maintainers in multiple perception packages
+  * Revert "chore: update maintainers in multiple perception packages"
+  This reverts commit f2838c33d6cd82bd032039e2a12b9cb8ba6eb584.
+  * chore: update maintainers in multiple perception packages
+  * chore: add Kok Seang Tan as maintainer in multiple perception packages
+  ---------
+* feat(autoware_lidar_transfusion): added target architectures for transfusion (`#10615 <https://github.com/autowarefoundation/autoware_universe/issues/10615>`_)
+  * chore: added target architectures for transfusion
+  * chore: removed unnecessary flag
+  * chore: mistook the architecture of edge devices
+  ---------
+* feat(autoware_lidar_transfusion): introduce cuda blackboard to transfusion (`#10513 <https://github.com/autowarefoundation/autoware_universe/issues/10513>`_)
+  * feat(autoware_lidar_transfusion): introduce cuda blackboard to transfusion
+  * fix(autoware_lidar_transfusion): clang-tidy errors
+  ---------
+  Co-authored-by: Kenzo Lobos Tsunekawa <kenzo.lobos@tier4.jp>
+* Contributors: Amadeusz Szymko, Kenzo Lobos Tsunekawa, Taekjin LEE, TaikiYamada4
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 * Merge remote-tracking branch 'origin/main' into humble

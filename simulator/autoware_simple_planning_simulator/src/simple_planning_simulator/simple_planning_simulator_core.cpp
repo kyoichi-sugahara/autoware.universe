@@ -17,19 +17,20 @@
 #include "autoware/motion_utils/trajectory/trajectory.hpp"
 #include "autoware/simple_planning_simulator/vehicle_model/sim_model.hpp"
 #include "autoware/simple_planning_simulator/vehicle_model/sim_model_actuation_cmd.hpp"
-#include "autoware_utils/geometry/geometry.hpp"
-#include "autoware_utils/ros/msg_covariance.hpp"
-#include "autoware_utils/ros/update_param.hpp"
+#include "autoware_utils_geometry/geometry.hpp"
+#include "autoware_utils_geometry/msg/covariance.hpp"
+#include "autoware_utils_rclcpp/parameter.hpp"
 #include "autoware_vehicle_info_utils/vehicle_info_utils.hpp"
 #include "rclcpp_components/register_node_macro.hpp"
 
-#include <autoware_lanelet2_extension/utility/message_conversion.hpp>
+#include <autoware/lanelet2_utils/conversion.hpp>
+#include <autoware/lanelet2_utils/nn_search.hpp>
 #include <autoware_lanelet2_extension/utility/query.hpp>
+#include <tf2/LinearMath/Quaternion.hpp>
+#include <tf2/utils.hpp>
 
 #include <lanelet2_routing/RoutingGraph.h>
 #include <lanelet2_traffic_rules/TrafficRulesFactory.h>
-#include <tf2/LinearMath/Quaternion.h>
-#include <tf2/utils.h>
 
 #include <algorithm>
 #include <chrono>
@@ -62,8 +63,8 @@ nav_msgs::msg::Odometry to_odometry(
   nav_msgs::msg::Odometry odometry;
   odometry.pose.pose.position.x = vehicle_model_ptr->getX();
   odometry.pose.pose.position.y = vehicle_model_ptr->getY();
-  odometry.pose.pose.orientation =
-    autoware_utils::create_quaternion_from_rpy(0.0, ego_pitch_angle, vehicle_model_ptr->getYaw());
+  odometry.pose.pose.orientation = autoware_utils_geometry::create_quaternion_from_rpy(
+    0.0, ego_pitch_angle, vehicle_model_ptr->getYaw());
   odometry.twist.twist.linear.x = vehicle_model_ptr->getVx();
   odometry.twist.twist.angular.z = vehicle_model_ptr->getWz();
 
@@ -98,7 +99,6 @@ SimplePlanningSimulator::SimplePlanningSimulator(const rclcpp::NodeOptions & opt
   simulated_frame_id_ = declare_parameter("simulated_frame_id", "base_link");
   origin_frame_id_ = declare_parameter("origin_frame_id", "odom");
   add_measurement_noise_ = declare_parameter("add_measurement_noise", false);
-  add_brownian_noise_ = declare_parameter("add_brownian_noise", false);
   simulate_motion_ = declare_parameter<bool>("initial_engage_state");
   enable_road_slope_simulation_ = declare_parameter("enable_road_slope_simulation", false);
   enable_pub_steer_ = declare_parameter("enable_pub_steer", true);
@@ -221,15 +221,6 @@ SimplePlanningSimulator::SimplePlanningSimulator(const rclcpp::NodeOptions & opt
 
     x_stddev_ = declare_parameter("x_stddev", 0.0001);
     y_stddev_ = declare_parameter("y_stddev", 0.0001);
-  }
-
-  // brownian noise
-  {
-    std::random_device seed;
-    auto & b = brownian_noise_;
-    b.rand_engine_ = std::make_shared<std::mt19937>(seed());
-    double pos_noise_stddev = declare_parameter("brownian_pos_noise_stddev", 1.0);
-    b.pos_dist_ = std::make_shared<std::normal_distribution<>>(0.0, pos_noise_stddev);
   }
 
   // control mode
@@ -413,14 +404,8 @@ rcl_interfaces::msg::SetParametersResult SimplePlanningSimulator::on_parameter(
   result.reason = "success";
 
   try {
-    autoware_utils::update_param(parameters, "x_stddev", x_stddev_);
-    autoware_utils::update_param(parameters, "y_stddev", y_stddev_);
-    double pos_noise_stddev;
-    auto & n = brownian_noise_;
-    autoware_utils::update_param(parameters, "brownian_pos_noise_stddev", pos_noise_stddev);
-    n.pos_dist_ = std::make_shared<std::normal_distribution<>>(0.0, pos_noise_stddev);
-    // you can update parameter with the following command
-    // ros2 param set /simulation/simple_planning_simulator brownian_pos_noise_stddev <value>
+    autoware_utils_rclcpp::update_param(parameters, "x_stddev", x_stddev_);
+    autoware_utils_rclcpp::update_param(parameters, "y_stddev", y_stddev_);
   } catch (const rclcpp::exceptions::InvalidParameterTypeException & e) {
     result.successful = false;
     result.reason = e.what();
@@ -438,14 +423,15 @@ double SimplePlanningSimulator::calculate_ego_pitch() const
   geometry_msgs::msg::Pose ego_pose;
   ego_pose.position.x = ego_x;
   ego_pose.position.y = ego_y;
-  ego_pose.orientation = autoware_utils::create_quaternion_from_yaw(ego_yaw);
+  ego_pose.orientation = autoware_utils_geometry::create_quaternion_from_yaw(ego_yaw);
 
   // calculate prev/next point of lanelet centerline nearest to ego pose.
-  lanelet::Lanelet ego_lanelet;
-  if (!lanelet::utils::query::getClosestLaneletWithConstrains(
-        road_lanelets_, ego_pose, &ego_lanelet, 2.0, std::numeric_limits<double>::max())) {
+  auto opt = autoware::experimental::lanelet2_utils::get_closest_lanelet_within_constraint(
+    road_lanelets_, ego_pose, 2.0, std::numeric_limits<double>::max());
+  if (!opt.has_value()) {
     return 0.0;
   }
+  lanelet::Lanelet ego_lanelet = autoware::experimental::lanelet2_utils::remove_const(*opt);
   const auto centerline_points = convert_centerline_to_points(ego_lanelet);
   const size_t ego_seg_idx =
     autoware::motion_utils::findNearestSegmentIndex(centerline_points, ego_pose.position);
@@ -510,13 +496,10 @@ void SimplePlanningSimulator::on_timer()
   if (add_measurement_noise_) {
     add_measurement_noise(current_odometry_, current_velocity_, current_steer_);
   }
-  if (add_brownian_noise_) {
-    add_brownian_noise(current_odometry_);
-  }
 
   // add estimate covariance
   {
-    using COV_IDX = autoware_utils::xyzrpy_covariance_index::XYZRPY_COV_IDX;
+    using COV_IDX = autoware_utils_geometry::xyzrpy_covariance_index::XYZRPY_COV_IDX;
     current_odometry_.pose.covariance[COV_IDX::X_X] = x_stddev_;
     current_odometry_.pose.covariance[COV_IDX::Y_Y] = y_stddev_;
   }
@@ -545,12 +528,16 @@ void SimplePlanningSimulator::on_timer()
 
 void SimplePlanningSimulator::on_map(const LaneletMapBin::ConstSharedPtr msg)
 {
-  auto lanelet_map_ptr = std::make_shared<lanelet::LaneletMap>();
+  auto lanelet_map_ptr = autoware::experimental::lanelet2_utils::from_autoware_map_msgs(*msg);
 
-  lanelet::routing::RoutingGraphPtr routing_graph_ptr;
-  lanelet::traffic_rules::TrafficRulesPtr traffic_rules_ptr;
-  lanelet::utils::conversion::fromBinMsg(
-    *msg, lanelet_map_ptr, &traffic_rules_ptr, &routing_graph_ptr);
+  auto routing_graph_and_traffic_rules =
+    autoware::experimental::lanelet2_utils::instantiate_routing_graph_and_traffic_rules(
+      lanelet_map_ptr);
+
+  lanelet::routing::RoutingGraphPtr routing_graph_ptr =
+    autoware::experimental::lanelet2_utils::remove_const(routing_graph_and_traffic_rules.first);
+  lanelet::traffic_rules::TrafficRulesPtr traffic_rules_ptr =
+    routing_graph_and_traffic_rules.second;
 
   lanelet::ConstLanelets all_lanelets = lanelet::utils::query::laneletLayer(lanelet_map_ptr);
   road_lanelets_ = lanelet::utils::query::roadLanelets(all_lanelets);
@@ -714,31 +701,11 @@ void SimplePlanningSimulator::add_measurement_noise(
   odom.twist.twist.linear.x += velocity_noise;
   double yaw = tf2::getYaw(odom.pose.pose.orientation);
   yaw += static_cast<float>((*n.rpy_dist_)(*n.rand_engine_));
-  odom.pose.pose.orientation = autoware_utils::create_quaternion_from_yaw(yaw);
+  odom.pose.pose.orientation = autoware_utils_geometry::create_quaternion_from_yaw(yaw);
 
   vel.longitudinal_velocity += static_cast<double>(velocity_noise);
 
   steer.steering_tire_angle += static_cast<double>((*n.steer_dist_)(*n.rand_engine_));
-}
-
-void SimplePlanningSimulator::add_brownian_noise(Odometry & odom) const
-{
-  auto & n = brownian_noise_;
-
-  const double dt = static_cast<double>(timer_sampling_time_ms_) / 1000.0;  // convert ms to sec
-
-  double noise_x = (*n.pos_dist_)(*n.rand_engine_) * std::sqrt(dt);
-  double noise_y = (*n.pos_dist_)(*n.rand_engine_) * std::sqrt(dt);
-
-  double temp_x = n.accumulated_pos_x_ + noise_x;
-  double temp_y = n.accumulated_pos_y_ + noise_y;
-
-  BrownianNoiseGenerator & noise = const_cast<BrownianNoiseGenerator &>(n);
-  noise.accumulated_pos_x_ = temp_x;
-  noise.accumulated_pos_y_ = temp_y;
-
-  odom.pose.pose.position.x += temp_x;
-  odom.pose.pose.position.y += temp_y;
 }
 
 void SimplePlanningSimulator::set_initial_state_with_transform(
@@ -763,6 +730,7 @@ void SimplePlanningSimulator::set_initial_state(const Pose & pose, const Twist &
   const double vy = 0.0;
   const double steer = 0.0;
   const double accx = 0.0;
+  const double pedal_accx = 0.0;
 
   Eigen::VectorXd state(vehicle_model_ptr_->getDimX());
 
@@ -777,10 +745,11 @@ void SimplePlanningSimulator::set_initial_state(const Pose & pose, const Twist &
     state << x, y, yaw, vx, steer;
   } else if (vehicle_model_type_ == VehicleModelType::LEARNED_STEER_VEL) {
     state << x, y, yaw, yaw_rate, vx, vy, steer;
+  } else if (vehicle_model_type_ == VehicleModelType::DELAY_STEER_ACC_GEARED_WO_FALL_GUARD) {
+    state << x, y, yaw, vx, steer, accx, pedal_accx;
   } else if (  // NOLINT
     vehicle_model_type_ == VehicleModelType::DELAY_STEER_ACC ||
     vehicle_model_type_ == VehicleModelType::DELAY_STEER_ACC_GEARED ||
-    vehicle_model_type_ == VehicleModelType::DELAY_STEER_ACC_GEARED_WO_FALL_GUARD ||
     vehicle_model_type_ == VehicleModelType::DELAY_STEER_MAP_ACC_GEARED ||
     vehicle_model_type_ == VehicleModelType::ACTUATION_CMD ||
     vehicle_model_type_ == VehicleModelType::ACTUATION_CMD_VGR ||
@@ -862,7 +831,7 @@ void SimplePlanningSimulator::publish_pose(const Odometry & odometry)
   geometry_msgs::msg::PoseWithCovarianceStamped msg;
 
   msg.pose = odometry.pose;
-  using COV_IDX = autoware_utils::xyzrpy_covariance_index::XYZRPY_COV_IDX;
+  using COV_IDX = autoware_utils_geometry::xyzrpy_covariance_index::XYZRPY_COV_IDX;
   constexpr auto COV_POS = 0.0225;      // same value as current ndt output
   constexpr auto COV_ANGLE = 0.000625;  // same value as current ndt output
   msg.pose.covariance.at(COV_IDX::X_X) = COV_POS;
@@ -892,7 +861,7 @@ void SimplePlanningSimulator::publish_acceleration()
   msg.accel.accel.linear.x = vehicle_model_ptr_->getAx();
   msg.accel.accel.linear.y = vehicle_model_ptr_->getWz() * vehicle_model_ptr_->getVx();
 
-  using COV_IDX = autoware_utils::xyzrpy_covariance_index::XYZRPY_COV_IDX;
+  using COV_IDX = autoware_utils_geometry::xyzrpy_covariance_index::XYZRPY_COV_IDX;
   constexpr auto COV = 0.001;
   msg.accel.covariance.at(COV_IDX::X_X) = COV;          // linear x
   msg.accel.covariance.at(COV_IDX::Y_Y) = COV;          // linear y
@@ -905,7 +874,7 @@ void SimplePlanningSimulator::publish_acceleration()
 
 void SimplePlanningSimulator::publish_imu()
 {
-  using COV_IDX = autoware_utils::xyz_covariance_index::XYZ_COV_IDX;
+  using COV_IDX = autoware_utils_geometry::xyz_covariance_index::XYZ_COV_IDX;
 
   sensor_msgs::msg::Imu imu;
   imu.header.frame_id = "base_link";

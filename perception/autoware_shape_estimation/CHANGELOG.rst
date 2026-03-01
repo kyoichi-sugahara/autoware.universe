@@ -2,6 +2,67 @@
 Changelog for package autoware_shape_estimation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat!: remove ROS 2 Galactic codes (`#11905 <https://github.com/autowarefoundation/autoware_universe/issues/11905>`_)
+* chore(autoware_shape_estimation): remove cudnn dependency (`#11892 <https://github.com/autowarefoundation/autoware_universe/issues/11892>`_)
+* feat: simulation related packages support jazzy (`#11424 <https://github.com/autowarefoundation/autoware_universe/issues/11424>`_)
+* Contributors: Amadeusz Szymko, Ryohsuke Mitsudome, 心刚
+
+0.49.0 (2025-12-30)
+-------------------
+* Merge remote-tracking branch 'origin/main' into prepare-0.49.0-changelog
+* feat(shape_estimation): correcting yaw (`#11309 <https://github.com/autowarefoundation/autoware_universe/issues/11309>`_) (`#11634 <https://github.com/autowarefoundation/autoware_universe/issues/11634>`_)
+  * feat(shape_estimation): correcting yaw
+  * fix test
+  * fix: test and pre-commit
+  ---------
+* feat: refactor shape estimation and documentations; from autowarefoundation `#11353 <https://github.com/autowarefoundation/autoware_universe/issues/11353>`_ (`#11631 <https://github.com/autowarefoundation/autoware_universe/issues/11631>`_)
+  * feat: refactor shape estimation and documentations; from autowarefoundation `#11353 <https://github.com/autowarefoundation/autoware_universe/issues/11353>`_
+  * fix CI
+  * fix: CI last line
+  ---------
+* Contributors: Ryohsuke Mitsudome, Yuxuan Liu
+
+0.48.0 (2025-11-18)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* fix: tf2 uses hpp headers in rolling (and is backported) (`#11620 <https://github.com/autowarefoundation/autoware_universe/issues/11620>`_)
+* chore(perception): add maintainer (`#11458 <https://github.com/autowarefoundation/autoware_universe/issues/11458>`_)
+  add maintainer
+* Contributors: Masaki Baba, Ryohsuke Mitsudome, Tim Clephas
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+* style(pre-commit): autofix (`#10982 <https://github.com/autowarefoundation/autoware_universe/issues/10982>`_)
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+* Contributors: Ryohsuke Mitsudome
+
+0.46.0 (2025-06-20)
+-------------------
+
+0.45.0 (2025-05-22)
+-------------------
+* Merge remote-tracking branch 'origin/main' into tmp/notbot/bump_version_base
+* chore: perception code owner update (`#10645 <https://github.com/autowarefoundation/autoware_universe/issues/10645>`_)
+  * chore: update maintainers in multiple perception packages
+  * Revert "chore: update maintainers in multiple perception packages"
+  This reverts commit f2838c33d6cd82bd032039e2a12b9cb8ba6eb584.
+  * chore: update maintainers in multiple perception packages
+  * chore: add Kok Seang Tan as maintainer in multiple perception packages
+  ---------
+* Contributors: Taekjin LEE, TaikiYamada4
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 * Merge remote-tracking branch 'origin/main' into humble
