@@ -1,8 +1,4 @@
-<<<<<<<< HEAD:common/autoware_nlp_interface/include/nlp_interface/types/common_parameters.hpp
-// Copyright 2023 TIER IV, Inc.
-========
 // Copyright 2025 Instituto de Telecomunições-Porto Branch, Inc. All rights reserved.
->>>>>>>> main:control/autoware_spheric_collision_detector/test/test_spheric_collision_detector.cpp
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,9 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-<<<<<<<< HEAD:common/autoware_nlp_interface/include/nlp_interface/types/common_parameters.hpp
-========
 
 #include "../src/spheric_collision_detector_node/spheric_collision_detector.cpp"  // NOLINT
 #include "gtest/gtest.h"
->>>>>>>> main:control/autoware_spheric_collision_detector/test/test_spheric_collision_detector.cpp

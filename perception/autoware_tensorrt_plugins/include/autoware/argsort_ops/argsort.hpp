@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+<<<<<<<< HEAD:perception/autoware_tensorrt_plugins/include/autoware/argsort_ops/argsort.hpp
 #ifndef AUTOWARE__ARGSORT_OPS__ARGSORT_HPP_
 #define AUTOWARE__ARGSORT_OPS__ARGSORT_HPP_
 
@@ -26,3 +27,15 @@ cudaError_t argsort(
 std::size_t get_argsort_workspace_size(std::size_t num_elements);
 
 #endif  // AUTOWARE__ARGSORT_OPS__ARGSORT_HPP_
+========
+#include "agent_test.hpp"
+
+#include <autoware_utils/ros/uuid_helper.hpp>
+
+#include <algorithm>
+
+namespace autoware::diffusion_planner::test
+{
+
+}  // namespace autoware::diffusion_planner::test
+>>>>>>>> main:planning/autoware_diffusion_planner/test/agent_test.cpp

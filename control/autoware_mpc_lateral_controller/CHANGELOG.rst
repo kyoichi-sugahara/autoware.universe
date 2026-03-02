@@ -2,6 +2,58 @@
 Changelog for package autoware_mpc_lateral_controller
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* feat!: remove ROS 2 Galactic codes (`#11905 <https://github.com/autowarefoundation/autoware_universe/issues/11905>`_)
+* refactor(autoware_trajectory_follower_node): remove redundant diagnostic updates from lateral and longitudinal controllers (`#11934 <https://github.com/autowarefoundation/autoware_universe/issues/11934>`_)
+* fix(mpc_lateral_controller): use terminal velocity to extend trajectory (`#11826 <https://github.com/autowarefoundation/autoware_universe/issues/11826>`_)
+  * use terminal velocity when extending yaw
+  * add early return
+  * avoid 0.0
+  ---------
+* Contributors: Go Sakayori, Kyoichi Sugahara, Ryohsuke Mitsudome
+
+0.49.0 (2025-12-30)
+-------------------
+* Merge remote-tracking branch 'origin/main' into prepare-0.49.0-changelog
+* fix(mpc_lateral_controller):  correct variable used for yaw input (`#11809 <https://github.com/autowarefoundation/autoware_universe/issues/11809>`_)
+  fix yaw input for lerp
+* Contributors: Go Sakayori, Ryohsuke Mitsudome
+
+0.48.0 (2025-11-18)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* fix: tf2 uses hpp headers in rolling (and is backported) (`#11620 <https://github.com/autowarefoundation/autoware_universe/issues/11620>`_)
+* feat(mpc_lateral_controller): publish the wheel angle in the predicted trajectory (`#11153 <https://github.com/autowarefoundation/autoware_universe/issues/11153>`_)
+* Contributors: Maxime CLEMENT, Ryohsuke Mitsudome, Tim Clephas
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+* fix(mpc): update time from start in the predicted trajectory (`#10753 <https://github.com/autowarefoundation/autoware_universe/issues/10753>`_)
+* Contributors: Zulfaqar Azmi
+
+0.46.0 (2025-06-20)
+-------------------
+* Merge remote-tracking branch 'upstream/main' into tmp/TaikiYamada/bump_version_base
+* feat: change info messages to debug, and debug_throttle method (`#10757 <https://github.com/autowarefoundation/autoware_universe/issues/10757>`_)
+  change info messages to debug, and debug_throttle method
+* feat: mpc info throttle msgs (`#10687 <https://github.com/autowarefoundation/autoware_universe/issues/10687>`_)
+  add info msgs
+* Contributors: TaikiYamada4, danielsanchezaran
+
+0.45.0 (2025-05-22)
+-------------------
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 * Merge remote-tracking branch 'origin/main' into humble

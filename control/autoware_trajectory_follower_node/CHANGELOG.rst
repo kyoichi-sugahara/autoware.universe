@@ -2,6 +2,64 @@
 Changelog for package autoware_trajectory_follower_node
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.50.0 (2026-02-14)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* refactor(autoware_trajectory_follower_node): remove redundant diagnostic updates from lateral and longitudinal controllers (`#11934 <https://github.com/autowarefoundation/autoware_universe/issues/11934>`_)
+* feat: control : fix contol packages compile error when using ros2 jazzy (`#11556 <https://github.com/autowarefoundation/autoware_universe/issues/11556>`_)
+* Contributors: Kyoichi Sugahara, Ryohsuke Mitsudome, 心刚
+
+0.49.0 (2025-12-30)
+-------------------
+
+0.48.0 (2025-11-18)
+-------------------
+* Merge remote-tracking branch 'origin/main' into humble
+* fix(simple_trajectory_follower): update remapping (`#11645 <https://github.com/autowarefoundation/autoware_universe/issues/11645>`_)
+  * move private headers
+  * use component
+  * remove empty line
+  * update topic names
+  ---------
+  Co-authored-by: Junya Sasaki <junya.sasaki@tier4.jp>
+* fix: tf2 uses hpp headers in rolling (and is backported) (`#11620 <https://github.com/autowarefoundation/autoware_universe/issues/11620>`_)
+* fix(autoware_trajectory_follower_node): change plot label of data[25] from calculated into feedback (`#11266 <https://github.com/autowarefoundation/autoware_universe/issues/11266>`_)
+* feat(pid_longitudinal_controller): don't switch to DRIVE if the state conditions are not met (`#11369 <https://github.com/autowarefoundation/autoware_universe/issues/11369>`_)
+  * feat(pid_longitudinal_controller): don't switch to DRIVE if the state conditions are not met
+  * add is_autoware_control_enabled field for tests
+  ---------
+* Contributors: Mert Çolak, Ryohsuke Mitsudome, Takagi, Isamu, Tim Clephas, Xiaoyu WANG
+
+0.47.1 (2025-08-14)
+-------------------
+
+0.47.0 (2025-08-11)
+-------------------
+* feat: change planning output topic name to /planning/trajectory (`#11135 <https://github.com/autowarefoundation/autoware_universe/issues/11135>`_)
+  * change planning output topic name to /planning/trajectory
+  * style(pre-commit): autofix
+  ---------
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+* fix(autoware_trajectory_follower, autoware_mission_planner_universe, autoware_scenario_selector): use transient_local for operation_mode_state (`#11101 <https://github.com/autowarefoundation/autoware_universe/issues/11101>`_)
+  * subscribe operation-mode with transient_local
+  * fix mistake
+  * fix unit test code
+  * pre-commit
+  ---------
+* Contributors: Kem (TiankuiXian), Yukihiro Saito
+
+0.46.0 (2025-06-20)
+-------------------
+
+0.45.0 (2025-05-22)
+-------------------
+
+0.44.2 (2025-06-10)
+-------------------
+
+0.44.1 (2025-05-01)
+-------------------
+
 0.44.0 (2025-04-18)
 -------------------
 
