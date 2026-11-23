@@ -30,7 +30,7 @@ jobs:
         shell: bash
 
       - name: Checkout PR branch and all PR commits
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: ${{ env.PR_FETCH_DEPTH }}
@@ -117,7 +117,7 @@ jobs:
     outputs:
       cuda_job_is_needed: ${{ steps.check.outputs.any_changed }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Check if relevant files changed
         id: check
