@@ -28,7 +28,7 @@ jobs:
         shell: bash
 
       - name: Attempt to restore ccache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: |
             /root/.ccache
@@ -76,7 +76,7 @@ jobs:
           underlay-workspace: /opt/autoware
 
       - name: Save deps cache
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: |
             install
