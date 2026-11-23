@@ -100,7 +100,7 @@ jobs:
 
       - name: Attempt to restore ccache
         if: ${{ inputs.pull-ccache }}
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: |
             /root/.ccache
@@ -171,7 +171,7 @@ jobs:
 
       - name: Push the ccache cache
         if: ${{ inputs.push-ccache }}
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: |
             /root/.ccache
